@@ -1,0 +1,96 @@
+name: eval
+
+# Live evals against the Claude API. Costs money, so it never runs on pull requests and is never a
+# required check. CI runs the offline replay (pnpm eval:replay) instead.
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model to evaluate
+        type: choice
+        default: claude-sonnet-5
+        options:
+          - claude-sonnet-5
+          - claude-haiku-4-5-20251001
+      runs:
+        description: Runs per case (1 to 10)
+        type: number
+        default: 3
+  schedule:
+    # Mondays 06:00 UTC.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ inputs.model || 'claude-sonnet-5' }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  eval:
+    name: eval
+    # Forks have no key and should not spend one.
+    if: ${{ github.repository == 'Brdjx/tour-of-italy' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      # Decision: the weekly run uses the default model only, to cap unattended spend. Model
+      # comparisons are started by hand with workflow_dispatch.
+      MODEL: ${{ inputs.model || 'claude-sonnet-5' }}
+      RUNS: ${{ inputs.runs || 3 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check inputs
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ] || [ "$RUNS" -gt 10 ]; then
+            echo "::error::runs must be a whole number from 1 to 10, got '${RUNS}'"
+            exit 1
+          fi
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not set"
+            exit 1
+          fi
+      - name: Run live evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: pnpm eval --model "$MODEL" --runs "$RUNS"
+      - name: Add results to summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f packages/evals/results/latest.md ]; then
+            cat packages/evals/results/latest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eval-results-${{ env.MODEL }}
+          path: packages/evals/results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Upload recordings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eval-recordings-${{ env.MODEL }}
+          path: packages/evals/recordings/
+          if-no-files-found: warn
+          retention-days: 30

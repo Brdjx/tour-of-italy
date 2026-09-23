@@ -1,0 +1,254 @@
+name: deploy
+
+on:
+  # Safe use of workflow_run: jobs only run for a successful CI run of a push to this repository,
+  # deploy only a commit proven to be on main, and never read artifacts or caches from that run.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit on main to deploy. Empty deploys the head of main; an older SHA rolls back.
+        required: false
+        default: ""
+        type: string
+
+# Every job states what it needs; nothing is granted by default.
+permissions: {}
+
+env:
+  SITE_URL: https://stripe.brdjx.com
+  AWS_ACCOUNT_ID: "388773186626"
+  TF_IN_AUTOMATION: "true"
+  NEXT_TELEMETRY_DISABLED: "1"
+  SAM_CLI_TELEMETRY: "0"
+  # Deploy tooling checked out from this workflow's own commit (see the gate job).
+  TOOLS: .deploy-tools/.github
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gate:
+    # Decision: workflow_run's branch filter matches the head branch name, which a fork PR can also
+    # call "main". Only a successful CI run for a push to this repository may deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # checkout
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      deploy: ${{ steps.guard.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      # Decision: deploy scripts come from the same commit as this workflow file (github.workflow_sha),
+      # never from the commit being deployed. A rollback to an older commit then still runs the
+      # current, reviewed deploy logic, and a renamed script can never break a rollback.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .deploy-tools
+          sparse-checkout: .github
+          persist-credentials: false
+      # Decision: only commits already on main reach production, rollbacks included. A dispatch
+      # with a feature-branch SHA is refused even though the environment allows main.
+      - name: Resolve commit
+        id: resolve
+        run: |
+          sha="$(git rev-parse HEAD)"
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::${sha} is not on main, refusing to deploy it"
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      # First pass, before queueing: a re-run of an old commit's CI never even builds. The deploy
+      # job repeats the check inside the concurrency lock, where it is authoritative.
+      - name: Check production is not newer
+        id: guard
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          decision=true
+          if [ "$EVENT" = "workflow_run" ]; then
+            decision="$(bash "$TOOLS/scripts/deploy-guard.sh" "$SHA")"
+          fi
+          echo "deploy=${decision}" >> "$GITHUB_OUTPUT"
+
+  build:
+    # Decision: all third-party build code (pnpm install scripts, esbuild, next) runs here, in a job
+    # with no environment, no id-token and no AWS credentials. The deploy job only runs pinned,
+    # digest-checked tools on the artifacts this job produces.
+    needs: gate
+    if: ${{ needs.gate.outputs.deploy == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # checkout
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          # Decision: no dependency cache on the production path. Main-branch CI jobs can write
+          # shared caches, so a restored store would be a way into the deployed build.
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Build API
+        run: pnpm --filter @italy/api build
+      - name: Build web
+        env:
+          # Empty base: the browser calls /api on the same origin, routed by CloudFront.
+          NEXT_PUBLIC_API_BASE: ""
+        run: pnpm --filter @italy/web build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: api-dist
+          path: services/api/dist/
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-out
+          path: apps/web/out/
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: [gate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://stripe.brdjx.com
+    # Decision: concurrency on this job, not the workflow. A run that skips never enters the
+    # group, so it cannot replace a waiting real deploy. GitHub still keeps only the newest waiting
+    # deploy (an older waiting one is cancelled), which is fine going forward because the newer
+    # commit contains the older one. See docs/deploy.md before dispatching a rollback.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read # checkout
+      id-token: write # OIDC token for the deploy role
+    outputs:
+      deployed: ${{ steps.recheck.outputs.go }}
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - name: Check configuration
+        env:
+          DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          [ -n "$DEPLOY_ROLE" ] || { echo "::error::Set AWS_DEPLOY_ROLE_ARN on production first"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .deploy-tools
+          sparse-checkout: .github
+          persist-credentials: false
+      # Authoritative check, inside the lock: a newer deploy may have finished while this one
+      # waited (main CI runs can finish out of order). Then every later step is skipped.
+      - name: Recheck production is not newer
+        id: recheck
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          go=true
+          if [ "$EVENT" = "workflow_run" ]; then go="$(bash "$TOOLS/scripts/deploy-guard.sh" "$SHA")"; fi
+          echo "go=${go}" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        with:
+          name: api-dist
+          path: services/api/dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        with:
+          name: web-out
+          path: apps/web/out
+      - uses: ./.deploy-tools/.github/actions/setup-iac-tools
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: italy-planner-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+      - name: Deploy API (sam deploy)
+        id: sam
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        run: bash "$TOOLS/scripts/deploy-api.sh"
+      - name: Apply platform (terraform)
+        id: tf
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        run: bash "$TOOLS/scripts/apply-platform.sh"
+      - name: Publish web (S3 and CloudFront)
+        id: cdn
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        env:
+          WEB_BUCKET: ${{ steps.tf.outputs.web_bucket_name }}
+          DISTRIBUTION_ID: ${{ steps.tf.outputs.distribution_id }}
+        run: bash "$TOOLS/scripts/publish-web.sh"
+      - name: Smoke test
+        id: smoke
+        if: ${{ steps.recheck.outputs.go == 'true' }}
+        env:
+          WEB_BUCKET: ${{ steps.tf.outputs.web_bucket_name }}
+          HTTP_API_URL: ${{ steps.sam.outputs.http_api_url }}
+          SMOKE_PLAN_CHECK: ${{ vars.SMOKE_PLAN_CHECK }}
+        run: bash "$TOOLS/scripts/smoke-test.sh"
+      - name: Deployment summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TRIGGER: ${{ github.event_name }}
+          STEPS: ${{ toJSON(steps) }}
+        run: bash "$TOOLS/scripts/deploy-summary.sh"
+
+  e2e-smoke:
+    # Decision: the browser smoke runs third-party code (Playwright), so it gets its own job with
+    # no AWS credentials. It turns on by itself once the root script test:e2e:smoke exists.
+    needs: [gate, deploy]
+    if: ${{ needs.deploy.outputs.deployed == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # checkout
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Playwright smoke against production
+        env:
+          E2E_BASE_URL: ${{ env.SITE_URL }}
+        run: bash .github/scripts/run-e2e.sh test:e2e:smoke
