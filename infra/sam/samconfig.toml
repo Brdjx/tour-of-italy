@@ -1,0 +1,32 @@
+# SAM CLI settings for the italy-planner-api stack. Run sam from this directory (infra/sam).
+# CI reads stack_name and parameter_overrides through .github/scripts/read-samconfig.py and adds
+# GitSha=<commit> last, so this file stays the single source of truth for both.
+version = 0.1
+
+[default.global.parameters]
+stack_name = "italy-planner-api"
+region = "us-east-1"
+
+[default.validate.parameters]
+lint = true
+
+# Decision: no sam build. services/api/build.mjs already bundles dist/lambda.mjs, and sam deploy
+# uploads CodeUri (../../services/api/dist) as is, so the deployed file is the tested file.
+[default.deploy.parameters]
+stack_name = "italy-planner-api"
+region = "us-east-1"
+# Decision: a dedicated artifacts bucket from infra/terraform/bootstrap, not resolve_s3, which
+# would write to the account's shared aws-sam-cli-managed-default bucket.
+s3_bucket = "italy-planner-artifacts-388773186626"
+s3_prefix = "italy-planner-api"
+# CAPABILITY_NAMED_IAM because the function role has a fixed name (italy-planner-api-function),
+# which is what lets the deploy role's IAM permissions be scoped by name.
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+disable_rollback = false
+tags = "Project=\"italy-planner\" ManagedBy=\"sam\" Component=\"api\" Environment=\"production\" Repository=\"Brdjx/tour-of-italy\""
+parameter_overrides = [
+  "PermissionsBoundaryArn=arn:aws:iam::388773186626:policy/italy-planner-boundary",
+  "AlarmEmail=bradley@fortissimo.io",
+]
