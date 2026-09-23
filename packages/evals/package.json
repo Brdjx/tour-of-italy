@@ -1,0 +1,15 @@
+{
+  "name": "@italy/evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx src/run.ts",
+    "eval:replay": "tsx src/replay.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@italy/api": "workspace:*",
+    "@italy/planner": "workspace:*"
+  }
+}

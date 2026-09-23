@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Design tokens. The full visual design comes with the real UI; these names stay stable. */
+@theme {
+  --color-ink: #18222f;
+  --color-stone: #f4f6f5;
+  --color-lagoon: #17616b;
+  --color-rule: #d3d9d6;
+  --color-limone: #e9c53a;
+  --color-signal: #a8322d;
+  --font-sans: system-ui, sans-serif;
+}
+
+:root {
+  --page-bg: var(--color-stone);
+  --page-fg: var(--color-ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #11191f;
+    --page-fg: var(--color-stone);
+  }
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--page-fg);
+  font-variant-numeric: tabular-nums;
+}

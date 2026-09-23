@@ -1,0 +1,34 @@
+{
+  "name": "tour-of-italy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @italy/api --filter @italy/web dev",
+    "build": "pnpm --filter @italy/api --filter @italy/web build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "data:profile": "tsx scripts/profile-data.ts",
+    "data:audit": "tsx scripts/audit-data.ts",
+    "eval": "pnpm --filter @italy/evals eval",
+    "eval:replay": "pnpm --filter @italy/evals eval:replay"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@italy/planner": "workspace:*",
+    "@types/node": "24.13.6",
+    "@vitest/coverage-v8": "5.0.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}

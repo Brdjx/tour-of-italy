@@ -6,3 +6,25 @@ PLAN.md
 .env
 .env.*
 !.env.example
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+.aws-sam/
+coverage/
+*.tsbuildinfo
+apps/web/next-env.d.ts
+
+# Terraform (keep .terraform.lock.hcl tracked)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Eval run output (results/latest.md stays tracked)
+packages/evals/results/*.json
+
+# OS
+.DS_Store
