@@ -1,0 +1,80 @@
+name: Set up IaC tools
+description: >-
+  Installs the pinned Terraform and AWS SAM CLI releases, each checked against a SHA-256 digest.
+  Shared by ci.yml and deploy.yml so both run the same tool versions.
+
+# Decision: one place for the Terraform and SAM CLI versions. Dependabot cannot bump these, so they
+# are reviewed by hand (see the note in .github/dependabot.yml). To upgrade, change a version and
+# its digest together: Terraform digests come from releases.hashicorp.com/terraform/<v>/*_SHA256SUMS,
+# SAM digests from the GitHub release asset (gh api repos/aws/aws-sam-cli/releases/tags/v<v>).
+#
+# Decision: no setup-sam or setup-terraform action. setup-sam restores the CLI from the shared
+# Actions cache with no integrity check and falls back to the runner's preinstalled SAM CLI when a
+# download fails. Both tools run with the deploy role's credentials, so both are digest-pinned.
+
+inputs:
+  sam:
+    description: Also install the SAM CLI ("true" or "false").
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # The PATH entry is a constant under RUNNER_TEMP that only this action writes to.
+    - name: Check runner
+      shell: bash
+      run: | # zizmor: ignore[github-env]
+        if [ "$RUNNER_OS" != "Linux" ] || [ "$RUNNER_ARCH" != "X64" ]; then
+          echo "::error::setup-iac-tools pins linux x64 digests only (got ${RUNNER_OS} ${RUNNER_ARCH})"
+          exit 1
+        fi
+        mkdir -p "$RUNNER_TEMP/iac-bin"
+        echo "$RUNNER_TEMP/iac-bin" >> "$GITHUB_PATH"
+
+    - name: Install Terraform
+      shell: bash
+      env:
+        TF_VERSION: 1.16.3
+        TF_SHA256: 093b6ae9a2228af5029c41606bc96eb583553528aad1bfe7e0b4d62fc91e25d8
+      run: |
+        bash "$GITHUB_ACTION_PATH/../../scripts/fetch-verified.sh" \
+          "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip" \
+          "$TF_SHA256" "$RUNNER_TEMP/terraform-dist"
+        bin="$RUNNER_TEMP/iac-bin/terraform"
+        install -m 0755 "$RUNNER_TEMP/terraform-dist/terraform" "$bin"
+        got="$("$bin" version -json | jq -r .terraform_version)"
+        [ "$got" = "$TF_VERSION" ] || { echo "::error::installed terraform ${got}, expected ${TF_VERSION}"; exit 1; }
+
+    - name: Install SAM CLI
+      if: ${{ inputs.sam == 'true' }}
+      shell: bash
+      env:
+        SAM_CLI_VERSION: 1.166.2
+        SAM_CLI_SHA256: 4419ea4bb4ae1c69d2d41b346f77fdcd80099ae4ba9da7278e23427d54b05420
+        SAM_CLI_TELEMETRY: "0"
+      run: |
+        installer="$RUNNER_TEMP/sam-installer"
+        bash "$GITHUB_ACTION_PATH/../../scripts/fetch-verified.sh" \
+          "https://github.com/aws/aws-sam-cli/releases/download/v${SAM_CLI_VERSION}/aws-sam-cli-linux-x86_64.zip" \
+          "$SAM_CLI_SHA256" "$installer"
+        # The official installer, into runner temp: no sudo, and the image's own copy is untouched.
+        "$installer/install" --update --install-dir "$RUNNER_TEMP/aws-sam-cli" --bin-dir "$RUNNER_TEMP/iac-bin"
+        got="$("$RUNNER_TEMP/iac-bin/sam" --version)"
+        [ "$got" = "SAM CLI, version ${SAM_CLI_VERSION}" ] || { echo "::error::installed ${got}"; exit 1; }
+
+    # The runner image ships its own terraform and sam. Prove the pinned copies win on PATH.
+    - name: Verify tools on PATH
+      shell: bash
+      env:
+        WANT_SAM: ${{ inputs.sam }}
+      run: |
+        tools=(terraform)
+        if [ "$WANT_SAM" = "true" ]; then tools+=(sam); fi
+        for tool in "${tools[@]}"; do
+          if [ "$(command -v "$tool")" != "$RUNNER_TEMP/iac-bin/${tool}" ]; then
+            echo "::error::${tool} on PATH is $(command -v "$tool"), not the pinned copy"
+            exit 1
+          fi
+        done
+        echo "Pinned tools first on PATH: ${tools[*]}"

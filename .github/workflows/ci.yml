@@ -1,0 +1,255 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Decision: pull requests share one group per branch and cancel superseded runs. Each push to main
+# gets a group of its own (the run id), so no main run is ever cancelled or replaced while it
+# waits, every commit on main gets a verdict, and the deploy workflow sees each one.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  SAM_CLI_TELEMETRY: "0"
+  TF_IN_AUTOMATION: "true"
+  AWS_DEFAULT_REGION: us-east-1
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    # Decision: pin the runner image instead of ubuntu-latest so an image rollover never changes a
+    # green build into a red one without a code change.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:coverage
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 7
+      - run: pnpm eval:replay
+      - name: Build
+        env:
+          # Matches the deploy build, where the browser calls the API on the same origin.
+          NEXT_PUBLIC_API_BASE: ""
+        run: pnpm build
+
+  planner-tz:
+    # Brief F7: any accidental local-time Date use in the planner fails in at least one zone.
+    # Kiritimati is UTC+14 and Los Angeles has DST, so each shifts a date across midnight.
+    name: planner-tz (${{ matrix.tz }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        tz: [UTC, Pacific/Kiritimati, America/Los_Angeles]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Planner tests in ${{ matrix.tz }}
+        env:
+          TZ: ${{ matrix.tz }}
+        run: pnpm exec vitest run --project planner
+
+  e2e:
+    # Brief section 6: E2E is its own job. It starts running once the root script test:e2e exists.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          # No cache yet: until test:e2e exists nothing is installed, so there is nothing to save.
+          package-manager-cache: false
+      - run: bash .github/scripts/run-e2e.sh test:e2e
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            **/playwright-report/
+            **/test-results/
+            !**/node_modules/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  iac:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Decision: workflows are infrastructure too, so actionlint (with the runner's shellcheck)
+      # runs here. Every binary in this job is digest-pinned (fetch-verified.sh), never cached.
+      - name: Lint workflows (actionlint)
+        run: |
+          bash .github/scripts/fetch-verified.sh \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint"
+          "$RUNNER_TEMP/actionlint/actionlint" -color
+      - name: Infra contract with deploy.yml
+        run: |
+          python3 .github/scripts/check-infra-contract.py .
+          python3 .github/scripts/read-samconfig.py stack-name infra/sam/samconfig.toml
+      - uses: ./.github/actions/setup-iac-tools
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive -diff infra/terraform
+      - name: Terraform validate
+        run: |
+          for root in infra/terraform/bootstrap infra/terraform/platform; do
+            echo "::group::validate ${root}"
+            terraform -chdir="$root" init -backend=false -input=false
+            terraform -chdir="$root" validate
+            echo "::endgroup::"
+          done
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: v0.64.0
+          checksums: cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537
+      - name: TFLint
+        env:
+          # Plugin downloads go through the GitHub API; the token only lifts the rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
+          TFLINT_CONFIG: ${{ github.workspace }}/.github/linters/.tflint.hcl
+        run: |
+          tflint --init --config "$TFLINT_CONFIG"
+          tflint --recursive --chdir infra/terraform --config "$TFLINT_CONFIG" --format compact
+      - name: SAM validate
+        working-directory: infra/sam
+        run: sam validate --lint --template-file template.yaml
+      # Decision: no .trivyignore. Accepted findings are suppressed inline next to the resource
+      # (trivy:ignore comments with a reason) so the justification lives with the code it excuses.
+      # The binary is digest-pinned instead of trivy-action, which restores it from the Actions cache.
+      - name: IaC security scan (trivy config)
+        run: |
+          bash .github/scripts/fetch-verified.sh \
+            https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz \
+            2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a "$RUNNER_TEMP/trivy"
+          "$RUNNER_TEMP/trivy/trivy" config --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-version-check --cache-dir "$RUNNER_TEMP/trivy-cache" infra
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Decision: the gitleaks binary (MIT) instead of gitleaks-action (commercial EULA, scans only
+      # the new commits on push and pull_request). The binary scans the full history every run.
+      - name: Scan full history (gitleaks)
+        run: |
+          bash .github/scripts/fetch-verified.sh \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb "$RUNNER_TEMP/gitleaks"
+          "$RUNNER_TEMP/gitleaks/gitleaks" git --redact --no-banner --verbose --exit-code 1 .
+
+  plan:
+    # Forks never get OIDC tokens; the explicit guard keeps the job from even trying.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.AWS_PLAN_ROLE_ARN != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # checkout
+      id-token: write # OIDC token for the read-only plan role
+      pull-requests: write # one plan comment per pull request
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-iac-tools
+        with:
+          sam: "false"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          role-session-name: italy-planner-plan-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          allowed-account-ids: "388773186626"
+      - name: Terraform plan
+        id: plan
+        run: bash .github/scripts/terraform-plan.sh
+      - name: Publish plan
+        if: ${{ !cancelled() && steps.plan.outputs.exitcode != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PLAN_FILE: ${{ runner.temp }}/plan.txt
+          PLAN_EXIT_CODE: ${{ steps.plan.outputs.exitcode }}
+        with:
+          script: |
+            const publish = require("./.github/scripts/terraform-plan-comment.cjs");
+            await publish({ github, context, core });
+      - name: Fail on plan error
+        if: ${{ steps.plan.outputs.exitcode == '1' }}
+        run: |
+          echo "::error::terraform plan failed for infra/terraform/platform"
+          exit 1
+
+  ci-ok:
+    # The single required status check. always(), not !cancelled(): when the run is cancelled this
+    # job still runs and fails, instead of being skipped (a skipped job reports success to branch
+    # protection).
+    if: ${{ always() }}
+    needs: [verify, planner-tz, e2e, iac, secrets, plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check required jobs
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        # Decision: plan may be skipped (push to main, forks, no plan role yet) but never fail.
+        # Every other job must succeed; skipped, cancelled or failed all block the merge.
+        run: |
+          jq -r 'to_entries[] | "\(.key)=\(.value.result)"' <<<"$RESULTS"
+          bad="$(jq -r 'to_entries[]
+            | select(.value.result != "success" and (.key != "plan" or .value.result != "skipped"))
+            | .key' <<<"$RESULTS")"
+          if [ -n "$bad" ]; then
+            echo "::error::required jobs did not pass: $(echo "$bad" | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "All required jobs passed"

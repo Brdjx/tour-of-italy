@@ -1,0 +1,53 @@
+version: 2
+
+# Decision: weekly, with minor and patch updates grouped into one PR per ecosystem so the queue
+# stays reviewable. Majors arrive as their own PRs. The 7-day cooldown lets a release age (and
+# gives a bad release time to be pulled) before it is proposed, like pnpm's minimum release age.
+#
+# Not covered by Dependabot, so reviewed by hand once a month (bump the version and its SHA-256
+# together): Terraform and SAM CLI in .github/actions/setup-iac-tools/action.yml; actionlint,
+# trivy, gitleaks and tflint in .github/workflows/ci.yml; the tflint AWS ruleset in
+# .github/linters/.tflint.hcl.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: terraform
+    directories:
+      - /infra/terraform/bootstrap
+      - /infra/terraform/platform
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      terraform-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope

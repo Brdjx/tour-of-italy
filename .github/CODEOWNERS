@@ -1,0 +1,3 @@
+# Routes review requests to the owner. It enforces nothing by itself: branch protection would
+# need require_code_owner_reviews, and in a single-owner repo the owner cannot approve their own PR.
+* @Brdjx
