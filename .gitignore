@@ -28,3 +28,6 @@ packages/evals/results/*.json
 
 # OS
 .DS_Store
+
+# Vitest local output
+.vitest/

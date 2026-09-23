@@ -133,12 +133,14 @@ jobs:
       - uses: ./.github/actions/setup-iac-tools
       - name: Terraform fmt
         run: terraform fmt -check -recursive -diff infra/terraform
-      - name: Terraform validate
+      # terraform test runs the *.tftest.hcl suites with mocked providers (plan only, no AWS).
+      - name: Terraform validate and test
         run: |
           for root in infra/terraform/bootstrap infra/terraform/platform; do
-            echo "::group::validate ${root}"
+            echo "::group::validate and test ${root}"
             terraform -chdir="$root" init -backend=false -input=false
             terraform -chdir="$root" validate
+            terraform -chdir="$root" test
             echo "::endgroup::"
           done
       - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
@@ -185,10 +187,14 @@ jobs:
           "$RUNNER_TEMP/gitleaks/gitleaks" git --redact --no-banner --verbose --exit-code 1 .
 
   plan:
-    # Forks never get OIDC tokens; the explicit guard keeps the job from even trying.
+    # Forks never get OIDC tokens; the explicit guard keeps the job from even trying. The plan
+    # role only trusts runs started by the accounts in github_actor_ids (infra/terraform/bootstrap,
+    # checked by infra/test/ci-plan-guard.test.ts), so other runs (Dependabot, collaborators) skip
+    # the plan instead of failing ci-ok.
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor_id == '8014925' &&
       vars.AWS_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20

@@ -1,0 +1,248 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  italy-planner API. Hono on AWS Lambda behind an HTTP API. CloudFront (infra/terraform/platform)
+  is the only intended caller: it adds the x-origin-verify header that the function checks.
+
+# Deploy from this directory: sam deploy (settings in samconfig.toml). CI runs
+# .github/scripts/deploy-api.sh, which passes GitSha. infra/test/sam-template.test.ts checks the
+# guardrails below (timeout, concurrency, runtime, log retention, throttling, environment).
+
+Parameters:
+  GitSha:
+    Type: String
+    Default: local
+    AllowedPattern: "^([0-9a-f]{40}|local)$"
+    Description: Commit being deployed. /api/health reports it so the smoke test can prove the rollout.
+  AnthropicModel:
+    Type: String
+    Default: claude-sonnet-5
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{2,63}$"
+  AnthropicKeyParam:
+    Type: String
+    Default: /italy-planner/anthropic-api-key
+    AllowedPattern: "^/italy-planner/[A-Za-z0-9_.-]+$"
+    Description: SSM SecureString holding the Anthropic API key (created by a human, never by IaC).
+  OriginVerifyParam:
+    Type: String
+    Default: /italy-planner/origin-verify-secret
+    AllowedPattern: "^/italy-planner/[A-Za-z0-9_.-]+$"
+    Description: SSM SecureString with the CloudFront origin secret (created by infra/terraform/platform).
+  PermissionsBoundaryArn:
+    Type: String
+    AllowedPattern: "^arn:aws:iam::[0-9]{12}:policy/italy-planner-boundary$"
+    Description: Boundary from infra/terraform/bootstrap. The deploy role cannot create a role without it.
+  LlmEnabled:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Kill switch for the AI layer. "false" serves rules-only plans.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    Description: Optional address for alarm emails (confirm the subscription email once).
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
+
+Resources:
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/italy-planner-api
+      RetentionInDays: 14
+
+  ApiFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: italy-planner-api-function
+      Description: Execution role for italy-planner-api. Capped by the italy-planner boundary.
+      PermissionsBoundary: !Ref PermissionsBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logs-and-parameters
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${ApiLogGroup.Arn}"
+              - Sid: ReadOwnParameters
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AnthropicKeyParam}"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${OriginVerifyParam}"
+              - Sid: DecryptParametersViaSsm
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: !Sub "arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*"
+                Condition:
+                  StringEquals: { "kms:ViaService": !Sub "ssm.${AWS::Region}.amazonaws.com" }
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: italy-planner-api
+      Description: italy-planner API (Hono). Handles /api/* behind CloudFront.
+      CodeUri: ../../services/api/dist
+      Handler: lambda.handler
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      MemorySize: 512
+      # Decision: 29 s, one second under API Gateway's 30 s integration cap, so the function
+      # (with PLAN_DEADLINE_MS 24 s) always answers before the gateway gives up on it.
+      Timeout: 29
+      # Decision: 10 concurrent executions caps the worst-case Claude spend and protects the
+      # other stacks in this account from sharing an exhausted concurrency pool.
+      ReservedConcurrentExecutions: 10
+      Role: !GetAtt ApiFunctionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref ApiLogGroup
+        LogFormat: Text
+      Environment:
+        Variables:
+          NODE_ENV: production
+          NODE_OPTIONS: --enable-source-maps
+          ANTHROPIC_API_KEY_PARAM: !Ref AnthropicKeyParam
+          ORIGIN_VERIFY_PARAM: !Ref OriginVerifyParam
+          ANTHROPIC_MODEL: !Ref AnthropicModel
+          LLM_ENABLED: !Ref LlmEnabled
+          LLM_TIMEOUT_MS: "12000"
+          PLAN_DEADLINE_MS: "24000"
+          LLM_MAX_ATTEMPTS: "2"
+          LLM_EFFORT: low
+          LOG_LEVEL: info
+          GIT_SHA: !Ref GitSha
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/{proxy+}
+            Method: ANY
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: italy-planner-api
+      Description: italy-planner API. Called through CloudFront only (origin-verify header).
+      FailOnWarnings: true
+      # Decision: gateway throttling in front of the function's own limiter. Burst 20, 10 per
+      # second steady for the whole API; the WAF adds a per-IP limit on /api/plan at the edge.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+      # Decision: no API access logs. HTTP API access logging needs an account-wide CloudWatch Logs
+      # resource policy, and this account is shared. Throttled and failed calls still show in the
+      # API's 4xx and 5xx metrics, and every call that reaches the function is logged by it.
+      Tags:
+        Project: italy-planner
+
+  # Decision: no KMS key on this topic (trivy AVD-AWS-0095). CloudWatch alarms cannot publish to
+  # a topic encrypted with the AWS managed aws/sns key, alarm messages carry no secrets, and a
+  # customer managed key would need key policy rights the deploy role deliberately lacks.
+  # trivy:ignore:AVD-AWS-0095
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: italy-planner-alarms
+
+  AlarmSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  FunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-errors
+      AlarmDescription: The API function threw unhandled errors (the plan route should never 500).
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref ApiFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  FunctionThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-throttles
+      AlarmDescription: Requests hit the reserved concurrency cap of 10.
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions: [{ Name: FunctionName, Value: !Ref ApiFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  FunctionDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-slow
+      AlarmDescription: p99 duration is near the 29 s timeout; plans risk the gateway's 30 s cap.
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions: [{ Name: FunctionName, Value: !Ref ApiFunction }]
+      ExtendedStatistic: p99
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 25000
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-5xx
+      AlarmDescription: The HTTP API returned 5xx responses (function errors, timeouts, throttles).
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - { Name: ApiId, Value: !Ref HttpApi }
+        - { Name: Stage, Value: $default }
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+Outputs:
+  HttpApiId:
+    Description: API id. Pinned in infra/terraform/bootstrap (http_api_id) after the first deploy.
+    Value: !Ref HttpApi
+  HttpApiUrl:
+    Description: Direct execute-api URL. Only the smoke test uses it, to prove it refuses callers.
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
+  HttpApiDomain:
+    Description: Host name CloudFront uses as the /api/* origin (read by infra/terraform/platform).
+    Value: !Sub "${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
+  ApiFunctionName:
+    Description: Function name, for logs and the deploy summary.
+    Value: !Ref ApiFunction
