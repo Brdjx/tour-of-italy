@@ -1,0 +1,8 @@
+# Private material: never committed
+docs/official-spec/
+PLAN.md
+
+# Secrets
+.env
+.env.*
+!.env.example
