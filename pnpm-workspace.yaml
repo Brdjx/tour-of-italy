@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+
+# Decision: esbuild is the only dependency allowed to run an install script. pnpm blocks every
+# other build script by default, which keeps installs predictable.
+allowBuilds:
+  esbuild: true

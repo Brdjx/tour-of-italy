@@ -1,0 +1,26 @@
+{
+  "name": "@italy/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/local.ts",
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
+    "@aws-sdk/client-ssm": "3.1137.0",
+    "@hono/node-server": "2.1.1",
+    "@hono/zod-validator": "0.9.1",
+    "@italy/planner": "workspace:*",
+    "hono": "4.13.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
