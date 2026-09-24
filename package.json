@@ -23,7 +23,8 @@
     "data:audit": "tsx scripts/audit-data.ts",
     "photos:fetch": "tsx scripts/fetch-place-photos.ts",
     "eval": "pnpm --filter @italy/evals eval",
-    "eval:replay": "pnpm --filter @italy/evals eval:replay"
+    "eval:replay": "pnpm --filter @italy/evals eval:replay",
+    "map:regions": "tsx scripts/map-tiles/regions.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

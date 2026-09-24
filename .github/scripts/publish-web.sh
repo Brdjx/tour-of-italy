@@ -16,8 +16,10 @@ aws s3 sync "${out}/_next/static" "s3://${WEB_BUCKET}/_next/static" \
 
 # Decision: everything else revalidates on each request (sw.js and the manifest included) and
 # --delete removes pages that no longer exist. Old hashed assets are excluded from the delete so
-# open tabs keep working.
-aws s3 sync "$out" "s3://${WEB_BUCKET}" --exclude "_next/static/*" --delete \
+# open tabs keep working. The map's tile archive (tiles/*.pmtiles) is excluded too: it is not in
+# git, so CI builds never have it, and it is uploaded to the bucket once by hand; without the
+# exclude, every deploy would delete it.
+aws s3 sync "$out" "s3://${WEB_BUCKET}" --exclude "_next/static/*" --exclude "tiles/*" --delete \
   --cache-control "no-cache" --no-progress --only-show-errors
 
 id="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" \

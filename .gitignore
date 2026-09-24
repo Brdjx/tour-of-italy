@@ -9,6 +9,8 @@ PLAN.md
 
 # Dependencies and build output
 node_modules/
+# The map's tile archive (140 MB), cut from a Protomaps build and uploaded to the bucket by hand
+apps/web/public/tiles/
 .next/
 out/
 dist/

@@ -12,11 +12,11 @@
   "dependencies": {
     "@italy/planner": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",
-    "leaflet": "1.9.4",
+    "maplibre-gl": "6.11.1",
     "next": "16.3.6",
+    "pmtiles": "4.5.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-leaflet": "5.0.0",
     "tailwindcss": "4.3.3",
     "zod": "4.6.5"
   },
@@ -24,7 +24,6 @@
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
-    "@types/leaflet": "1.9.22",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "fast-check": "4.10.2",

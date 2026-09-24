@@ -8,9 +8,7 @@
 # place to review, for no header a JSON client would act on.
 
 locals {
-  osm_tiles = "https://tile.openstreetmap.org https://*.tile.openstreetmap.org"
-
-  # Content Security Policy for a Next.js static export with a service worker and a Leaflet map.
+  # Content Security Policy for a Next.js static export with a service worker and a MapLibre map.
   # Checked against apps/web/out: pages load hashed scripts from /_next/static and carry inline
   # scripts (self.__next_f.push) with the React Server Components payload.
   csp_directives = [
@@ -21,15 +19,16 @@ locals {
     # not need it. Mitigations: React escapes all rendered text, connect-src only allows this
     # origin, and object-src, base-uri, form-action and frame-ancestors are locked down.
     "script-src 'self' 'unsafe-inline'",
-    # Decision: 'unsafe-inline' for styles. Leaflet and React set inline style attributes.
+    # Decision: 'unsafe-inline' for styles. MapLibre and React set inline style attributes.
     "style-src 'self' 'unsafe-inline'",
-    # Map tiles come from OpenStreetMap (with and without the a/b/c subdomains); data: covers
-    # inline marker icons.
-    "img-src 'self' data: ${local.osm_tiles}",
+    # data: covers the small icons inlined in MapLibre's stylesheet.
+    "img-src 'self' data:",
     "font-src 'self'",
-    # Decision: tiles are also allowed in connect-src because a service worker that re-fetches
-    # a request uses connect-src; without it the map would break only for installed PWAs.
-    "connect-src 'self' ${local.osm_tiles}",
+    # The map's vector tiles and label glyphs are files on this site, read with fetch (the
+    # tiles with HTTP range requests), so 'self' covers them.
+    "connect-src 'self'",
+    # Decision: 'self' only, no blob:. MapLibre's worker is served from /map/maplibre on this
+    # origin, and MapLibre only wraps a worker in a blob: URL when it comes from another origin.
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -62,8 +61,9 @@ resource "aws_cloudfront_response_headers_policy" "security" {
       override     = true
     }
 
-    # Decision: strict-origin-when-cross-origin, not no-referrer. The OpenStreetMap tile policy
-    # asks for a Referer, and this still never sends paths or query strings to other sites.
+    # Decision: strict-origin-when-cross-origin, not no-referrer. Links out (a photo's Commons
+    # page, its licence) still tell the other site where the visit came from, and this never
+    # sends paths or query strings to other sites.
     referrer_policy {
       referrer_policy = "strict-origin-when-cross-origin"
       override        = true

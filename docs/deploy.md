@@ -25,7 +25,7 @@ names, and the x-origin-verify header (the function answers 403 to calls without
 ### Why two hostnames
 
 The web app stays same-origin: it calls `/api/*` on its own host, so there is no CORS preflight,
-the CSP needs no second host (`connect-src 'self'` plus the map tiles), and one WAF path covers
+the CSP needs no second host (`connect-src 'self'`; the map's tiles are served from the site too), and one WAF path covers
 every browser call. The public API host serves the post-deploy smoke test, curl and scripts, and
 future tool clients with plain paths (`/health`, `/meta`, `/places`, `/data-issues`, `POST /plan`)
 through the same WAF rules and the same origin secret, so it opens no way around either. It sends
@@ -285,3 +285,23 @@ usage is billed by Anthropic, not AWS; it is capped by reserved concurrency (10)
 (plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the response
 cache. Both distributions share one web ACL and one rate rule, so one IP most likely has one count
 across both hosts, but AWS does not document that; at worst each host counts 30 separately.
+
+## Map tiles
+
+The map's basemap is one file, `tiles/italy-<date>.pmtiles` (about 140 MB), in the site bucket. It is not built by CI and not in git: `publish-web.sh` excludes `tiles/*` from its delete, so it stays across deploys.
+
+To rebuild it (new Protomaps data, or the trip's areas changed):
+
+```sh
+scripts/map-tiles/build-tiles.sh 20260924 /path/to/pmtiles   # a date from https://build-metadata.protomaps.dev/builds.json
+```
+
+Then point `TILES_PATH` in `apps/web/lib/mapStyle.ts` at the new file and upload it once, before the deploy that uses it:
+
+```sh
+aws s3 cp apps/web/public/tiles/italy-<date>.pmtiles \
+  "s3://$(terraform -chdir=infra/terraform/platform output -raw web_bucket_name)/tiles/italy-<date>.pmtiles" \
+  --content-type application/octet-stream --cache-control "public,max-age=31536000,immutable"
+```
+
+The old file stays in the bucket until someone deletes it by hand.

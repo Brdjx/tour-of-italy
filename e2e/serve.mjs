@@ -12,10 +12,13 @@
 // - a missing file answers 404 with /404.html (the distribution's custom error response)
 // - Cache-Control: hashed /_next/static files are immutable, everything else (sw.js and the
 //   manifest included) is no-cache
+// - byte ranges, as S3 behind CloudFront answers them: the map reads its tile archive
+//   (/tiles/*.pmtiles) with Range requests
 // - the security headers policy, with the CSP read from headers.tf
 // - /api/* forwarded unchanged, with the viewer address in CloudFront-Viewer-Address
 
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
 import { extname, join, resolve, sep } from "node:path";
@@ -29,6 +32,8 @@ const HOST = "127.0.0.1";
 const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8", // MapLibre's worker, a module
+  ".pmtiles": "application/octet-stream",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json",
   ".txt": "text/plain; charset=utf-8",
@@ -55,14 +60,17 @@ const HOP_BY_HOP = new Set([
 /** The production Content-Security-Policy, read from the Terraform that deploys it. */
 export async function productionCsp(file = join(REPO, "infra/terraform/platform/headers.tf")) {
   const tf = await readFile(file, "utf8");
-  const tiles = /osm_tiles\s*=\s*"([^"]+)"/.exec(tf)?.[1];
   const block = /csp_directives\s*=\s*\[([\s\S]*?)\n\s*\]/.exec(tf)?.[1];
-  if (!tiles || !block) throw new Error(`Could not read the CSP from ${file}`);
-  const directives = [...block.matchAll(/^\s*"([^"]+)",?\s*$/gm)].map((match) =>
-    String(match[1]).replaceAll(/\$\{local\.osm_tiles\}/g, tiles),
-  );
+  if (!block) throw new Error(`Could not read the CSP from ${file}`);
+  const directives = [...block.matchAll(/^\s*"([^"]+)",?\s*$/gm)].map((match) => String(match[1]));
   if (!directives.some((d) => d.startsWith("script-src"))) {
     throw new Error(`The CSP in ${file} has no script-src; the parser is out of date`);
+  }
+  // A Terraform reference (${local.x}) would reach the browser as literal text.
+  if (directives.some((d) => d.includes("${"))) {
+    throw new Error(
+      `The CSP in ${file} uses a Terraform reference; the parser does not resolve them`,
+    );
   }
   // Decision: drop upgrade-insecure-requests. This server is plain http on 127.0.0.1, and the
   // directive would rewrite every subresource to https. Production is https only, where it is
@@ -122,6 +130,34 @@ async function readIfFile(path) {
   }
 }
 
+async function sizeIfFile(path) {
+  try {
+    const info = await stat(path);
+    return info.isFile() ? info.size : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The bytes a Range header asks for, as [first, last] (inclusive); null to send the whole file;
+ * "unsatisfiable" for a range past the end. One range only: a server may ignore a Range header
+ * (RFC 9110 section 14.2), so anything else gets the whole file, as S3 does with multiple ranges.
+ */
+export function byteRange(header, size) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? "");
+  if (!match || (match[1] === "" && match[2] === "")) return null;
+  if (match[1] === "") {
+    // A suffix range: the last N bytes.
+    const suffix = Number(match[2]);
+    return suffix === 0 || size === 0 ? "unsatisfiable" : [Math.max(0, size - suffix), size - 1];
+  }
+  const first = Number(match[1]);
+  const last = match[2] === "" ? size - 1 : Math.min(Number(match[2]), size - 1);
+  if (first >= size) return "unsatisfiable";
+  return first > last ? null : [first, last];
+}
+
 async function serveStatic(req, res, url, headers) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(403, { ...headers, "content-type": "text/plain" }).end("Method not allowed");
@@ -136,25 +172,53 @@ async function serveStatic(req, res, url, headers) {
   }
   const path = resolve(ROOT, `.${key}`);
   const inside = path === ROOT || path.startsWith(ROOT + sep);
-  let body = inside ? await readIfFile(path) : null;
-  let status = 200;
-  let file = path;
-  if (body === null) {
-    status = 404;
-    file = join(ROOT, "404.html");
-    body = (await readIfFile(file)) ?? Buffer.from("Not found");
+  const size = inside ? await sizeIfFile(path) : null;
+  if (size === null) {
+    const page = join(ROOT, "404.html");
+    const body = (await readIfFile(page)) ?? Buffer.from("Not found");
+    res.writeHead(404, {
+      ...headers,
+      "content-type": TYPES[".html"],
+      "content-length": body.byteLength,
+      "cache-control": "no-cache",
+    });
+    res.end(req.method === "HEAD" ? undefined : body);
+    return;
   }
-  if (key === "/sw.js" && status === 200) {
-    body = Buffer.from(swVariant(body.toString("utf8"), req.headers.cookie));
-  }
-  const immutable = key.startsWith("/_next/static/") && status === 200;
-  res.writeHead(status, {
+  const immutable = key.startsWith("/_next/static/");
+  const fileHeaders = {
     ...headers,
-    "content-type": TYPES[extname(file)] ?? "application/octet-stream",
-    "content-length": body.byteLength,
+    "content-type": TYPES[extname(path)] ?? "application/octet-stream",
     "cache-control": immutable ? "public,max-age=31536000,immutable" : "no-cache",
+    "accept-ranges": "bytes",
+  };
+  if (key === "/sw.js") {
+    const body = Buffer.from(swVariant(String(await readFile(path)), req.headers.cookie));
+    res.writeHead(200, { ...fileHeaders, "content-length": body.byteLength });
+    res.end(req.method === "HEAD" ? undefined : body);
+    return;
+  }
+  const range = byteRange(req.headers.range, size);
+  if (range === "unsatisfiable") {
+    res.writeHead(416, { ...fileHeaders, "content-range": `bytes */${size}` }).end();
+    return;
+  }
+  // Decision: files are streamed, not read whole. The tile archive is over 100 MB and the map
+  // asks for a few kilobytes of it at a time.
+  const [first, last] = range ?? [0, size - 1];
+  const length = size === 0 ? 0 : last - first + 1;
+  res.writeHead(range ? 206 : 200, {
+    ...fileHeaders,
+    "content-length": length,
+    ...(range ? { "content-range": `bytes ${first}-${last}/${size}` } : {}),
   });
-  res.end(req.method === "HEAD" ? undefined : body);
+  if (req.method === "HEAD" || length === 0) {
+    res.end();
+    return;
+  }
+  createReadStream(path, { start: first, end: last })
+    .on("error", () => res.destroy())
+    .pipe(res);
 }
 
 function proxyApi(req, res, headers) {

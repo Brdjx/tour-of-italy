@@ -146,6 +146,24 @@ run "security_headers_allow_the_pwa_and_nothing_more" {
   }
 
   assert {
+    condition = alltrue([
+      for d in ["img-src 'self' data:;", "connect-src 'self';", "worker-src 'self';"] :
+      strcontains(aws_cloudfront_response_headers_policy.security.security_headers_config[0].content_security_policy[0].content_security_policy, d)
+    ])
+    error_message = "Images, fetches and workers must come from this site only: the map's tiles, glyphs and worker are served from it."
+  }
+
+  assert {
+    condition     = !strcontains(aws_cloudfront_response_headers_policy.security.security_headers_config[0].content_security_policy[0].content_security_policy, "openstreetmap")
+    error_message = "The map no longer loads OpenStreetMap tiles, so the CSP must not allow their hosts."
+  }
+
+  assert {
+    condition     = !strcontains(aws_cloudfront_response_headers_policy.security.security_headers_config[0].content_security_policy[0].content_security_policy, "blob:")
+    error_message = "No directive needs blob: (MapLibre's worker is same-origin)."
+  }
+
+  assert {
     condition     = length(aws_cloudfront_response_headers_policy.security.security_headers_config[0].content_security_policy[0].content_security_policy) <= 1783
     error_message = "The CSP exceeds CloudFront's 1783 character limit and would fail to apply."
   }

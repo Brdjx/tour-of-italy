@@ -1,6 +1,8 @@
 /*
  * The day's map: below the timetable on phones and tablets in portrait, beside it from 1024 px.
- * Its frame has a fixed height, so the skeleton shown while Leaflet loads keeps its place.
+ * Its frame has a fixed height, so the skeleton shown while MapLibre loads keeps its place.
+ * The basemap's colours live in lib/mapStyle.ts (WebGL cannot read CSS); the stop markers take
+ * the same ink and paper from it through --map-ink and --map-paper, set on .map-canvas.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -30,7 +32,7 @@
     }
   }
 
-  /* Map. isolation keeps Leaflet's own z-index values below the pinned tabs and the sheet. */
+  /* isolation keeps MapLibre's own z-index values below the pinned tabs and the sheet. */
   .map-frame {
     position: relative;
     height: 280px;
@@ -38,7 +40,7 @@
     isolation: isolate;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--surface);
+    background: var(--page);
   }
 
   @media (min-width: 768px) {
@@ -47,9 +49,10 @@
     }
   }
 
-  .map-frame .leaflet-container {
-    background: var(--surface);
-    font-family: inherit;
+  .map-canvas {
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-sans);
   }
 
   .map-placeholder {
@@ -60,39 +63,65 @@
     font-size: 0.875rem;
   }
 
-  .map-marker-wrap {
-    border: 0;
-    background: none;
-  }
-
+  /* A stop: an ink disc with a paper ring and its number in paper, the board's time figures. */
   .map-marker {
     display: grid;
-    width: 30px;
-    height: 30px;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
     place-items: center;
-    border: 2px solid var(--surface);
+    border: 2px solid var(--map-paper, var(--page));
     border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-fg);
-    font: 600 14px / 1 var(--font-sans);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+    background: var(--map-ink, var(--fill));
+    color: var(--map-paper, var(--page));
+    font: 600 13px / 1 var(--font-sans);
+    font-stretch: 87.5%;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
   }
 
+  /* An approximate location: a paper disc with a dashed ink ring. */
   .map-marker--approximate {
-    border: 2px dashed var(--accent);
-    background: var(--surface);
-    color: var(--accent);
+    border: 2px dashed var(--map-ink, var(--fill));
+    background: var(--map-paper, var(--page));
+    color: var(--map-ink, var(--fill));
   }
+}
 
-  .route-line {
-    stroke: var(--accent);
-    stroke-width: 3;
-    stroke-opacity: 0.85;
-  }
+/*
+ * MapLibre's own controls in the page's type and colours. Outside the layer on purpose:
+ * maplibre-gl.css is not layered, and an unlayered rule beats any layered one.
+ */
+.map-canvas .maplibregl-ctrl-attrib.maplibregl-compact,
+.map-canvas .maplibregl-ctrl-attrib-button {
+  background-color: var(--map-paper, var(--page));
+}
 
-  @media (prefers-color-scheme: dark) {
-    .map-frame .leaflet-tile-pane {
-      filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
-    }
-  }
+.map-canvas .maplibregl-ctrl-attrib.maplibregl-compact {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 20px;
+}
+
+.map-canvas .maplibregl-ctrl-attrib.maplibregl-compact::after {
+  display: none;
+}
+
+/* The credits button: a quiet "i" in the page's type, drawn in either scheme. */
+.map-canvas .maplibregl-ctrl-attrib-button {
+  border: 1px solid var(--line);
+  background-image: none;
+  color: var(--muted);
+  font: italic 600 12px / 22px var(--font-sans);
+  text-align: center;
+}
+
+.map-canvas .maplibregl-ctrl-attrib-button::before {
+  content: "i";
+}
+
+/* The "Use Ctrl + scroll to zoom the map" notice. */
+.map-canvas .maplibregl-cooperative-gesture-screen {
+  background: rgb(17 17 15 / 0.55);
+  font-size: 0.9375rem;
 }

@@ -23,6 +23,13 @@ export function precacheUrlFor(file: string): string | null {
   if (file.startsWith("_next/static/")) return file.endsWith(".map") ? null : `/${file}`;
   if (file === "manifest.webmanifest") return "/manifest.webmanifest";
   if (file.startsWith("icons/") && /\.(png|svg)$/.test(file)) return `/${file}`;
+  // The map's worker and its glyphs, so an offline plan still draws its route and stops (the
+  // basemap tiles are never precached: 140 MB). Glyph folders have spaces in their names, and
+  // MapLibre asks for them percent-encoded, so the URL is encoded the same way.
+  if (file.startsWith("map/maplibre/") && file.endsWith(".mjs")) return `/${file}`;
+  if (file.startsWith("map/fonts/") && file.endsWith(".pbf")) {
+    return `/${file.split("/").map(encodeURIComponent).join("/")}`;
+  }
   return null;
 }
 
@@ -38,7 +45,7 @@ export function precacheUrls(files: readonly string[]): string[] {
 
 /** The out/-relative file behind a precache URL. */
 export function fileForUrl(url: string): string {
-  return url === "/" ? "index.html" : url.slice(1);
+  return url === "/" ? "index.html" : decodeURIComponent(url.slice(1));
 }
 
 // Decision: the build id is a hash of the worker template and every precached file. It changes

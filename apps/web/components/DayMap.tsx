@@ -4,28 +4,22 @@ import type { DayPlan, PlannerContext } from "@italy/planner";
 import dynamic from "next/dynamic";
 import { Component, type ReactNode, useMemo } from "react";
 import { type MapPoint, mapPoints } from "../lib/mapPoints";
+import { MapUnavailable } from "./map/MapUnavailable";
 import { Skeleton } from "./skeleton/Skeleton";
 
-// The day's map, below the timetable (beside it from 1024 px). Leaflet needs `window`, so it is
-// loaded only in the browser; until its code arrives a skeleton fills the frame, which keeps the
-// map's size, so nothing moves when the map draws. The map is optional: if its code
-// cannot be fetched (a dropped request, offline before the worker cached it) or Leaflet throws,
-// the frame says so and the rest of the page carries on. The map is hidden from screen readers
-// because the timetable above lists the same stops in the same order.
+// The day's map, below the timetable (beside it from 1024 px). MapLibre needs `window` and
+// WebGL, so it is loaded only in the browser, in its own chunk; until its code arrives a
+// skeleton fills the frame, which keeps the map's size, so nothing moves when the map draws.
+// The map is optional: if its code cannot be fetched (a dropped request, offline before the
+// worker cached it), the browser has no WebGL 2, or MapLibre throws, the frame says so and the
+// rest of the page carries on. The map is hidden from screen readers because the timetable
+// above lists the same stops in the same order.
 
-export const MAP_UNAVAILABLE = "The map could not load. The list above has every stop in order.";
+export { MAP_UNAVAILABLE, MapUnavailable } from "./map/MapUnavailable";
 
 type MapModule = { default: (props: { points: readonly MapPoint[] }) => ReactNode };
 
 const loadInner = () => import("./DayMapInner");
-
-export function MapUnavailable(_props: { points?: readonly MapPoint[] }) {
-  return (
-    <div className="map-placeholder px-4 text-center" data-testid="map-unavailable">
-      {MAP_UNAVAILABLE}
-    </div>
-  );
-}
 
 /**
  * The map component, or the notice when its code cannot be loaded.
@@ -42,7 +36,7 @@ const DayMapInner = dynamic(() => withMapFallback(loadInner), {
   loading: () => <Skeleton className="skeleton--fill" testId="map-skeleton" />,
 });
 
-/** Catches anything Leaflet throws while drawing, so a map problem stays inside the frame. */
+/** Catches anything MapLibre throws while drawing, so a map problem stays inside the frame. */
 export class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   override state = { failed: false };
 
@@ -95,7 +89,7 @@ export function DayMap({ day, dayNumber, ctx }: DayMapProps) {
       <figcaption className="mt-2 text-sm text-muted">
         <span className="block">
           Stops are numbered in visiting order.
-          {approximate ? " An open circle marks an approximate location." : null}
+          {approximate ? " A dashed circle marks an approximate location." : null}
         </span>
         <span className="block">
           Map data ©{" "}
@@ -106,6 +100,15 @@ export function DayMap({ day, dayNumber, ctx }: DayMapProps) {
             rel="noreferrer"
           >
             OpenStreetMap contributors
+          </a>
+          {" · "}
+          <a
+            href="https://protomaps.com"
+            className="inline-flex min-h-11 items-center text-accent underline underline-offset-2"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Protomaps
           </a>
         </span>
       </figcaption>

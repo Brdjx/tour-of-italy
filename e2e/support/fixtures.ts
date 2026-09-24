@@ -2,7 +2,6 @@ import { test as base, expect, type Locator, type Page } from "@playwright/test"
 import { FIXED_NOW } from "./env";
 
 // The fixtures every local E2E test uses:
-// - no network beyond the local site: OpenStreetMap tiles are answered with a 1x1 PNG
 // - a fixed start for the browser clock (see FIXED_NOW), so plans are the same every day
 // - a client id per test, which serve.mjs turns into a viewer address, so the API's per-client
 //   rate limit sees each test as its own traveler
@@ -11,11 +10,6 @@ import { FIXED_NOW } from "./env";
 //   test opens
 // - `press`, which taps on touch devices and clicks elsewhere, so phone projects test taps
 // - `twoPane`, the layout the brief requires on this project's screen (see playwright.config.ts)
-
-const TILE_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
 
 /** Records CSP violations into window.__cspViolations, from the first script on. */
 function recordCspViolations(): void {
@@ -86,9 +80,6 @@ interface Fixtures {
 export const test = base.extend<Fixtures>({
   context: async ({ context }, use, testInfo) => {
     await context.setExtraHTTPHeaders({ "x-e2e-client": `${testInfo.testId}-r${testInfo.retry}` });
-    await context.route("https://*.openstreetmap.org/**", (route) =>
-      route.fulfill({ status: 200, contentType: "image/png", body: TILE_PNG }),
-    );
     await context.clock.install({ time: FIXED_NOW });
     await context.addInitScript(recordCspViolations);
     await context.addInitScript(recordClipboard);

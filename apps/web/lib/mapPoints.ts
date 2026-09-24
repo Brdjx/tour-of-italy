@@ -1,7 +1,8 @@
 import type { DayPlan, PlannerContext } from "@italy/planner";
 
-// Markers for the day map, numbered in visiting order. Kept out of the Leaflet component so the
-// numbering and the approximate-location rule are tested without a browser map.
+// Markers, route and camera bounds for the day map, numbered in visiting order. Kept out of the
+// map component so the numbering and the approximate-location rule are tested without a browser
+// map.
 
 export interface MapPoint {
   number: number; // 1-based visiting order, matches the timetable
@@ -9,7 +10,7 @@ export interface MapPoint {
   name: string;
   lat: number;
   lng: number;
-  approximate: boolean; // repaired coordinates: drawn as a hollow marker
+  approximate: boolean; // repaired coordinates: drawn as a paper disc with a dashed ring
 }
 
 export function mapPoints(day: DayPlan, ctx: PlannerContext): MapPoint[] {
@@ -48,9 +49,41 @@ export function boundsOf(points: readonly MapPoint[]): [[number, number], [numbe
   ];
 }
 
-/** Marker HTML for Leaflet's divIcon. Only a number goes in, so nothing from the data is injected. */
+/** Marker HTML for one stop. Only a number goes in, so nothing from the data is injected. */
 export function markerHtml(point: Pick<MapPoint, "number" | "approximate">): string {
   const number = Math.max(0, Math.floor(point.number));
   const variant = point.approximate ? "map-marker map-marker--approximate" : "map-marker";
   return `<span class="${variant}" aria-hidden="true">${number}</span>`;
+}
+
+/** The route as GeoJSON: straight segments in visiting order, or nothing for a single stop. */
+export interface RouteData {
+  type: "FeatureCollection";
+  features: {
+    type: "Feature";
+    properties: Record<string, never>;
+    geometry: { type: "LineString"; coordinates: [number, number][] };
+  }[];
+}
+
+export function routeData(points: readonly MapPoint[]): RouteData {
+  if (points.length < 2) return { type: "FeatureCollection", features: [] };
+  const coordinates = points.map((point): [number, number] => [point.lng, point.lat]);
+  return {
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }],
+  };
+}
+
+/** boundsOf in MapLibre's order: [[west, south], [east, north]], or null when there are none. */
+export function lngLatBounds(
+  points: readonly MapPoint[],
+): [[number, number], [number, number]] | null {
+  const bounds = boundsOf(points);
+  if (!bounds) return null;
+  const [[south, west], [north, east]] = bounds;
+  return [
+    [west, south],
+    [east, north],
+  ];
 }

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   buildIdFor,
   injectPrecache,
+  fileForUrl,
   precacheUrls,
   sha256Hex,
   writePrecache,
@@ -73,6 +74,24 @@ describe("precacheUrls", () => {
       "/icons/icon.svg",
       "/manifest.webmanifest",
     ]);
+  });
+
+  it("precaches the map's worker and glyphs, encoded as MapLibre asks for them, never the tiles", () => {
+    expect(
+      precacheUrls([
+        "map/maplibre/maplibre-gl-worker.mjs",
+        "map/fonts/Noto Sans Regular/0-255.pbf",
+        "map/fonts/OFL.txt",
+        "tiles/italy-20260924.pmtiles",
+        "photos/place_001-960.jpg",
+      ]),
+    ).toEqual([
+      "/map/fonts/Noto%20Sans%20Regular/0-255.pbf",
+      "/map/maplibre/maplibre-gl-worker.mjs",
+    ]);
+    expect(fileForUrl("/map/fonts/Noto%20Sans%20Regular/0-255.pbf")).toBe(
+      "map/fonts/Noto Sans Regular/0-255.pbf",
+    );
   });
 
   it("never precaches the worker itself, whatever folder it is in", () => {
