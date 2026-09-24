@@ -175,6 +175,8 @@ Revisit if: a failure reaches production that no vector covers; add the vector, 
 - **Updates wait for a tap** ("A new version is available"); first installs are silent.
 - **Safe areas and `100dvh`** live in CSS custom properties; targets are at least 44 px and inputs 16 px.
 - **Zod runs jitless**, so the CSP needs no `unsafe-eval`.
+- **One column on every screen.** Before a plan the page is the date, the pace, More options and Plan my trip; once a plan is on screen or on its way the form folds into a one-line trip summary with Edit trip, on phones and desktops alike. This replaces the build plan's two-pane desktop sketch: the plan gets the full width and the form stops competing with it (`apps/web/app/styles/layout.css`).
+- **TikTok Sans with every axis, self-hosted**, the face the Goodpix reference uses; width marks rank. A local Arial face with TikTok Sans's measurements stands in while it loads, because next/font has no metrics for this family (`apps/web/app/layout.tsx`, `globals.css`).
 
 ### Infrastructure
 
@@ -210,6 +212,7 @@ Revisit if: a failure reaches production that no vector covers; add the vector, 
 - **Planner properties run 500 times with a fixed seed** in every run and 5,000 with `pnpm test:props`; a failure prints its seed.
 - **Plans are memoized per test file**, so each property keeps its own name at a third of the CPU.
 - **Performance is asserted at 5 times the budget**, which catches a blow-up without flaking.
+- **E2E reports but does not block during the redesign** (owner's call, 2026-09-24). The job still runs on every push; it leaves `ci-ok` until the specs are rewritten for the new page (task T62).
 - **E2E runs under the production CSP and routing** through `e2e/serve.mjs`, with a fixed clock, one rate-limit bucket per test, and specs routed to projects by file name instead of being skipped.
 - **Service workers are blocked on device projects** and tested in their own project.
 - **Any console error fails an E2E test**, except the browser's own line for an injected failed load.

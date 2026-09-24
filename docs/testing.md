@@ -78,4 +78,4 @@ The planner runs in browsers in every time zone, and a single `getDay()` instead
 - **Automated mutation testing of the test suite.** Stryker is not set up. The validator has its own mutation suite (above), which fails if any error code lacks a corruption.
 - **Load.** Throttles, reserved concurrency and WAF limits are asserted in the templates and tests, not load-tested.
 - **Firefox and physical devices.** Playwright runs Chromium and WebKit with device emulation. Firefox and real phones are outside the automated suite.
-- **Pixel-level visuals.** There are no screenshot diffs. Layout is checked by rules (no overflow, 44 px targets, the expected one or two panes per device) and contrast by a CSS token test.
+- **Pixel-level visuals.** There are no screenshot diffs. Layout is checked by rules (no overflow, 44 px targets, the form folding into the trip summary after planning) and contrast by a CSS token test. During the redesign the E2E job reports without blocking CI (task T62).

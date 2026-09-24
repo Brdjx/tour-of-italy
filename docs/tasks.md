@@ -124,10 +124,17 @@ Statuses:
 | T55 | Make the repo public, require `ci-ok` on `main`, protect the `production` environment | todo | |
 | T56 | Tighten the deploy role trust to the `production` environment subject only | todo | |
 | T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | done | live at italy-planner.brdjx.com and api.italy-planner.brdjx.com |
-| T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | waiting for a workspace-scoped key in .env.anthropic |
+| T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | in progress | new key in .env.anthropic answers without the header; SSM and the GitHub secret still hold the old key, waiting for the owner's go-ahead |
 | T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | done | a577b1d; 25 rules removed, 7 files merged, judged on 3 seeds |
-| T60 | Simpler default view: filters behind More options, collapsed trip summary after planning | in progress | |
-| T61 | Loading skeletons before search (meta, places, map) and after search (timetable while planning) | in progress | |
+| T60 | Simpler default view: filters behind More options, collapsed trip summary after planning | done | 2e01dec; one column on every screen, unit tests green |
+| T61 | Loading skeletons before search (meta, places, map) and after search (timetable while planning) | done | 2e01dec; PlannerApp.skeleton and planArrival tests |
+| T62 | Rewrite the E2E specs for the new page and make E2E a blocking check again | todo | E2E reports but does not block CI since the redesign started (owner's call) |
+| T63 | TikTok Sans with every axis, with a metric-matched fallback | done | aa90e7f |
+| T64 | Impeccable design skill and PRODUCT.md | done | d6aff24 |
+| T65 | Redesign: the departure board in the Goodpix language (tokens, type, board, motion) | in progress | direction contract in apps/web/.impeccable/surfaces/ |
+| T66 | Real place photos from Wikimedia Commons, credited, with city and topic fallbacks | in progress | 74 of 103 places verified, 26 fallbacks |
+| T67 | Self-hosted vector map (MapLibre, Protomaps tiles on the site's own CloudFront) | in progress | owner chose it over Google Maps |
+| T68 | Live AI path: Sonnet 5 exceeds the 24 s limit on the real request; Haiku 4.5 fails validation twice | todo | live-smoke 2026-09-24: both fall back to rules |
 
 ## Cut or deferred
 

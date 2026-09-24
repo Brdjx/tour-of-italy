@@ -86,6 +86,10 @@ jobs:
 
   e2e:
     # Brief section 6: E2E is its own job. It starts running once the root script test:e2e exists.
+    # Decision (2026-09-24, owner's call): E2E reports but does not block while the page is being
+    # redesigned; the specs are rewritten for the new page before it gates again (task T62). A
+    # failure here fails neither the run nor ci-ok, so the deploy that follows CI still runs.
+    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -239,7 +243,8 @@ jobs:
     # job still runs and fails, instead of being skipped (a skipped job reports success to branch
     # protection).
     if: ${{ always() }}
-    needs: [verify, planner-tz, e2e, iac, secrets, plan]
+    # e2e is left out until T62 makes it a gate again (see the e2e job).
+    needs: [verify, planner-tz, iac, secrets, plan]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
