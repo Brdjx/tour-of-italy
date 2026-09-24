@@ -26,9 +26,18 @@ async function breakARule(page: Page, press: Press): Promise<void> {
   const rows = page.getByTestId("stop-row");
   const flagged = page.locator('[data-testid="stop-row"][data-flagged="true"]');
   const count = await rows.count();
+  // Each stop moves toward the end one place at a time until a move breaks a rule (a sight moved
+  // after dinner is closed); a stop that never breaks one has its moves undone.
   for (let index = 0; index < count - 1 && (await flagged.count()) === 0; index++) {
-    await press(rows.nth(index).getByTestId("move-down"));
-    if ((await flagged.count()) === 0) await press(page.getByTestId("undo-button"));
+    let moves = 0;
+    for (let at = index; at < count - 1 && (await flagged.count()) === 0; at++) {
+      const moved = await rows.nth(at).getAttribute("data-place-id");
+      await press(rows.nth(at).getByTestId("move-down"));
+      await expect(rows.nth(at + 1)).toHaveAttribute("data-place-id", moved ?? "");
+      moves++;
+    }
+    if ((await flagged.count()) > 0) break;
+    for (; moves > 0; moves--) await press(page.getByTestId("undo-button"));
   }
   await expect(flagged.first()).toBeVisible();
   // The edit's toast covers the bottom of the screen for 5 s by design; audit the page at rest.

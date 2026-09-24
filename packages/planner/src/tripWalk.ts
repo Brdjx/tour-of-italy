@@ -1,42 +1,37 @@
-import { dayOrigin, transferMinutes } from "./anchors";
-import { PACE } from "./config";
+import { compareText, dayOrigin, transferMinutes } from "./anchors";
 import type { PlannerContext } from "./context";
-import { type DayWalk, startWalk, stepWalk } from "./dayBuilder";
+import { buildDay, type DayWalk, startWalk, stepWalk } from "./dayBuilder";
 import { fitsEmptyDay } from "./dayLimits";
 import { closedForHoliday } from "./dayRules";
 import { type Arrangement, wantedMustIncludes } from "./planAnchors";
 import { PoolCache } from "./pools";
-import type { BuildOptions, TripDraft } from "./tripBuilder";
-import { chancesElsewhere, clockOf } from "./tripChances";
-import { fillEmptyDay } from "./tripRescue";
-import type { TripRequest } from "./types";
-import { addVisit, isVisitless } from "./visitRescue";
+import { timeStep } from "./schedule";
+import type { TripDraft } from "./tripBuilder";
+import type { Place, TripRequest } from "./types";
 
 // One trip for one arrangement of bases: the days are walked in turns (dayBuilder.ts), sharing
 // one set of used places, so no place appears twice and every day gets its share of the best
 // places and of the meal places.
 
+/** A day with no meal yet keeps a claim on its last meal places while it has this many or fewer. */
+const MEAL_RESERVE_MAX = 2;
+
 /**
  * One trip for one arrangement, or null when some day cannot hold a single stop. The days are
- * walked in turns (nextTurn) until no day can take another stop. A day that stops only because a
- * meal place it could use is held for another day with no meal yet waits instead of finishing,
- * and gets another turn after any other day's pick or finish, which may release the hold.
+ * walked in turns (nextTurn) until no day can take another stop. With `rescue`, a day the turns
+ * left empty may take one public space (rescueEmptyDay).
  */
-// Decision: waiting, not finishing. A held dinner place is released as soon as the day holding
-// it eats or passes its last chance, but a finished day never took another turn: day 3 of a
-// Venice trip ended at 15:55 with lunch only while Osteria da Rioba stayed free for dinner. The
-// loop still ends: every turn adds a stop, finishes a day, or parks a waiting day until the next
-// pick or finish, and a waiting day has eaten, so it never holds a place for another.
 // Decision: turns instead of filling day 1, then day 2, then day 3. Filled in order, day 1 took
-// the best of everything (7 stops and both meals) and day 3 got the leftovers (3 stops, often no
-// meal). In turns, each day's first pick is the best place still open that morning, meal places
-// are shared out as each day reaches lunch, and the headline sights spread over the trip.
+// the best of everything (7 stops and both meals) and day 3 got the leftovers. In turns, each
+// day's first pick is the best place still open that morning, meal places are shared out as
+// each day reaches lunch, and the headline sights spread over the trip. Measured: filling in
+// order starves a day in 8 to 12 more trips in 100 (docs/planner.md).
 export function buildTrip(
   arrangement: Arrangement,
   request: TripRequest,
   ctx: PlannerContext,
   dates: readonly string[],
-  options: BuildOptions = { visitCap: PACE[request.pace].maxVisits, rescue: true },
+  rescue = true,
   pools: PoolCache = new PoolCache(request, ctx),
 ): TripDraft | null {
   const used = new Set<string>();
@@ -44,93 +39,142 @@ export function buildTrip(
   const fitsOn = mustIncludeDays(arrangement, request, ctx, dates, pending);
   const finished = new Set<number>();
   const walks: DayWalk[] = [];
-  const otherChances = (index: number) => (id: string) =>
-    (fitsOn.get(id) ?? []).filter((day) => day !== index && !finished.has(day)).length;
   for (let index = 0; index < arrangement.length; index++) {
-    const day = dayInput(arrangement, index, request, ctx, dates);
-    if (!day) return null;
-    const pool = pools.strict(day.anchor.id).filter((place) => {
+    const anchor = ctx.anchorById.get(arrangement[index] ?? "");
+    const date = dates[index];
+    if (!anchor || date === undefined) return null;
+    const pool = pools.strict(anchor.id).filter((place) => {
       const elsewhere = pending.has(place.id) && !fitsOn.get(place.id)?.includes(index);
-      return !(elsewhere && closedForHoliday(place, day.date)); // see mustIncludeDays
+      return !(elsewhere && closedForHoliday(place, date)); // see mustIncludeDays
     });
-    const chances = {
-      otherChances: otherChances(index),
-      ...chancesElsewhere({ index, arrangement, walks, finished }),
-    };
-    const shared = { used, obligations: pending, ...chances };
-    walks.push(startWalk({ ...day, ...shared, pool, visitCap: options.visitCap }));
+    const transferMin = transferInto(arrangement, index, ctx);
+    const others = () => otherDays(index, arrangement, walks, finished);
+    const later = () => others().filter((walk) => walks.indexOf(walk) > index);
+    const mealWanted = (place: Place) => wantedByMealless(place, others());
+    const mealChances = (place: Place) => mealsElsewhere(place, others());
+    const visitChances = (place: Place) => visitsOn(place, later());
+    const chances = { mealWanted, mealChances, visitChances };
+    const day = { date, anchor, transferMin, request, ctx, pool, used, ...chances };
+    walks.push(startWalk({ ...day, obligations: pending }));
   }
-  const waiting = new Set<number>();
-  const resting = () => new Set([...finished, ...waiting]);
-  for (let turn = nextTurn(walks, resting()); turn !== null; turn = nextTurn(walks, resting())) {
-    const walk = walks[turn] as DayWalk;
-    const pick = stepWalk(walk);
-    if (pick) {
+  for (let turn = nextTurn(walks, finished); turn !== null; turn = nextTurn(walks, finished)) {
+    const pick = stepWalk(walks[turn] as DayWalk);
+    if (!pick) finished.add(turn);
+    else {
       used.add(pick.place.id);
       pending.delete(pick.place.id);
-    } else if (walk.heldBack) waiting.add(turn);
-    else finished.add(turn);
-    // Any pick or finished day can release a hold (the holder ate, moved on, or stopped).
-    if (pick || finished.has(turn)) waiting.clear();
+    }
   }
-  return finishTrip(arrangement, walks, options.rescue, pools);
-}
-
-/**
- * The unfinished day whose clock is earliest (its last stop ended first), then the one with the
- * fewest meals, then the earliest day; null when every day is finished.
- */
-// Decision: turns by clock rather than by number of stops, so the days fill their mornings,
-// middays, and evenings together. By count, a day of short stops took seven while a day with the
-// Vatican and Trastevere looked starved at five; by clock, every day is about as busy (measured
-// busy time within 15% across days in every base). Fewer meals breaks a tie so that where meal
-// places are scarce each day gets one before any day gets a second.
-function nextTurn(walks: readonly DayWalk[], finished: ReadonlySet<number>): number | null {
-  let next: number | null = null;
-  const meals = (walk: DayWalk) => walk.state.cursor.mealsTaken.length;
-  walks.forEach((walk, index) => {
-    if (finished.has(index)) return;
-    const best = next === null ? undefined : (walks[next] as DayWalk);
-    const order = best ? clockOf(walk) - clockOf(best) || meals(walk) - meals(best) : -1;
-    if (order < 0) next = index;
-  });
-  return next;
-}
-
-/**
- * The trip from its finished walks, rescuing empty days if allowed (null if one stays empty) and
- * giving a day with meals but no visit one visit where it can (visitRescue.ts).
- */
-function finishTrip(
-  arrangement: Arrangement,
-  walks: readonly DayWalk[],
-  rescue: boolean,
-  pools: PoolCache,
-): TripDraft | null {
   if (rescue) {
-    for (const walk of walks) if (walk.ids.length === 0) fillEmptyDay(walk, walks, pools);
+    for (const walk of walks) if (walk.ids.length === 0) rescueEmptyDay(walk, pools);
   }
   if (walks.some((walk) => walk.ids.length === 0)) return null;
-  for (const walk of walks) if (isVisitless(walk)) addVisit(walk, walks, pools);
   let score = 0;
   for (const walk of walks) score += walk.score;
   const days = walks.map((walk) => [...walk.ids]);
   return { anchorIds: [...arrangement], days, score: Math.round(score * 1e6) / 1e6 };
 }
 
-/** The fixed part of day `index`'s input: date, base, transfer, request; null if unknown. */
-function dayInput(
-  arrangement: Arrangement,
+/** The unfinished day whose clock is earliest (its last stop ended first); null when none is. */
+// Decision: turns by clock rather than by number of stops, so the days fill their mornings,
+// middays, and evenings together. By count, a day of short stops took seven while a day with the
+// Vatican and Trastevere looked starved at five. Ties go to the earlier day.
+function nextTurn(walks: readonly DayWalk[], finished: ReadonlySet<number>): number | null {
+  let next: number | null = null;
+  walks.forEach((walk, index) => {
+    if (finished.has(index)) return;
+    const best = next === null ? undefined : (walks[next] as DayWalk);
+    if (!best || walk.state.cursor.clock < best.state.cursor.clock) next = index;
+  });
+  return next;
+}
+
+/** The other unfinished days at the same base as day `index`. */
+function otherDays(
   index: number,
-  request: TripRequest,
-  ctx: PlannerContext,
-  dates: readonly string[],
-) {
-  const anchor = ctx.anchorById.get(arrangement[index] ?? "");
-  const date = dates[index];
-  if (!anchor || date === undefined) return null;
-  const transferMin = transferInto(arrangement, index, ctx);
-  return { date, anchor, transferMin, request, ctx };
+  arrangement: Arrangement,
+  walks: readonly DayWalk[],
+  finished: ReadonlySet<number>,
+): DayWalk[] {
+  return walks.filter(
+    (_, day) => day !== index && !finished.has(day) && arrangement[day] === arrangement[index],
+  );
+}
+
+/**
+ * True when one of the other days has no meal yet, could still seat one at the place, and has at
+ * most MEAL_RESERVE_MAX places left where it could. A day already fed then leaves the place alone
+ * (dayBuilder.ts, savedForAnotherDay).
+ */
+// Decision: where meal places are scarce (Bologna and Milan have three or four for six meals), a
+// fed day leaves the last ones to a day that has none. Without this, 2 more trips in 100 over a
+// holiday ended with a starved day (docs/planner.md).
+function wantedByMealless(place: Place, others: readonly DayWalk[]): boolean {
+  return others.some((walk) => {
+    if (walk.state.fed || !canSeat(walk, place)) return false;
+    const left = walk.input.pool.filter((other) => !walk.input.used.has(other.id));
+    return left.filter((other) => canSeat(walk, other)).length <= MEAL_RESERVE_MAX;
+  });
+}
+
+/**
+ * How many lunches and dinners the place could still serve on the other days: each meal a day
+ * has not taken yet and the place could seat on its date (dayPicks.ts, leastFlexible).
+ */
+function mealsElsewhere(place: Place, others: readonly DayWalk[]): number {
+  let count = 0;
+  for (const walk of others) {
+    const latest = walk.limits.get(place.id);
+    for (const meal of ["lunch", "dinner"] as const) {
+      if (latest?.[meal] !== undefined && !walk.state.cursor.mealsTaken.includes(meal)) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * How many of `days` could still start a visit to the place: its chances after this day, with
+ * `days` the later unfinished days at the same base (dayPicks.ts, lastChance).
+ */
+// Decision: later days only. Counting every other day, day 2 and day 3 of a Rome trip each
+// counted on the other for the Vatican Museums, both mornings went to sights open all week, and
+// the Vatican was lost; the last day that can hold a place now takes it.
+function visitsOn(place: Place, days: readonly DayWalk[]): number {
+  let count = 0;
+  for (const walk of days) {
+    const latest = walk.limits.get(place.id)?.visit;
+    const arrive = timeStep(place, walk.input.date, walk.state.cursor).arrive;
+    if (latest !== undefined && arrive <= latest) count++;
+  }
+  return count;
+}
+
+/** True when the walk could still seat a lunch or dinner at the place today. */
+function canSeat(walk: DayWalk, place: Place): boolean {
+  const latest = walk.limits.get(place.id);
+  const clock = walk.state.cursor.clock;
+  return [latest?.lunch, latest?.dinner].some((last) => last !== undefined && last >= clock);
+}
+
+/**
+ * A day the turns left empty (a thin base: winter closures, a low budget, exclusions), walked
+ * again with ONE open-access public space of the base added to its pool (open 07:00 to 23:00),
+ * ignoring budget and rating but never exclusions; the best such day wins.
+ */
+// Decision: one place, and only for a day that is still empty, so a starved day cannot take
+// every public space. If even that is empty, the arrangement is dropped and the planner tries
+// other bases. Measured on thin bases: without it, 3 more trips in 100 leave a chosen base.
+function rescueEmptyDay(empty: DayWalk, pools: PoolCache): void {
+  let rescued: { ids: string[]; score: number } | null = null;
+  for (const extra of pools.openAccessExtras(empty.input.anchor.id)) {
+    const pool = [...empty.input.pool, extra].sort((a, b) => compareText(a.id, b.id));
+    const day = buildDay({ ...empty.input, pool });
+    if (day.ids.length > 0 && (rescued === null || day.score > rescued.score)) rescued = day;
+  }
+  if (!rescued) return;
+  empty.ids.push(...rescued.ids);
+  empty.score = rescued.score;
+  for (const id of rescued.ids) (empty.input.used as Set<string>).add(id);
 }
 
 /** The transfer into day `index` of an arrangement: 0 on day 1 and when the base stays. */

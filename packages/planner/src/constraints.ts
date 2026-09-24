@@ -122,13 +122,6 @@ export function earliestMealStart(
   return start !== null && start <= window.latestStart ? start : null;
 }
 
-/** The meal a stop starting at this time can be: lunch, dinner, or null outside both windows. */
-export function mealRoleFor(start: number): Meal | null {
-  if (mealWindowAllows("lunch", start)) return "lunch";
-  if (mealWindowAllows("dinner", start)) return "dinner";
-  return null;
-}
-
 // ---------- Place filters ----------
 
 /** True when the place belongs to this base. Unknown place ids never belong. */

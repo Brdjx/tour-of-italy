@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MAX_SHARED_LINKS } from "../../src/config";
-import { buildDataset } from "../../src/data";
 import { PlaceSchema } from "../../src/dataSchemas";
 import { insideItaly } from "../../src/normalize/geo";
-import { normalizePlaces } from "../../src/normalize/index";
+import { buildDataset, normalizePlaces } from "../../src/normalize/index";
 import type { NormalizeResult } from "../../src/types";
 import { rawData } from "../helpers";
 

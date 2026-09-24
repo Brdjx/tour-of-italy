@@ -1,27 +1,26 @@
 import { compareText } from "./anchors";
-import { MEALS, PACE } from "./config";
-import { servesMeal, sharesLocation, withinBudget } from "./constraints";
+import { MEALS, PACE, TRAVEL } from "./config";
+import { coversMeal, servesMeal, sharesLocation, withinBudget } from "./constraints";
 import type { PlannerContext } from "./context";
-import { inSatelliteArea } from "./dayRules";
-import { breakingStarts, longestWait, mealsOf, noNewBreaks } from "./dayShape";
-import { MEAL_WAIT_MAX_MIN } from "./planPolicy";
+import { dayRuleBreaks, inSatelliteArea } from "./dayRules";
+import { EVENING_FROM } from "./planPolicy";
 import type { PoolCache } from "./pools";
 import { type ScheduledDay, scheduleDay } from "./schedule";
 import { scorePlace } from "./score";
 import type { TripDraft } from "./tripBuilder";
 import { transferInto } from "./tripWalk";
-import type { Anchor, Meal, Place, TripRequest } from "./types";
+import type { Anchor, Meal, Place, Stop, TripRequest } from "./types";
 import { isError } from "./violations";
 
-// A closing pass for meals. The walk shares meal places out as each day reaches a meal, but it
+// The closing pass for meals. The walk shares meal places out as each day reaches a meal, but it
 // judges each day's promise ("a dinner place is still free tonight") on its own, so another day
 // can take the place a day was counting on, and the day ends with no dinner while an unused
 // place could have seated it. For each day still missing lunch or dinner, this tries every
 // unused meal place of the base at every position, and keeps the insertion that seats the meal
 // with the shortest wait and leaves the rest of the day as it was: no error, every stop in the
-// same role, no meal lost, no stop newly breaking a day rule, no wait over MEAL_WAIT_MAX_MIN (or
-// over the longest the day already had), and the meal in the base city or in the area the day is
-// already visiting. It only adds; it never removes or reorders a stop.
+// same role, no meal lost, no stop newly breaking a day rule, and the meal in the base city or
+// in the area the day is already visiting. It only adds; it never removes or reorders a stop.
+// Measured over the sweep (docs/planner.md): without it, 2 to 5 more days in 100 miss a meal.
 
 /** The draft with every missing meal that an unused meal place can seat added. Pure. */
 export function fillMissingMeals(
@@ -45,7 +44,7 @@ export function fillMissingMeals(
 }
 
 /** One day of the draft and how to time it. */
-export interface DayToFill {
+interface DayToFill {
   ids: readonly string[];
   date: string;
   dayStart: number; // the start of the day window, after any transfer
@@ -55,7 +54,7 @@ export interface DayToFill {
 }
 
 /** Day `index` of the draft, ready to time; null for an unknown base or a missing date. */
-export function dayToFill(
+function dayToFill(
   draft: TripDraft,
   index: number,
   request: TripRequest,
@@ -77,7 +76,7 @@ export function dayToFill(
  * trip: within the budget first (pools.ts adds one level over as a fallback), then the best
  * score, then id.
  */
-export function mealPlacesFor(
+function mealPlacesFor(
   anchor: Anchor,
   meal: Meal,
   days: readonly string[][],
@@ -107,20 +106,15 @@ export function mealPlacesFor(
 // Decision: the shortest wait, not the first position. Tried from the start of the day, lunch at
 // Via Drapperie became the first stop of a Bologna day: nothing from 09:30 to 12:00, then every
 // morning sight in the afternoon. After the morning's last sight the same lunch waits 10 minutes.
-// A meal may keep the traveler waiting up to MEAL_WAIT_MAX_MIN, as inferRole lets it.
-export function withMeal(
-  day: DayToFill,
-  meal: Meal,
-  candidates: readonly Place[],
-): string[] | null {
+// There is no cap on that wait: a cap cost more missed meals than it saved long waits.
+function withMeal(day: DayToFill, meal: Meal, candidates: readonly Place[]): string[] | null {
   if (candidates.length === 0) return null;
   const before = day.time(day.ids);
-  if (before.violations.some(isError)) return null; // the repair and clean-up steps own it
+  if (before.violations.some(isError)) return null; // the repair owns a broken day
   const places = placesOf(before, day.ctx);
   const meals = mealsOf(before.stops, places);
   if (meals.includes(meal)) return null;
   const breaking = breakingStarts(before.stops, places, day.date);
-  const waitCap = Math.max(longestWait(before.stops, day.dayStart), MEAL_WAIT_MAX_MIN);
   for (const candidate of candidates) {
     let best: { ids: string[]; wait: number } | null = null;
     for (let at = 0; at <= day.ids.length; at++) {
@@ -135,7 +129,7 @@ export function withMeal(
       if (mealsOf(after.stops, afterPlaces).length <= meals.length) continue; // lost a covered one
       if (!noNewBreaks(breakingStarts(after.stops, afterPlaces, day.date), breaking)) continue;
       const wait = longestWait(after.stops, day.dayStart);
-      if (wait <= waitCap && (best === null || wait < best.wait)) best = { ids, wait };
+      if (best === null || wait < best.wait) best = { ids, wait };
     }
     if (best) return best.ids;
   }
@@ -143,7 +137,7 @@ export function withMeal(
 }
 
 /** True when every stop of `before` keeps its role in `after`, which adds `added`. */
-export function sameRoles(before: ScheduledDay, after: ScheduledDay, added: string): boolean {
+function sameRoles(before: ScheduledDay, after: ScheduledDay, added: string): boolean {
   const roles = new Map(before.stops.map((stop) => [stop.placeId, stop.role]));
   return after.stops.every(
     (stop) => stop.placeId === added || roles.get(stop.placeId) === stop.role,
@@ -163,6 +157,71 @@ function onTheWay(place: Place, places: readonly Place[], at: number, anchor: An
 }
 
 /** The places of a timed day, in order. Every id in a draft is a known place. */
-export function placesOf(day: ScheduledDay, ctx: PlannerContext): Place[] {
+function placesOf(day: ScheduledDay, ctx: PlannerContext): Place[] {
   return day.stops.map((stop) => ctx.placesById.get(stop.placeId) as Place);
+}
+
+/**
+ * The meals the day has: lunch and dinner, each when a stop takes that role or an outing is
+ * under way through its window (coversMeal).
+ */
+function mealsOf(stops: readonly Stop[], places: readonly Place[]): Meal[] {
+  return (["lunch", "dinner"] as const).filter((meal) =>
+    stops.some((stop, index) => {
+      const place = places[index];
+      return (
+        stop.role === meal || (place !== undefined && coversMeal(place, stop.start, stop.end, meal))
+      );
+    }),
+  );
+}
+
+/**
+ * The start of each stop of a timed day that breaks a day rule (dayRules.ts), judged as if none
+ * were a must-include: the walk may place a must-include where the preferences would not, but
+ * the fill must never push one there.
+ */
+function breakingStarts(
+  stops: readonly Stop[],
+  places: readonly Place[],
+  date: string,
+): Map<string, number> {
+  const starts = new Map<string, number>();
+  for (const index of dayRuleBreaks(stops, places, date, [])) {
+    const stop = stops[index];
+    if (stop) starts.set(stop.placeId, stop.start);
+  }
+  return starts;
+}
+
+/**
+ * True when every stop breaking a rule after a change already broke one before and starts no
+ * later. Per stop, not a count, so a change cannot trade one stop's break for another's.
+ */
+function noNewBreaks(after: ReadonlyMap<string, number>, before: ReadonlyMap<string, number>) {
+  for (const [id, start] of after) {
+    const was = before.get(id);
+    if (was === undefined || start > was) return false;
+  }
+  return true;
+}
+
+/**
+ * The longest wait in the day before a stop other than dinner that starts before EVENING_FROM:
+ * minutes between arriving and starting. The first stop's wait counts from `dayStart`.
+ */
+// Decision: dinner and the evening are left out. A day that ends at 16:00 and meets again for
+// dinner at 19:00 is the traveler resting at the hotel; two hours with nothing to do before lunch
+// is a gap in the plan.
+function longestWait(stops: readonly Stop[], dayStart: number): number {
+  let longest = 0;
+  let free = dayStart;
+  stops.forEach((stop, index) => {
+    const arrive = free + stop.travelFromPrevMin + (index === 0 ? 0 : TRAVEL.bufferMin);
+    if (stop.role !== "dinner" && stop.start < EVENING_FROM) {
+      longest = Math.max(longest, stop.start - arrive);
+    }
+    free = stop.end;
+  });
+  return longest;
 }

@@ -34,7 +34,6 @@ const PLANNER_CORE_FUNCTIONS = [
   "dayWindow",
   "withinDayWindow",
   "mealWindowAllows",
-  "mealRoleFor",
   "belongsToAnchor",
   "withinBudget",
   "isMealPlace",
@@ -50,7 +49,6 @@ const PLANNER_CORE_FUNCTIONS = [
   "scoreParts",
   "scorePlace",
   "compareScored",
-  "rankPlaces",
   // reasons.ts
   "ruleReason",
   "withMealsCovered",

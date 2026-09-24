@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { FREE_TEXT_HOURS, MIN_SUGGEST_RATING, OPEN_ACCESS_WINDOW } from "../../src/config";
-import { buildDataset } from "../../src/data";
 import { ISSUE_KINDS } from "../../src/enums";
 import { dateRuleNotes, placeNotes } from "../../src/normalize/chips";
+import { buildDataset } from "../../src/normalize/index";
 import { ISSUE_KIND_TEXT } from "../../src/normalize/issueText";
 import { buildDataSummary } from "../../src/normalize/summary";
 import { formatClock } from "../../src/time";

@@ -2,13 +2,13 @@ import fc from "fast-check";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MEALS } from "../../src/config";
 import { earliestMealStart, isMealPlace, isOuting, servesMeal } from "../../src/constraints";
-import { closedForHoliday, daylightEnd, isPreDinner } from "../../src/dayRules";
+import { closedForHoliday, daylightEnd } from "../../src/dayRules";
 import { haversineKm } from "../../src/normalize/geo";
 import {
   AFTER_NOON_NAME,
   APERITIVO_EARLIEST_START,
+  APERITIVO_NAME,
   OUTING_LATEST_START,
-  PRE_DINNER_NAME,
   SATELLITE_AREA_KM,
   TREAT_EARLIEST_START,
 } from "../../src/planPolicy";
@@ -18,8 +18,8 @@ import { planFor } from "./planMemo";
 
 // The rules-only plan is what a traveler sees whenever the AI is off or fails, and a demo team
 // judges it by eye. Hard rules are proven elsewhere; these properties prove the day looks right:
-// meal places are meals, day trips leave in the morning, parks close at dusk, nothing but gelato
-// follows dinner, and one day never mixes two out-of-town areas. A must-include is exempt from
+// meal places are meals, day trips leave in the morning, parks close at dusk, gelato waits for
+// the afternoon, and one day never mixes two out-of-town areas. A must-include is exempt from
 // the preferences (the traveler asked for it), so each check looks at ordinary stops only.
 
 const TIMEOUT_MS = 60_000 + PROPERTY_SETTINGS.numRuns * 50;
@@ -46,14 +46,6 @@ function stopsOf(itinerary: Itinerary): PlannedStop[] {
   return found;
 }
 
-/**
- * True for the only visit of its day: a day nothing else could fill borrows or visits one stop
- * (tripRescue.ts), and keeping the base the traveler chose outranks the day's preferences.
- */
-function rescuedVisit(stop: Stop, day: readonly Stop[]): boolean {
-  return stop.role === "visit" && day.filter((other) => other.role === "visit").length === 1;
-}
-
 function ordinary(request: TripRequest, place: Place): boolean {
   return !request.mustInclude.includes(place.id);
 }
@@ -77,8 +69,7 @@ describe("planDeterministic plans a day a traveler would recognize", () => {
       forEveryPlan((itinerary, request) => {
         for (const { stop, place, date, index, day } of stopsOf(itinerary)) {
           if (stop.role !== "visit" || !isMealPlace(place)) continue;
-          // An ordinary one only as the lone stop of a day nothing else could fill (tripRescue.ts).
-          if (ordinary(request, place)) expect(rescuedVisit(stop, day), `${place.id}`).toBe(true);
+          expect(ordinary(request, place), `${place.id} is an ordinary meal place`).toBe(false);
           for (const later of day.slice(index + 1)) {
             if (later.role === "visit" || !servesMeal(place, later.role)) continue;
             const window = MEALS[later.role];
@@ -124,26 +115,12 @@ describe("planDeterministic plans a day a traveler would recognize", () => {
   );
 
   it(
-    "never plans a food hall, an aperitivo, or another meal place after dinner",
-    () => {
-      forEveryPlan((itinerary, request) => {
-        for (const { stop, place, index, day } of stopsOf(itinerary)) {
-          if (stop.role !== "visit" || !isPreDinner(place) || !ordinary(request, place)) continue;
-          const dinner = day.findIndex((other) => other.role === "dinner");
-          expect(dinner === -1 || index < dinner, `${place.id} after dinner`).toBe(true);
-        }
-      });
-    },
-    TIMEOUT_MS,
-  );
-
-  it(
     "never plans an ordinary aperitivo before 17:00 (Ceresio 7 at lunchtime)",
     () => {
       forEveryPlan((itinerary, request) => {
-        for (const { stop, place, day } of stopsOf(itinerary)) {
-          if (stop.role !== "visit" || !PRE_DINNER_NAME.test(place.name)) continue;
-          if (!ordinary(request, place) || rescuedVisit(stop, day)) continue;
+        for (const { stop, place } of stopsOf(itinerary)) {
+          if (stop.role !== "visit" || !APERITIVO_NAME.test(place.name)) continue;
+          if (!ordinary(request, place)) continue;
           expect(stop.start, place.id).toBeGreaterThanOrEqual(APERITIVO_EARLIEST_START);
         }
       });
@@ -155,8 +132,8 @@ describe("planDeterministic plans a day a traveler would recognize", () => {
     "never sends a traveler to an ordinary museum or ticketed site on 25 December or 1 January",
     () => {
       forEveryPlan((itinerary, request) => {
-        for (const { stop, place, date, day } of stopsOf(itinerary)) {
-          if (!ordinary(request, place) || rescuedVisit(stop, day)) continue;
+        for (const { place, date } of stopsOf(itinerary)) {
+          if (!ordinary(request, place)) continue;
           expect(closedForHoliday(place, date), `${place.id} on ${date}`).toBe(false);
         }
       });
@@ -189,9 +166,8 @@ describe("planDeterministic plans a day a traveler would recognize", () => {
     "never serves an ordinary gelato or wine bar stop before noon",
     () => {
       forEveryPlan((itinerary, request) => {
-        for (const { stop, place, day } of stopsOf(itinerary)) {
+        for (const { stop, place } of stopsOf(itinerary)) {
           if (!AFTER_NOON_NAME.test(place.name) || !ordinary(request, place)) continue;
-          if (rescuedVisit(stop, day)) continue;
           expect(stop.start, place.id).toBeGreaterThanOrEqual(TREAT_EARLIEST_START);
         }
       });

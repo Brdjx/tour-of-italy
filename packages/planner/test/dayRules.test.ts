@@ -6,18 +6,17 @@ import {
   daylightEnd,
   dayRuleBreaks,
   inSatelliteArea,
-  isPreDinner,
   keepsDayRules,
   needsDaylight,
 } from "../src/dayRules";
 import { planDeterministic } from "../src/plan";
-import { DAYTIME_LATEST_END, SUNSET_BY_MONTH } from "../src/planPolicy";
+import { SUNSET_BY_MONTH } from "../src/planPolicy";
 import { withMealsCovered } from "../src/reasons";
 import type { Place, StopRole } from "../src/types";
 import { makeRequest, realContext, realPlace } from "./plannerFixtures";
 
 // The planner's day rules turn a valid timetable into one a traveler would recognize. Each test
-// names the day the review found (a day trip at 17:15, a park at dusk, an aperitivo after dinner,
+// names the day the review found (a day trip at 17:15, a park at dusk, gelato at 09:40,
 // Maranello then Isola della Scala) and proves the rule keeps it out.
 
 const ctx = realContext();
@@ -42,7 +41,6 @@ function keeps(
       latest: undefined,
     },
     {
-      mealVisits: false,
       clock: day.clock ?? at(9, 30),
       mealsTaken: day.meals ?? [],
       today: day.today ?? [],
@@ -94,17 +92,6 @@ describe("the day rules", () => {
     expect(daylightEnd(realPlace("place_077"), "2027-01-12")).toBe(Number.POSITIVE_INFINITY);
   });
 
-  it("never plans an aperitivo or a meal place after dinner, but lets gelato follow it", () => {
-    expect(isPreDinner(realPlace("place_037"))).toBe(true); // Aperitivo at Rasputin
-    expect(isPreDinner(realPlace("place_065"))).toBe(true); // Aperitivo at Ceresio 7
-    expect(isPreDinner(realPlace("place_099"))).toBe(true); // Eataly
-    expect(isPreDinner(realPlace("place_011"))).toBe(false); // Gelato at Giolitti
-    const ceresio = realPlace("place_065");
-    expect(keeps(ceresio, "visit", at(21), { meals: ["dinner"] })).toBe(false);
-    expect(keeps(ceresio, "visit", at(18), {})).toBe(true);
-    expect(keeps(ceresio, "visit", at(21), { meals: ["dinner"], obligation: true })).toBe(true);
-  });
-
   it("never serves gelato before noon", () => {
     const giolitti = realPlace("place_011");
     expect(keeps(giolitti, "visit", at(9, 40), {})).toBe(false);
@@ -129,7 +116,7 @@ describe("the day rules", () => {
     expect(keeps(parmaLunch, "lunch", at(13, 15), { clock: at(11, 20) })).toBe(false);
     const milan = { name: "Milan" };
     const comoStop = { place: como, role: "visit" as const, arrive: at(15, 35), start: at(15, 35) };
-    const day = { mealVisits: false, clock: at(14, 20), mealsTaken: [], today: [], anchor: milan };
+    const day = { clock: at(14, 20), mealsTaken: [], today: [], anchor: milan };
     expect(
       keepsDayRules({ ...comoStop, travelMin: 65, obligation: false, latest: undefined }, day),
     ).toBe(false);
@@ -145,7 +132,7 @@ describe("the day rules", () => {
   });
 });
 
-describe("drinks, tastings, and holidays", () => {
+describe("drinks, treats, and holidays", () => {
   const stop = (placeId: string, start: number, end: number) => ({
     placeId,
     start,
@@ -188,12 +175,6 @@ describe("drinks, tastings, and holidays", () => {
     const day = [stop("place_011", at(12, 5), "visit"), stop("place_015", at(12, 55), "lunch")];
     expect(dayRuleBreaks(day, [giolitti, testaccio], "2026-01-06", [])).toEqual([0]);
     expect(dayRuleBreaks(day, [giolitti, testaccio], "2026-01-06", ["place_011"])).toEqual([]);
-  });
-
-  it("never plans a tasting with no listed hours past 18:00 (balsamic vinegar at 18:40)", () => {
-    expect(daylightEnd(realPlace("place_044"), "2027-04-12")).toBe(DAYTIME_LATEST_END);
-    // Listed hours win: Acetaia Giusti keeps its own closing time and no extra limit.
-    expect(daylightEnd(realPlace("place_083"), "2027-04-12")).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("never plans an ordinary museum on 25 December or 1 January, but keeps a requested one", () => {

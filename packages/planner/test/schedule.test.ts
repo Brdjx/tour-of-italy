@@ -105,6 +105,16 @@ describe("meal placement", () => {
     expect(errors(late)).toEqual([]);
   });
 
+  it("lets a dinner that ends the day follow an evening-only stop instead of forcing it first", () => {
+    // A final dinner may leave the walk home past the window: Trevi by night at 20:00, then dinner.
+    const day = schedule(["place_001", "place_022", "place_007", "place_077", "place_099"], "rome");
+    expect(day.stops.slice(3).map((s) => [s.role, s.start])).toEqual([
+      ["visit", 1200],
+      ["dinner", 1260],
+    ]);
+    expect(errors(day)).toEqual([]);
+  });
+
   it("keeps a meal place that ends the day before noon a morning visit, not a dinner nine hours later", () => {
     const day = schedule(["place_005", "place_099"], "rome"); // Pantheon, then Eataly at 10:40
     expect(day.stops[1]?.role).toBe("visit");

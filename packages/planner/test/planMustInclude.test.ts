@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildDay } from "../src/dayBuilder";
 import { repairMustIncludes } from "../src/mustRepair";
 import { planDeterministic } from "../src/plan";
-import { PoolCache } from "../src/pools";
 import { scheduleDay } from "../src/schedule";
 import { tripDates } from "../src/time";
 import type { TripRequest } from "../src/types";
@@ -111,63 +109,18 @@ describe("plain reasons for a must-include left out (the validator's words, one 
 });
 
 describe("placing competing must-includes", () => {
-  // Two must-include restaurants that can both seat lunch at 12:00 after a morning transfer.
-  function contestedLunch(laterDays: Record<string, number>): Record<string, string | undefined> {
+  it("never leaves out a requested lunch place or a requested dinner-only place (Florence, Sunday)", () => {
+    // Il Latini (lunch starts by 12:30, closed Monday) and the dinner-only Rasputin, asked for
+    // together on a relaxed trip: both must be seated, each in a meal it can take.
     const request = makeRequest({
-      startDate: "2026-10-20",
-      mustInclude: ["place_029", "place_033"],
-    });
-    const anchor = ctx.anchorById.get("florence");
-    if (!anchor) throw new Error("no florence");
-    const day = buildDay({
-      date: "2026-10-20",
-      anchor,
-      transferMin: 130,
-      request,
-      ctx,
-      pool: new PoolCache(request, ctx).strict("florence"),
-      used: new Set(),
-      obligations: new Set(Object.keys(laterDays)),
-      otherChances: (id) => laterDays[id] ?? 0,
-    });
-    const timed = scheduleDay(day.ids, "2026-10-20", anchor, request, ctx, 130);
-    return Object.fromEntries(timed.stops.map((stop) => [stop.placeId, stop.role]));
-  }
-
-  it("gives a contested lunch to the must-include with no later day, never the flexible one", () => {
-    expect(contestedLunch({ place_029: 1, place_033: 0 })).toMatchObject({
-      place_033: "lunch",
-      place_029: "dinner",
-    });
-    expect(contestedLunch({ place_029: 0, place_033: 1 })).toMatchObject({
-      place_029: "lunch",
-      place_033: "dinner",
-    });
-  });
-
-  it("keeps a must-include's only lunch reachable instead of filling the morning (look-ahead)", () => {
-    // Sunday in Florence, relaxed: Il Latini (lunch must start at 12:30, closed Monday) and the
-    // dinner-only Rasputin. A long morning visit would leave both needing the one dinner.
-    const date = "2028-03-05";
-    const request = makeRequest({
-      startDate: date,
+      startDate: "2028-03-05",
       pace: "relaxed",
       mustInclude: ["place_039", "place_037"],
     });
-    const anchor = ctx.anchorById.get("florence");
-    if (!anchor) throw new Error("no florence");
-    const day = buildDay({
-      date,
-      anchor,
-      transferMin: 0,
-      request,
-      ctx,
-      pool: new PoolCache(request, ctx).strict("florence"),
-      used: new Set(),
-      obligations: new Set(["place_037", "place_039"]),
-      otherChances: () => 0,
-    });
-    expect(day.ids).toEqual(expect.arrayContaining(["place_037", "place_039"]));
+    const stops = planDeterministic(request, ctx).days.flatMap((day) => day.stops);
+    const role = (id: string) => stops.find((stop) => stop.placeId === id)?.role;
+    expect(role("place_039")).toBe("lunch");
+    expect(role("place_037")).toBe("dinner");
   });
 
   it("places must-includes from two bases and explains the third base in a trip", () => {
@@ -217,6 +170,20 @@ describe("repair pass", () => {
     };
     const repaired = repairMustIncludes(draft, request, ctx, tripDates(request.startDate));
     expect(repaired.days.flat()).toEqual(expect.arrayContaining(["place_005", "place_010"]));
+  });
+
+  it("never empties a Venice day before 19:00 to fit a requested cicchetti crawl", () => {
+    // Property counterexample: tried from the start of the day, the crawl went first (a dinner at
+    // 19:00) and every morning stop was removed to make room; appended, it removes nothing.
+    const request = makeRequest({
+      startDate: "2027-02-16",
+      anchors: ["venice"],
+      mustInclude: ["place_068"],
+    });
+    const day = ["place_074", "place_067", "place_076", "place_091"];
+    const draft = { anchorIds: ["venice", "venice", "venice"], days: [day, [], []], score: 0 };
+    const repaired = repairMustIncludes(draft, request, ctx, tripDates(request.startDate));
+    expect(repaired.days[0]).toEqual([...day, "place_068"]);
   });
 
   it("leaves the draft alone when every must-include is already placed", () => {

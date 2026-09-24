@@ -1,4 +1,4 @@
-import type { DataIssue, ExcludedRecord, NormalizeResult, Place } from "../types";
+import type { DataIssue, DataSummary, ExcludedRecord, NormalizeResult, Place } from "../types";
 import { fillMissingRegions, inferMissingCities, mergeDuplicates } from "./crossRecord";
 import { normalizeId, resolveIdCollisions } from "./ids";
 import { makeIssue } from "./issue";
@@ -6,6 +6,7 @@ import { repairLocations } from "./locations";
 import { readRecord, readTopLevel, typeName } from "./raw";
 import { normalizeRecord, type PlaceDraft } from "./record";
 import { linkSameExperiences, markSharedLocations } from "./sharedLocations";
+import { buildDataSummary } from "./summary";
 
 // normalizePlaces: raw JSON in, schedulable places plus a full issue log out.
 //   1. read the top level (a list, or one list under a key)
@@ -15,6 +16,19 @@ import { linkSameExperiences, markSharedLocations } from "./sharedLocations";
 //      merge duplicates, repair locations, link shared locations and same experiences
 // Never throws, never drops a record silently: every record ends up in `places` or `excluded`,
 // and `places.length + excluded.length` equals the number of records read.
+
+/** Everything the app needs from the raw JSON (the API and the scripts read the file). */
+export interface Dataset extends NormalizeResult {
+  byId: ReadonlyMap<string, Place>; // schedulable places by id
+  summary: DataSummary; // plain-language notes for the "About this data" panel
+}
+
+/** Normalizes raw JSON into a dataset. Pure; never throws. The planner never does I/O. */
+export function buildDataset(raw: unknown): Dataset {
+  const result = normalizePlaces(raw);
+  const byId = new Map(result.places.map((place) => [place.id, place]));
+  return { ...result, byId, summary: buildDataSummary(result) };
+}
 
 /** Normalizes the raw dataset. Pure; never throws. */
 export function normalizePlaces(raw: unknown): NormalizeResult {
@@ -145,23 +159,9 @@ function toPlace(draft: PlaceDraft): Place {
   };
 }
 
-export { normalizeDuration, parseDurationText } from "./duration";
-export { haversineKm, insideItaly, median, medianCentroid, normalizePoint } from "./geo";
-export { normalizeHours } from "./hours";
-export { parseWeeklyHours } from "./hoursParser";
-export { normalizeId, resolveIdCollisions } from "./ids";
-export { DATASET_ISSUE_ID } from "./issue";
-export { candidateMeals, mealFits, normalizeMeals } from "./meals";
-export {
-  CITY_ALIASES,
-  normalizeCity,
-  normalizeName,
-  normalizeRegion,
-  REGION_ALIASES,
-} from "./names";
-export { isPublicSpace, normalizeType, TYPE_ALIASES } from "./placeType";
-export { normalizePrice } from "./price";
-export { normalizeRating } from "./rating";
+// The normalizer helpers the API, the web app, and the data scripts use by name.
+export { haversineKm, insideItaly, median } from "./geo";
+export { CITY_ALIASES, REGION_ALIASES } from "./names";
+export { TYPE_ALIASES } from "./placeType";
 export { RawPlaceSchema } from "./raw";
-export { normalizeSeasonalNote, scanDescription, seasonText } from "./seasons";
-export { canonicalTag, normalizeTags, TAG_SYNONYMS, tagLabel } from "./tags";
+export { tagLabel } from "./tags";

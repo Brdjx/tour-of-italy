@@ -10,7 +10,6 @@ import {
   isMealPlace,
   isOpenDuring,
   isSuggestable,
-  mealRoleFor,
   mealWindowAllows,
   servesMeal,
   sharesLocation,
@@ -89,7 +88,8 @@ describe("meal windows", () => {
   ])(
     "gives a stop starting at minute %s the meal role %s (both window ends inclusive)",
     (start, role) => {
-      expect(mealRoleFor(start)).toBe(role);
+      expect(mealWindowAllows("lunch", start)).toBe(role === "lunch");
+      expect(mealWindowAllows("dinner", start)).toBe(role === "dinner");
     },
   );
 

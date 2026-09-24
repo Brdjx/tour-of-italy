@@ -9,9 +9,15 @@ import {
   SUMMARY_MAX_CHARS,
   TRIP_DAYS,
 } from "./config";
-import { IdSchema, MinutesSchema, PriceLevelSchema } from "./dataSchemas";
+import {
+  type Assert,
+  type Both,
+  type Extends,
+  IdSchema,
+  MinutesSchema,
+  PriceLevelSchema,
+} from "./dataSchemas";
 import { addDays, parseIsoDate } from "./time";
-import type { Assert, Both, Extends } from "./typeChecks";
 import {
   FALLBACK_REASONS,
   type Itinerary,

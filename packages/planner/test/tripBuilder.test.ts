@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { transferMinutes } from "../src/anchors";
 import { LONG_TRANSFER_MIN, PACE, TRIP_DAYS } from "../src/config";
 import { planDeterministic } from "../src/plan";
 import { chosenTierGroups } from "../src/planAnchors";
@@ -113,19 +114,15 @@ describe("choosing bases", () => {
     expect(errorsOf(itinerary)).toEqual([]);
   });
 
-  it("never lets a move look free: a fixed cost plus a cost per hour, more on a relaxed trip", () => {
-    const rome = ["rome", "rome", "rome"];
-    expect(transferCost(rome, "balanced", ctx)).toBe(0);
-    const split = ["florence", "rome", "rome"];
+  it("never lets a move look free: a fixed cost plus a cost per hour on the train", () => {
+    expect(transferCost(["rome", "rome", "rome"], ctx)).toBe(0);
     const florence = ctx.anchorById.get("florence");
-    const romeBase = ctx.anchorById.get("rome");
-    if (!florence || !romeBase) throw new Error("missing base");
-    const cost = transferCost(split, "balanced", ctx);
-    expect(cost).toBeGreaterThan(TRANSFER_COST.perMove);
-    const milanRome = ["milan", "rome", "rome"];
-    const relaxed = transferCost(milanRome, "relaxed", ctx);
-    const balanced = transferCost(milanRome, "balanced", ctx);
-    expect(relaxed - balanced).toBe(TRANSFER_COST.relaxedLongTransfer);
+    const rome = ctx.anchorById.get("rome");
+    if (!florence || !rome) throw new Error("missing base");
+    const hours = transferMinutes(florence, rome) / 60;
+    expect(transferCost(["florence", "rome", "rome"], ctx)).toBeCloseTo(
+      TRANSFER_COST.perMove + TRANSFER_COST.perHour * hours,
+    );
   });
 
   it("never puts a relaxed trip on a train over 3 hours unless a must-include needs it", () => {
@@ -193,22 +190,6 @@ describe("spreading a thin base", () => {
     // Since a relaxed day may end with the 3-hour aperitivo walk as dinner, the Monday has that
     // instead of the Galleria; either way no day is empty and the base stays.
     for (const day of itinerary.days) expect(day.stops.length, day.date).toBeGreaterThan(0);
-    expect(errorsOf(itinerary)).toEqual([]);
-  });
-
-  it("never gives up the chosen base to keep a preference on a day nothing else can fill", () => {
-    // Property counterexample: Bologna in January with seven exclusions. The Sunday can only
-    // hold the gelato, before noon; a day in Florence instead is the worse plan.
-    const exclude = ["place_047", "place_045", "place_049", "place_046", "place_050"];
-    exclude.push("place_048", "place_051");
-    const request = makeRequest({
-      startDate: "2026-01-09",
-      pace: "relaxed",
-      anchors: ["bologna"],
-      exclude,
-    });
-    const itinerary = planDeterministic(request, ctx);
-    expect(itinerary.days.map((day) => day.anchorId)).toEqual(Array(TRIP_DAYS).fill("bologna"));
     expect(errorsOf(itinerary)).toEqual([]);
   });
 

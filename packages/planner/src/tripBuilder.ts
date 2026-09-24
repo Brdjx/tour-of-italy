@@ -1,4 +1,3 @@
-import { LONG_TRANSFER_MIN, PACE } from "./config";
 import { isOuting } from "./constraints";
 import type { PlannerContext } from "./context";
 import { closedForHoliday, daylightEnd } from "./dayRules";
@@ -14,9 +13,7 @@ import { MISTIMED_MUST_COST, OUTING_LATEST_START, TRANSFER_COST } from "./planPo
 import { PoolCache } from "./pools";
 import { scheduleDay } from "./schedule";
 import { buildTrip, transferInto } from "./tripWalk";
-import type { Pace, TripRequest } from "./types";
-
-export { buildTrip } from "./tripWalk";
+import type { TripRequest } from "./types";
 
 // Chooses the trip: builds a whole trip (tripWalk.ts) for each candidate arrangement of bases,
 // tier by tier (planAnchors.ts), and keeps the best one after the cost of its transfer.
@@ -28,15 +25,10 @@ export interface TripDraft {
   score: number; // summed selection scores; higher is better
 }
 
-/** How to build trips: a cap on visits a day, and whether an empty day may be rescued. */
-export interface BuildOptions {
-  visitCap: number; // never more than the pace's cap
-  rescue: boolean; // allow one open-access place, over budget if need be, on an empty day
-}
-
-/** One tier of arrangements, built with one set of options. */
-interface Attempt extends BuildOptions {
+/** One tier of arrangements, and whether a day left empty may take one public space. */
+interface Attempt {
   tier: Tier;
+  rescue: boolean;
 }
 
 /**
@@ -56,16 +48,16 @@ export function chooseTrip(
 ): TripDraft | null {
   const pools = new PoolCache(request, ctx);
   const wanted = wantedMustIncludes(request, ctx);
-  for (const { tier, ...options } of attempts(request, ctx, dates)) {
+  for (const { tier, rescue } of attempts(request, ctx, dates)) {
     let best: { draft: TripDraft; kept: number; value: number } | null = null;
     for (const arrangement of tier) {
-      const built = buildTrip(arrangement, request, ctx, dates, options, pools);
+      const built = buildTrip(arrangement, request, ctx, dates, rescue, pools);
       if (!built) continue;
       const draft = repairMustIncludes(built, request, ctx, dates);
       const kept = wanted.filter((id) => draft.days.some((ids) => ids.includes(id))).length;
       const value =
         draft.score -
-        transferCost(arrangement, request.pace, ctx) -
+        transferCost(arrangement, ctx) -
         MISTIMED_MUST_COST * mistimedMustIncludes(draft, request, ctx, dates);
       // Strictly greater: on a tie the earlier arrangement (fewer bases) wins.
       const order = best === null ? 1 : kept - best.kept || value - best.value;
@@ -77,26 +69,18 @@ export function chooseTrip(
 }
 
 /**
- * The attempts in order. Each group of chosen-base tiers is tried at the pace's cap, then with
- * one visit fewer a day down to one, then the same again with the one-place rescue, before the
- * next group gives up a chosen day. The automatic tiers come last, without and then with rescue.
+ * The attempts in order: each group of chosen-base tiers, then the automatic tiers, each first
+ * as walked and then with an empty day allowed one public space (tripWalk.ts, rescueEmptyDay).
  */
-// Decision: a traveler's base choice outranks the number of stops, and the budget outranks
-// fuller days: a thin base (winter closures, a low budget, exclusions) is spread over every day
-// first, and only a day that is still empty may take one over-budget public space.
+// Decision: a traveler's base choice outranks the budget: a thin base (winter closures, a low
+// budget, exclusions) may fill a day that is still empty with one over-budget public space
+// before the planner gives up a base the traveler chose.
 function attempts(request: TripRequest, ctx: PlannerContext, dates: string[]): Attempt[] {
-  const paceCap = PACE[request.pace].maxVisits;
   const result: Attempt[] = [];
-  for (const group of chosenTierGroups(request, ctx, dates)) {
+  const groups = [...chosenTierGroups(request, ctx, dates), automaticTiers(request, ctx, dates)];
+  for (const group of groups) {
     for (const rescue of [false, true]) {
-      for (let visitCap = paceCap; visitCap >= 1; visitCap--) {
-        for (const tier of group) result.push({ tier, visitCap, rescue });
-      }
-    }
-  }
-  for (const rescue of [false, true]) {
-    for (const tier of automaticTiers(request, ctx, dates)) {
-      result.push({ tier, visitCap: paceCap, rescue });
+      for (const tier of group) result.push({ tier, rescue });
     }
   }
   return result;
@@ -104,17 +88,14 @@ function attempts(request: TripRequest, ctx: PlannerContext, dates: string[]): A
 
 /**
  * What an arrangement's changes of base cost in score points (TRANSFER_COST): a fixed cost per
- * move plus a cost per hour, and a surcharge for a long transfer on a relaxed trip.
+ * move plus a cost per hour on the train.
  */
-export function transferCost(arrangement: Arrangement, pace: Pace, ctx: PlannerContext): number {
+export function transferCost(arrangement: Arrangement, ctx: PlannerContext): number {
   let cost = 0;
   for (let index = 1; index < arrangement.length; index++) {
     if (arrangement[index] === arrangement[index - 1]) continue;
     const minutes = transferInto(arrangement, index, ctx);
     cost += TRANSFER_COST.perMove + (TRANSFER_COST.perHour * minutes) / 60;
-    if (pace === "relaxed" && minutes > LONG_TRANSFER_MIN) {
-      cost += TRANSFER_COST.relaxedLongTransfer;
-    }
   }
   return cost;
 }

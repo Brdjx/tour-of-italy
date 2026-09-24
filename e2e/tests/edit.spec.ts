@@ -125,13 +125,22 @@ test.describe("editing a plan", () => {
   }) => {
     await readDay(page, press, 1);
     const flagged = page.locator('[data-testid="stop-row"][data-flagged="true"]');
-    // Find a reorder the rules reject: move each stop down in turn, undoing the ones that pass.
+    // Find a reorder the rules reject: move each stop toward the end one place at a time and
+    // stop at the first move that breaks a rule, undoing the moves of a stop that never does.
+    // Decision: not only one place down. A day whose neighbours can all swap (a plan with slack
+    // between stops) still breaks a rule once a sight is moved after dinner, when it is closed.
     const count = await page.getByTestId("stop-row").count();
-    for (let index = 0; index < count - 1; index++) {
-      await press(row(page, index).getByTestId("move-down"));
-      await expect(page.getByTestId("undo-button")).toBeVisible();
+    let moves = 0;
+    for (let index = 0; index < count - 1 && (await flagged.count()) === 0; index++) {
+      moves = 0;
+      for (let at = index; at < count - 1 && (await flagged.count()) === 0; at++) {
+        const moved = await row(page, at).getAttribute("data-place-id");
+        await press(row(page, at).getByTestId("move-down"));
+        await expect(row(page, at + 1)).toHaveAttribute("data-place-id", moved ?? "");
+        moves++;
+      }
       if ((await flagged.count()) > 0) break;
-      await press(page.getByTestId("undo-button"));
+      for (; moves > 0; moves--) await press(page.getByTestId("undo-button"));
       await expect(page.getByTestId("undo-button")).toHaveCount(0);
     }
     await expect(flagged.first(), "no reorder on day 1 broke a rule").toBeVisible();
@@ -144,8 +153,11 @@ test.describe("editing a plan", () => {
     await expect(badge).toHaveAttribute("data-marker", "problem");
     await expect(badge).toContainText(/Edited by you, \d+ problems? to fix/);
 
+    // One undo takes back the move that broke the rule; the moves before it broke none.
     await press(page.getByTestId("undo-button"));
     await expect(flagged).toHaveCount(0);
+    for (moves--; moves > 0; moves--) await press(page.getByTestId("undo-button"));
+    await expect(page.getByTestId("undo-button")).toHaveCount(0);
     await expect(badge).toContainText(BADGE.ai);
   });
 

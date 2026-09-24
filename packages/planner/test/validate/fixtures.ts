@@ -9,6 +9,8 @@ import type {
   ViolationCode,
 } from "../../src/types";
 import { validateItinerary } from "../../src/validate";
+import { buildDayFacts } from "../../src/validate/days";
+import { placeability } from "../../src/validate/mustInclude";
 import { realResult } from "../helpers";
 import { fittedWarnings } from "./tripLength";
 import { itinerary, stop, tripMilan, tripNewYear, tripRome, tripTuscany } from "./trips";
@@ -22,6 +24,14 @@ let cached: PlannerContext | null = null;
 export function ctx(): PlannerContext {
   cached ??= buildPlannerContext(realResult().places);
   return cached;
+}
+
+/**
+ * Whether a must-include the plan leaves out could have been placed, and if not, why: the rule
+ * that decides MUST_INCLUDE_MISSING (error) versus MUST_INCLUDE_UNPLACEABLE (warning).
+ */
+export function placeabilityOf(plan: Itinerary, placeId: string) {
+  return placeability(placeId, plan, buildDayFacts(plan, ctx()), ctx());
 }
 
 /**

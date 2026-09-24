@@ -3,7 +3,7 @@ import type { PlannerContext } from "./context";
 import type { Itinerary, Violation } from "./types";
 import { buildDayFacts, checkDayHeader, type DayFacts } from "./validate/days";
 import { checkDayTotals, checkReturn } from "./validate/dayTotals";
-import { checkMustIncludes, type Placeability, placeability } from "./validate/mustInclude";
+import { checkMustIncludes } from "./validate/mustInclude";
 import { newTripState } from "./validate/stopPlace";
 import { checkStops } from "./validate/stops";
 import { listText } from "./validate/text";
@@ -15,7 +15,6 @@ import { isError, makeViolation } from "./violations";
 // it; that separation is the product's main safety argument, so keep it.
 
 export { LATEST_MINUTE } from "./validate/days";
-export type { Placeability } from "./validate/mustInclude";
 export { VIOLATION_SEVERITY } from "./violations";
 
 /**
@@ -44,18 +43,6 @@ export function validateItinerary(itinerary: Itinerary, ctx: PlannerContext): Vi
 /** Only the errors, for callers that decide whether a plan may be shown. */
 export function validationErrors(itinerary: Itinerary, ctx: PlannerContext): Violation[] {
   return validateItinerary(itinerary, ctx).filter(isError);
-}
-
-/**
- * Whether a must-include place the plan leaves out could have been placed, and if not, why. The
- * same rule decides MUST_INCLUDE_MISSING (error) versus MUST_INCLUDE_UNPLACEABLE (warning).
- */
-export function mustIncludePlaceability(
-  itinerary: Itinerary,
-  ctx: PlannerContext,
-  placeId: string,
-): Placeability {
-  return placeability(placeId, itinerary, buildDayFacts(itinerary, ctx), ctx);
 }
 
 /** Day count and the number of distinct bases. */

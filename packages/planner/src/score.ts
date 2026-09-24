@@ -111,16 +111,6 @@ export function compareScored(a: ScoredPlace, b: ScoredPlace): number {
   return b.score - a.score || compareText(a.place.id, b.place.id);
 }
 
-/** Scores and sorts places, best first, ties by id. Does not filter; filter first. */
-export function rankPlaces(
-  places: readonly Place[],
-  request: ScoreRequest,
-  situation: ScoreSituation = {},
-): ScoredPlace[] {
-  const scored = places.map((place) => ({ place, score: scorePlace(place, request, situation) }));
-  return scored.sort(compareScored);
-}
-
 /** The distance the score charges for: capped for an outing, whose trip there is the point. */
 // Decision: a day trip is its own destination. Charged per km from the base (Pienza -4.2, Parma
 // -4.4, Siena -2.5 against a full interest match of +3), no day trip was ever planned, even for a

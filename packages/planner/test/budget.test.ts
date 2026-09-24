@@ -6,7 +6,7 @@ import { validateItinerary } from "../src/validate";
 import { makeRequest, realContext } from "./plannerFixtures";
 
 // The budget is a filter on suggestions, with two reviewed exceptions: one open-access public
-// space may rescue a day nothing within budget can fill (tripRescue.ts), and a meal place one
+// space may rescue a day nothing within budget can fill (tripWalk.ts), and a meal place one
 // price level over may seat a meal no place within budget can (pools.ts, isMealFallback). The
 // failures these tests prevent: an over-budget stop a thinner trip avoids, an over-budget visit,
 // a budget traveler left with no meal at all, and a fallback meal where one within budget fits.

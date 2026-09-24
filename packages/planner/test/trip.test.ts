@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { transferMinutes } from "../src/anchors";
 import * as planner from "../src/index";
-import { chooseWarnings, cleanSelection, compareViolations, planWarnings } from "../src/plan";
-import { scheduleDay } from "../src/schedule";
-import { attachReasons, scheduleTrip, withoutErrorStops } from "../src/trip";
+import { chooseWarnings, compareViolations, planWarnings } from "../src/plan";
+import { attachReasons, scheduleTrip } from "../src/trip";
 import type { DayPlan, Itinerary } from "../src/types";
 import { validateItinerary } from "../src/validate";
 import { makeViolation } from "../src/violations";
@@ -14,7 +13,6 @@ import { makeRequest, realContext } from "./plannerFixtures";
 // traveler an impossible or unexplained day.
 
 const ctx = realContext();
-const MONDAY = "2026-10-19";
 
 function base(id: string) {
   const anchor = ctx.anchorById.get(id);
@@ -120,42 +118,6 @@ describe("attachReasons", () => {
   });
 });
 
-describe("withoutErrorStops (last line of defense)", () => {
-  const time = (ids: readonly string[]) =>
-    scheduleDay(ids, MONDAY, base("rome"), makeRequest({ startDate: MONDAY }), ctx, 0);
-
-  it("drops a place that is closed that day and keeps the rest in order", () => {
-    expect(withoutErrorStops(["place_005", "place_007", "place_008"], time)).toEqual([
-      "place_005",
-      "place_008",
-    ]);
-  });
-
-  it("returns a clean day unchanged, and ends on a day-level error it cannot fix", () => {
-    expect(withoutErrorStops(["place_005", "place_008"], time)).toEqual(["place_005", "place_008"]);
-    expect(withoutErrorStops([], time)).toEqual([]);
-  });
-});
-
-describe("cleanSelection (defensive step of planDeterministic)", () => {
-  it("removes a stop scheduleDay rejects and keeps a clean draft exactly as it was", () => {
-    const request = makeRequest({ startDate: MONDAY });
-    const draft = {
-      anchorIds: ["rome", "rome", "rome"],
-      days: [["place_005", "place_007"], ["place_004"], ["place_016"]],
-      score: 0,
-    };
-    const cleaned = cleanSelection(draft, request, ctx);
-    expect(cleaned.map((day) => day.placeIds)).toEqual([
-      ["place_005"],
-      ["place_004"],
-      ["place_016"],
-    ]);
-    const clean = { ...draft, days: [["place_005"], ["place_004"], ["place_016"]] };
-    expect(cleanSelection(clean, request, ctx).map((day) => day.placeIds)).toEqual(clean.days);
-  });
-});
-
 describe("warning selection and order", () => {
   const own = [makeViolation("HOURS_UNKNOWN", "own", { day: 0, placeId: "place_021" })];
   const must = [makeViolation("MUST_INCLUDE_UNPLACEABLE", "why", { placeId: "place_064" })];
@@ -225,15 +187,8 @@ describe("package entry point", () => {
     "chooseWarnings",
     "planWarnings",
     "compareViolations",
-    "withoutErrorStops",
     "NoFeasiblePlanError",
   ])("exports %s as a function, so the API and web app never get undefined", (name) => {
     expect(typeof exported.get(name)).toBe("function");
-  });
-
-  it("never drops the scheduler tunables the web app displays", () => {
-    expect(planner.MAX_IDLE_MIN).toBe(30);
-    expect(planner.MEAL_WAIT_MAX_MIN).toBe(60);
-    expect(planner.ANCHOR_SHORTLIST).toBe(3);
   });
 });

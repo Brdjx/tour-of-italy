@@ -21,7 +21,7 @@ export const MAX_IDLE_MIN = 30;
  */
 // Decision: 18:00, when the data's evening-only places open ("Evenings"). A day that ends its
 // sights at 15:00 and meets again for Piazza Maggiore by night at 20:00 has no gap to fix; a
-// morning with nothing from 09:35 to 12:00 does (dayShape.ts, longestWait).
+// morning with nothing from 09:35 to 12:00 does (mealFill.ts, longestWait).
 export const EVENING_FROM = at(18);
 
 /**
@@ -32,7 +32,7 @@ export const EVENING_FROM = at(18);
 // Decision: 0.3 points, about 6 km of the distance term or a fifth of a star. From the middle of
 // Rome the Vatican Museums (an outing, so a morning start) score 0.13 below the Pantheon only for
 // the walk; a Rome trip starting on a Sunday has two open mornings, lost them both to sights open
-// all week, and never included the Vatican (0 of 312 trips). A clearly weaker place still loses.
+// all week, and never included the Vatican. A clearly weaker place still loses.
 export const LAST_CHANCE_MARGIN = 0.3;
 
 /**
@@ -54,16 +54,14 @@ export const ANCHOR_SHORTLIST = 3;
 
 /**
  * What a change of base costs a trip, in score points: a fixed cost for packing up and moving
- * hotel, plus a cost per hour on the train, plus a surcharge on a relaxed trip for a transfer
- * longer than LONG_TRANSFER_MIN. A second base must add more than this to be chosen.
+ * hotel, plus a cost per hour on the train. A second base must add more than this to be chosen.
  */
 // Decision: about a day of well-rated places for the move (10) plus 1.5 per hour. Measured over
 // every third day of 2026 and 2027: a plain request now stays in one base at every pace (it used
 // to take two in 100% of trips, 29% with a 3-hour train), while a second base that holds a
 // must-include (worth 100) or a day of interest matches (about 3 each: art on a packed trip)
-// still earns its transfer. The relaxed surcharge keeps a relaxed trip off a 3-hour train unless
-// the traveler asked for a place at the other end.
-export const TRANSFER_COST = { perMove: 10, perHour: 1.5, relaxedLongTransfer: 10 } as const;
+// still earns its transfer.
+export const TRANSFER_COST = { perMove: 10, perHour: 1.5 } as const;
 
 /**
  * What a must-include timed against a day rule (an outing after noon, a park after sunset) costs
@@ -113,8 +111,8 @@ export const SUNSET_BY_MONTH: readonly number[] = [
  */
 export const SATELLITE_AREA_KM = 25;
 
-/** A name that marks a pre-dinner stop (an aperitivo), never planned after dinner. */
-export const PRE_DINNER_NAME = /\baperitivo\b/i;
+/** A name that marks an aperitivo. */
+export const APERITIVO_NAME = /\baperitivo\b/i;
 
 /** An aperitivo visit starts no earlier than this, whatever its listed hours. */
 // Decision: 17:00, just before the aperitivo window the data policy reads from the name (17:30
@@ -127,12 +125,6 @@ export const APERITIVO_EARLIEST_START = at(17);
 // the day in 314 of 697 Venice plans; a glass of wine with cicchetti belongs after noon.
 export const AFTER_NOON_NAME = /\b(gelato|enoteca)\b/i;
 export const TREAT_EARLIEST_START = at(12);
-
-/** A tasting with no listed hours ends by DAYTIME_LATEST_END: a producer's working day. */
-// Decision: the balsamic vinegar tasting in Modena has no hours and was planned at 18:40 to
-// 20:10, while Acetaia Giusti next door closes at 18:00. Listed hours always win over this.
-export const DAYTIME_NAME = /\btasting\b/i;
-export const DAYTIME_LATEST_END = at(18);
 
 /**
  * Dates most museums and ticketed sites in Italy close (25 December, 1 January). The planner

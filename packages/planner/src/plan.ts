@@ -1,30 +1,23 @@
 import { compareText } from "./anchors";
 import type { PlannerContext } from "./context";
 import { fillMissingMeals } from "./mealFill";
-import { shareMeals } from "./mealShare";
-import { repairMustIncludes } from "./mustRepair";
 import { EPOCH_ISO } from "./planPolicy";
 import { PoolCache } from "./pools";
-import { shortenRoutes } from "./route";
-import { scheduleDay } from "./schedule";
-import { addDays, tripDates } from "./time";
-import { type DaySelection, scheduleTrip, withoutErrorStops } from "./trip";
-import { chooseTrip, type TripDraft } from "./tripBuilder";
+import { tripDates } from "./time";
+import { scheduleTrip } from "./trip";
+import { chooseTrip } from "./tripBuilder";
 import type { FallbackReason, Itinerary, ItineraryMeta, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
-import { isError, isWarning } from "./violations";
+import { isWarning } from "./violations";
 
 // planDeterministic: a whole trip from the rules alone. It is the plan when the AI layer is off
 // and the fallback whenever the AI path fails, so it must always return TRIP_DAYS days with no
-// error violation. Steps:
-//   1. choose bases and build days greedily (tripBuilder.ts, tripWalk.ts, dayBuilder.ts), each
-//      candidate trip with any must-include the walk left out inserted where it still fits
-//      (mustRepair.ts);
-//   2. reorder each day to travel less where that keeps every rule (route.ts), then repair again;
-//   3. seat any missing lunch or dinner an unused meal place can take (mealFill.ts), move a meal
-//      to a day with none from a day with two (mealShare.ts), and fill again;
-//   4. time the days with scheduleDay and add rule reasons (trip.ts);
-//   5. take the warnings, including why any must-include is missing, from the validator.
+// error violation. Steps (docs/planner.md has the diagram and the numbers behind each rule):
+//   1. choose bases and walk the days in turns (tripBuilder.ts, tripWalk.ts, dayBuilder.ts),
+//      inserting any must-include the walk left out where it still fits (mustRepair.ts);
+//   2. seat any lunch or dinner the walk missed that an unused meal place can take (mealFill.ts);
+//   3. time the days with scheduleDay and add rule reasons (trip.ts);
+//   4. take the warnings, including why any must-include is missing, from the validator.
 
 /** Options for planDeterministic. Nothing here changes which places are chosen. */
 export interface PlanOptions {
@@ -62,23 +55,14 @@ export function planDeterministic(
   const dates = tripDates(request.startDate);
   const chosen = chooseTrip(request, ctx, dates);
   if (!chosen) throw new NoFeasiblePlanError();
-  // Decision: the repair runs again after the route pass. A shorter order can move a
-  // must-include earlier and open the gap a missing one needs (Pienza after the Duomo), and the
-  // validator judges the final order, so the planner must too.
-  const routed = repairMustIncludes(
-    shortenRoutes(chosen, request, ctx, dates),
-    request,
-    ctx,
-    dates,
-  );
-  // Decision: meals are filled last, after every pass that may remove an ordinary stop. The fill
-  // only adds and the sharing only moves meal places, so no must-include is ever moved.
-  const pools = new PoolCache(request, ctx);
-  const fed = fillMissingMeals(routed, request, ctx, dates, pools);
-  // A day that gave a meal away may take an unused place the first fill could not seat there.
-  const shared = shareMeals(fed, request, ctx, dates, pools);
-  const refed = shared === fed ? fed : fillMissingMeals(shared, request, ctx, dates, pools);
-  const trip = scheduleTrip(request, cleanSelection(refed, request, ctx), ctx);
+  // Decision: meals are filled last, after the must-include repair that may remove an ordinary
+  // stop. The fill only adds, so no must-include is ever moved.
+  const fed = fillMissingMeals(chosen, request, ctx, dates, new PoolCache(request, ctx));
+  const selection = fed.anchorIds.map((anchorId, index) => ({
+    anchorId,
+    placeIds: fed.days[index] ?? [],
+  }));
+  const trip = scheduleTrip(request, selection, ctx);
   const itinerary: Itinerary = {
     request: copyRequest(request),
     days: trip.days,
@@ -91,39 +75,6 @@ export function planDeterministic(
     itinerary.meta.latencyMs = Math.max(0, opts.now() - startedAt);
   }
   return itinerary;
-}
-
-/**
- * The draft's days with any stop scheduleDay would reject removed. A defensive last step: the
- * greedy walk times stops exactly as scheduleDay does, so for its own drafts this never removes
- * anything (the sweep tests assert it); it exists so a future bug degrades to a shorter day
- * instead of an error-level plan.
- */
-export function cleanSelection(
-  draft: TripDraft,
-  request: TripRequest,
-  ctx: PlannerContext,
-): DaySelection[] {
-  const trial = scheduleTrip(request, selectionOf(draft), ctx);
-  if (!trial.violations.some(isError)) return selectionOf(draft);
-  return draft.anchorIds.map((anchorId, index) => {
-    const anchor = ctx.anchorById.get(anchorId);
-    const ids = draft.days[index] ?? [];
-    const day = trial.days[index];
-    if (!anchor || !day) return { anchorId, placeIds: ids };
-    const date = addDays(request.startDate, index);
-    const placeIds = withoutErrorStops(ids, (current) =>
-      scheduleDay(current, date, anchor, request, ctx, day.transferMin),
-    );
-    return { anchorId, placeIds };
-  });
-}
-
-function selectionOf(draft: TripDraft): DaySelection[] {
-  return draft.anchorIds.map((anchorId, index) => ({
-    anchorId,
-    placeIds: draft.days[index] ?? [],
-  }));
 }
 
 /**

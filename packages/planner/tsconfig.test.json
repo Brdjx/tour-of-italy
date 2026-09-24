@@ -1,9 +1,10 @@
 {
-  // Decision: tests get Node types (fs, crypto) and src does not, so any Node API in the planner
-  // is a type error. The planner runs in the browser too, so it must stay free of I/O.
+  // Decision: tests and the sweep scripts get Node types (fs, crypto) and src does not, so any
+  // Node API in the planner is a type error. The planner runs in the browser too, so it must
+  // stay free of I/O.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

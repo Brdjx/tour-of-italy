@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TRIP_DAYS } from "../src/config";
-import { buildDataset } from "../src/data";
 import { DataSummarySchema } from "../src/dataSchemas";
+import { buildDataset } from "../src/normalize/index";
 import { planDeterministic } from "../src/plan";
 import { ItinerarySchema, TripRequestSchema, tripRequestSchemaFor } from "../src/schemas";
 import { addDays, tripDates } from "../src/time";

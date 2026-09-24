@@ -3,9 +3,9 @@ import { LONG_TRANSFER_MIN } from "../../src/config";
 import { buildPlannerContext } from "../../src/context";
 import { travelMinutesForKm } from "../../src/travel";
 import type { Itinerary } from "../../src/types";
-import { mustIncludePlaceability, validateItinerary } from "../../src/validate";
+import { validateItinerary } from "../../src/validate";
 import { makePlace, makeRequest, northOf } from "../plannerFixtures";
-import { ctx, dayOf, errorCodes, miniTrip } from "./fixtures";
+import { dayOf, errorCodes, miniTrip, placeabilityOf } from "./fixtures";
 import { stop } from "./trips";
 
 // Edges a one-character bug would move: the long-transfer threshold, the visit cap inside the
@@ -72,7 +72,7 @@ describe("visit cap inside the placeability rule", () => {
   }
 
   it("treats a day with exactly maxVisits must-see visits as full, even with hours to spare", () => {
-    expect(mustIncludePlaceability(relaxedRomeDay(), ctx(), "place_008")).toEqual({
+    expect(placeabilityOf(relaxedRomeDay(), "place_008")).toEqual({
       placeable: false,
       reason: "the time on Tue 20 Oct 2026 is already taken by other places you asked for",
     });
@@ -81,7 +81,7 @@ describe("visit cap inside the placeability rule", () => {
   it("finds room again once one must-see on that day is only a meal", () => {
     const plan = relaxedRomeDay();
     plan.request.mustInclude = ["place_005", "place_018", "place_008"];
-    expect(mustIncludePlaceability(plan, ctx(), "place_008")).toEqual({ placeable: true, day: 0 });
+    expect(placeabilityOf(plan, "place_008")).toEqual({ placeable: true, day: 0 });
   });
 });
 
@@ -102,7 +102,7 @@ describe("meals a place serves", () => {
 describe("room around fixed must-see stops", () => {
   it("counts travel from the base: Piazza del Popolo at Dawn is out of reach on a balanced day", () => {
     const plan = miniTrip({ mustInclude: ["place_023"] }); // 06:00 to 10:00, 15 min from the base
-    expect(mustIncludePlaceability(plan, ctx(), "place_023")).toEqual({
+    expect(placeabilityOf(plan, "place_023")).toEqual({
       placeable: false,
       reason: "its opening hours do not fit a balanced day on any day of this trip",
     });
@@ -115,7 +115,7 @@ describe("room around fixed must-see stops", () => {
     dayOf(plan, 2).transferMin = 0;
     // Campo de' Fiori (until 13:00) could run 09:40 to 10:40, but the Vatican is 15 min away plus
     // a 10 min buffer, so it would have to end by 10:35.
-    expect(mustIncludePlaceability(plan, ctx(), "place_006")).toEqual({
+    expect(placeabilityOf(plan, "place_006")).toEqual({
       placeable: false,
       reason: "the time on Tue 20 Oct 2026 is already taken by other places you asked for",
     });

@@ -2,8 +2,17 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { MIN_SUGGEST_RATING, OUTING_DISTANCE_CAP_KM, SCORE_WEIGHTS } from "../src/config";
 import { placesOfAnchor } from "../src/context";
-import { DEFAULT_RATING, interestShare, rankPlaces, scoreParts, scorePlace } from "../src/score";
+import {
+  compareScored,
+  DEFAULT_RATING,
+  interestShare,
+  type ScoreRequest,
+  type ScoreSituation,
+  scoreParts,
+  scorePlace,
+} from "../src/score";
 import { addDays } from "../src/time";
+import type { Place } from "../src/types";
 import { FC_SETTINGS, makePlace, realContext, realPlace } from "./plannerFixtures";
 
 // Scoring picks which valid place comes next. It must be deterministic (the same request gives
@@ -118,6 +127,17 @@ describe("score terms", () => {
     );
   });
 });
+
+/** Places best first, as the planner compares them (compareScored): score, then id. */
+function rankPlaces(
+  places: readonly Place[],
+  request: ScoreRequest,
+  situation: ScoreSituation = {},
+) {
+  return places
+    .map((place) => ({ place, score: scorePlace(place, request, situation) }))
+    .sort(compareScored);
+}
 
 describe("ranking", () => {
   it("breaks exact ties by id, so the same request always gives the same order", () => {

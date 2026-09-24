@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Itinerary } from "../../src/types";
-import { mustIncludePlaceability, validateItinerary } from "../../src/validate";
-import { ctx, dayOf, key, miniTrip, redate, withCode } from "./fixtures";
+import { validateItinerary } from "../../src/validate";
+import { ctx, dayOf, key, miniTrip, placeabilityOf, redate, withCode } from "./fixtures";
 import { tripRome, tripTuscany } from "./trips";
 
 // Failure vector F1 (drop a must-include) and the fallback guarantee: a missing must-include is
@@ -17,7 +17,7 @@ function romeWithout(placeId: string, overrides: Partial<Itinerary["request"]> =
 }
 
 function verdict(plan: Itinerary, placeId: string) {
-  return mustIncludePlaceability(plan, ctx(), placeId);
+  return placeabilityOf(plan, placeId);
 }
 
 describe("MUST_INCLUDE_MISSING (error)", () => {

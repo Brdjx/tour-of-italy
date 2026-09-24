@@ -1,10 +1,10 @@
 import { transferMinutes } from "./anchors";
 import type { PlannerContext } from "./context";
 import { ruleReason, withMealsCovered } from "./reasons";
-import { type ScheduledDay, scheduleDay } from "./schedule";
+import { scheduleDay } from "./schedule";
 import { addDays } from "./time";
 import type { Anchor, DayPlan, Stop, TripRequest, Violation } from "./types";
-import { isError, makeViolation } from "./violations";
+import { makeViolation } from "./violations";
 
 // Timing a whole trip from ids: the planner's last step, and the same step the AI path and a
 // shared link need ("these ids on these days, now give me times, transfers, and reasons").
@@ -84,29 +84,4 @@ export function attachReasons(
     const reason = withMealsCovered(rule, place, stop, seated);
     return { ...stop, reason, reasonSource: "rule" };
   });
-}
-
-/**
- * The ids with every stop that scheduleDay reports as an error removed, repeated until the day
- * times cleanly. A last line of defense for planDeterministic: the greedy walk uses the same
- * timing as scheduleDay, so in practice nothing is ever removed (the sweep tests assert it).
- */
-export function withoutErrorStops(
-  ids: readonly string[],
-  schedule: (ids: readonly string[]) => ScheduledDay,
-): string[] {
-  let current = [...ids];
-  // Each round removes at least one id or returns, so this ends after ids.length + 1 rounds.
-  for (;;) {
-    const { stops, violations } = schedule(current);
-    const bad = new Set<string>();
-    for (const violation of violations) {
-      if (!isError(violation)) continue;
-      const stop = violation.stopIndex === undefined ? undefined : stops[violation.stopIndex];
-      bad.add(stop?.placeId ?? violation.placeId ?? "");
-    }
-    const next = current.filter((id) => !bad.has(id));
-    if (next.length === current.length) return current;
-    current = next;
-  }
 }

@@ -11,9 +11,8 @@ import type { Meal, Pace, Place, StopRole, TimeRange } from "./types";
 // fits one open range, ends in time to travel back to the base before the day window closes,
 // and (for a meal) starts inside the meal's window. The planner's own preferences tighten it for
 // places the traveler did not ask for: an outing starts by OUTING_LATEST_START, a park or
-// outdoor experience ends by sunset (a tasting by 18:00), and a museum takes no role on a
-// holiday. Feasibility only gets worse with a later arrival, so "arrive <= latest start" is the
-// whole test.
+// outdoor experience ends by sunset, and a museum takes no role on a holiday. Feasibility only
+// gets worse with a later arrival, so "arrive <= latest start" is the whole test.
 
 /** The latest feasible start for each role a place can take on one date. Absent = never. */
 export interface LatestStarts {
@@ -30,7 +29,6 @@ export interface LimitInput {
   origin: LatLng; // where the day starts and ends (dayOrigin)
   pool: readonly Place[];
   mustInclude: readonly string[]; // must-include meal places may also be visits
-  mealVisits?: boolean; // a rescued day: any meal place may be a visit (tripWalk.ts)
 }
 
 /**
@@ -68,7 +66,7 @@ export function latestStartsFor(input: LimitInput): Map<string, LatestStarts> {
       const latest = latestMealStart(ranges, meal, place.durationMin, usable(meal));
       if (latest !== null) entry[meal] = latest;
     }
-    if (mayVisit(place, input.mustInclude) || input.mealVisits) {
+    if (mayVisit(place, input.mustInclude)) {
       const cap = preferred && isOuting(place) ? OUTING_LATEST_START : Number.POSITIVE_INFINITY;
       const latest = latestVisitStart(ranges, place.durationMin, usable("visit"), cap);
       if (latest !== null) entry.visit = latest;

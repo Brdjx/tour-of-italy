@@ -4,10 +4,9 @@ import { DINNER_RETURN_GRACE_MIN } from "../src/config";
 import { dayWindow, earliestMealStart, earliestOpenStart, servesMeal } from "../src/constraints";
 import { anchorOfPlace } from "../src/context";
 import { fitsEmptyDay, type LatestStarts, latestStartsFor, mayVisit } from "../src/dayLimits";
-import { slotShortfall } from "../src/dayLookahead";
 import { addDays } from "../src/time";
 import { type LatLng, travelMinutes } from "../src/travel";
-import type { Meal, Pace, Place } from "../src/types";
+import type { Pace, Place } from "../src/types";
 import { FC_SETTINGS, realContext, realPlace } from "./plannerFixtures";
 
 // The greedy walk looks ahead with latest start times instead of re-running the constraint
@@ -25,52 +24,6 @@ function originOf(place: Place): LatLng {
   if (!anchor) throw new Error(`no base for ${place.id}`);
   return anchor.centroid;
 }
-
-function limitsFor(places: Place[], date = TUESDAY, pace: Pace = "balanced") {
-  const mustInclude = places.map((place) => place.id);
-  const origin = originOf(places[0] as Place);
-  return latestStartsFor({ date, pace, transferMin: 0, origin, pool: places, mustInclude });
-}
-
-function shortfall(ids: string[], clock: number, taken: Meal[] = [], visitsLeft = 5): number {
-  const places = ids.map(realPlace);
-  const florence = ctx.anchorById.get("florence")?.centroid ?? { lat: 0, lng: 0 };
-  const at = { clock, position: florence, first: true };
-  return slotShortfall(places, at, taken, visitsLeft, limitsFor(places));
-}
-
-describe("slot matching for must-include places", () => {
-  it("sees two dinner-only must-includes competing for the one dinner", () => {
-    expect(shortfall(["place_037", "place_041"], 600)).toBe(1);
-  });
-
-  it("sees no conflict when one of the two can still take lunch", () => {
-    expect(shortfall(["place_029", "place_037"], 600)).toBe(0);
-  });
-
-  it("sees the conflict appear once the lunch window has passed", () => {
-    expect(shortfall(["place_029", "place_037"], 900)).toBe(1);
-  });
-
-  it("never promises more visit slots than the pace's cap", () => {
-    expect(shortfall(["place_026", "place_032", "place_101"], 600, [], 2)).toBe(1);
-    expect(shortfall(["place_026", "place_032", "place_101"], 600, [], 3)).toBe(0);
-  });
-
-  it("counts a must-include that can no longer happen today as lost (Bargello after 14:00)", () => {
-    expect(shortfall(["place_101"], 840)).toBe(1);
-  });
-
-  it("lets a dinner-only cafe become a visit once dinner is taken, instead of counting it lost", () => {
-    expect(shortfall(["place_037"], 600, ["dinner"])).toBe(0);
-  });
-
-  it("never counts a meal place as a visit while its meal is still open (inference seats it)", () => {
-    // After lunch, Mercato Centrale could only be a visit once dinner is taken, so it and the
-    // dinner-only Rasputin compete for the one dinner even with visit slots to spare.
-    expect(shortfall(["place_031", "place_037"], 900, ["lunch"], 5)).toBe(1);
-  });
-});
 
 describe("latest start times agree with the constraint functions", () => {
   const anyCase = fc.record({

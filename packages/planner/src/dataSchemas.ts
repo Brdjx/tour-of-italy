@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ID_MAX_CHARS } from "./config";
 import { EXCLUSION_REASONS, ISSUE_KINDS, PLACE_TYPES } from "./enums";
-import type { Assert, Both } from "./typeChecks";
 import type { Anchor, DataIssue, DataSummary, ExcludedRecord, Place } from "./types";
 
 // Zod schemas for places and data notes, as served by GET /api/places and GET /api/data-issues.
@@ -136,7 +135,21 @@ export const DataSummarySchema = z.strictObject({
   ),
 });
 
-// Compile-time agreement between these schemas and the types in types.ts (typeChecks.ts).
+// Compile-time agreement between these schemas and the types in types.ts, here and at the bottom
+// of schemas.ts: each check fails the build if a Zod schema's output and its hand-written type
+// drift apart.
+
+/** Compiles only when T is exactly `true`. */
+export type Assert<T extends true> = T;
+
+/**
+ * true when A is assignable to B. The tuple wrap ([A] extends [B]) stops TypeScript from
+ * distributing over unions, so a union type is compared as a whole rather than member by member.
+ */
+export type Extends<A, B> = [A] extends [B] ? true : false;
+
+/** true when A and B are assignable both ways: the same type for every practical purpose. */
+export type Both<A, B> = Extends<A, B> extends true ? Extends<B, A> : false;
 
 export type DataSchemaTypeChecks = [
   Assert<Both<z.output<typeof PlaceSchema>, Place>>,
