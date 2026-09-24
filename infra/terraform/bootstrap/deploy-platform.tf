@@ -1,9 +1,10 @@
 # Deploy role, part 2: what `terraform apply` of infra/terraform/platform and the web upload need.
 #
-# Decision: as in part 1, CI updates and an admin creates. The certificate, distribution, origin
-# access control and response headers policy have generated ids and exist after the first (admin)
-# apply, so CI gets rights on exactly those ids: no create, no delete, no tagging of anything
-# else. A change that would replace one of them fails before anything is deleted.
+# Decision: as in part 1, CI updates and an admin creates. The certificate, the two distributions
+# (site and API host), the origin access control and the response headers policy have generated
+# ids and exist after the first (admin) apply, so CI gets rights on exactly those ids: no create,
+# no delete, no tagging of anything else. A change that would replace one of them fails before
+# anything is deleted.
 
 locals {
   deploy_platform_all_statements = [
@@ -56,27 +57,28 @@ locals {
       Resource = ["*"]
     },
     {
-      # Only the site's A and AAAA records, and only in the brdjx.com zone.
+      # Only the A and AAAA records of the two host names, and only in the brdjx.com zone.
       Sid      = "DnsSiteRecords"
       Effect   = "Allow"
       Action   = ["route53:ChangeResourceRecordSets"]
       Resource = [local.zone_arn]
       Condition = {
         "ForAllValues:StringEquals" = {
-          "route53:ChangeResourceRecordSetsNormalizedRecordNames" = [var.domain_name]
+          "route53:ChangeResourceRecordSetsNormalizedRecordNames" = local.host_names
           "route53:ChangeResourceRecordSetsRecordTypes"           = ["A", "AAAA"]
         }
         Null = { "route53:ChangeResourceRecordSetsNormalizedRecordNames" = "false" }
       }
     },
     {
-      # ACM validation records are CNAMEs named _<token>.<site name>.
+      # ACM validation records are CNAMEs named _<token>.<host name>, one per certificate name
+      # (the token is exactly 32 characters, arns.tf).
       Sid      = "DnsCertificateValidation"
       Effect   = "Allow"
       Action   = ["route53:ChangeResourceRecordSets"]
       Resource = [local.zone_arn]
       Condition = {
-        "ForAllValues:StringLike"   = { "route53:ChangeResourceRecordSetsNormalizedRecordNames" = ["_*.${var.domain_name}"] }
+        "ForAllValues:StringLike"   = { "route53:ChangeResourceRecordSetsNormalizedRecordNames" = local.validation_names }
         "ForAllValues:StringEquals" = { "route53:ChangeResourceRecordSetsRecordTypes" = ["CNAME"] }
         Null                        = { "route53:ChangeResourceRecordSetsNormalizedRecordNames" = "false" }
       }
@@ -106,17 +108,24 @@ locals {
       Resource = ["arn:aws:s3:::${local.web_bucket}/*"]
     },
     {
-      # No create or delete: the distribution is created by the first admin apply and removed
-      # only in an admin teardown.
-      Sid    = "CloudFrontDistribution"
+      # No create or delete: both distributions are created by the first admin apply and
+      # removed only in an admin teardown.
+      Sid    = "CloudFrontDistributions"
       Effect = "Allow"
       Action = [
         "cloudfront:GetDistribution", "cloudfront:GetDistributionConfig",
-        "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation",
-        "cloudfront:GetInvalidation", "cloudfront:ListInvalidations",
-        "cloudfront:ListTagsForResource", "cloudfront:TagResource", "cloudfront:UntagResource",
+        "cloudfront:UpdateDistribution", "cloudfront:ListTagsForResource",
+        "cloudfront:TagResource", "cloudfront:UntagResource",
       ]
       Resource = local.distribution_arns
+    },
+    {
+      # Decision: invalidations on the site only. The API host caches nothing, so CI has no
+      # reason to invalidate it.
+      Sid      = "CloudFrontSiteInvalidation"
+      Effect   = "Allow"
+      Action   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation", "cloudfront:ListInvalidations"]
+      Resource = local.site_distribution_arns
     },
     {
       Sid    = "CloudFrontFunctions"

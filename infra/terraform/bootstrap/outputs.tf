@@ -26,6 +26,7 @@ output "unpinned_resource_ids" {
     for name, id in {
       http_api_id                = var.http_api_id
       distribution_id            = var.distribution_id
+      api_distribution_id        = var.api_distribution_id
       origin_access_control_id   = var.origin_access_control_id
       response_headers_policy_id = var.response_headers_policy_id
       certificate_id             = var.certificate_id

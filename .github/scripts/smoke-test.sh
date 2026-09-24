@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Post-deploy smoke test for the live site. Runs every check, then fails if any failed.
+# Post-deploy smoke test for the live site and the public API host. Runs every check, then
+# fails if any failed.
 #
-# Env: SITE_URL, SHA (the commit that must be live), WEB_BUCKET, HTTP_API_URL (the direct
+# Env: SITE_URL (the web app, which calls /api on the same host), API_URL (the public API host,
+# paths without /api), SHA (the commit that must be live), WEB_BUCKET, HTTP_API_URL (the direct
 # execute-api URL), AWS_REGION (default us-east-1), SMOKE_PLAN_CHECK ("true" to also plan a trip).
 # Optional GITHUB_OUTPUT receives version=<api version>, GITHUB_STEP_SUMMARY a table of results.
-# Also runs by hand: SITE_URL=https://stripe.brdjx.com SHA=<sha> ... .github/scripts/smoke-test.sh
+# Also runs by hand: SITE_URL=https://italy-planner.brdjx.com
+#   API_URL=https://api.italy-planner.brdjx.com SHA=<sha> ... .github/scripts/smoke-test.sh
 set -uo pipefail
 
-: "${SITE_URL:?}" "${SHA:?}"
+: "${SITE_URL:?}" "${API_URL:?}" "${SHA:?}"
+SITE_URL="${SITE_URL%/}"
+API_URL="${API_URL%/}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
-host="${SITE_URL#https://}"
-host="${host%%/*}"
 results=()
 failed=0
 
@@ -26,23 +29,25 @@ record() { # record <pass|fail> <check> <detail>
 
 # Decision: 12 attempts 15 s apart (3 minutes) covers a Lambda cold start plus edge propagation.
 # The check is strict: the live API must report this exact commit, not just answer.
-check_health() {
-  local body="" attempt
+check_health() { # check_health <check> <url> [output-version]
+  local check="$1" url="$2" output_version="${3:-}" body="" attempt
   for attempt in $(seq 1 12); do
-    body="$(curl -sS --max-time 10 --fail "${SITE_URL}/api/health" 2>/dev/null || true)"
+    body="$(curl -sS --max-time 10 --fail "$url" 2>/dev/null || true)"
     if jq -e --arg sha "$SHA" '.ok == true and .commit == $sha' <<<"$body" >/dev/null 2>&1; then
       # The body is untrusted: only a short plain version string is passed on.
       local version
       version="$(jq -r '.version | tostring' <<<"$body")"
       [[ "$version" =~ ^[A-Za-z0-9._+-]{1,64}$ ]] || version="invalid"
-      [ -n "${GITHUB_OUTPUT:-}" ] && echo "version=${version}" >>"$GITHUB_OUTPUT"
-      record pass "health reports this commit" "attempt ${attempt}, version ${version}"
+      if [ -n "$output_version" ] && [ -n "${GITHUB_OUTPUT:-}" ]; then
+        echo "version=${version}" >>"$GITHUB_OUTPUT"
+      fi
+      record pass "$check" "attempt ${attempt}, version ${version}"
       return
     fi
-    echo "health attempt ${attempt}: not yet serving ${SHA}"
+    echo "${check}: attempt ${attempt} not yet serving ${SHA}"
     sleep 15
   done
-  record fail "health reports this commit" "never saw ok=true and commit=${SHA}"
+  record fail "$check" "never saw ok=true and commit=${SHA}"
 }
 
 expect_status() { # expect_status <check> <want> <curl args...>
@@ -52,21 +57,21 @@ expect_status() { # expect_status <check> <want> <curl args...>
   if [ "$got" = "$want" ]; then record pass "$check" "$got"; else record fail "$check" "got ${got}, want ${want}"; fi
 }
 
-check_redirect() {
-  local out code location
-  out="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "http://${host}/" || true)"
+check_redirect() { # check_redirect <check> <https url>: its http:// twin must redirect to it
+  local check="$1" url="$2" out code location
+  out="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "http://${url#https://}" || true)"
   code="${out%% *}"
   location="${out#* }"
-  if [[ "$code" =~ ^30[18]$ && "$location" == "https://${host}/"* ]]; then
-    record pass "HTTP redirects to HTTPS" "$code"
+  if [[ "$code" =~ ^30[18]$ && "$location" == "$url"* ]]; then
+    record pass "$check" "$code"
   else
-    record fail "HTTP redirects to HTTPS" "got '${out}'"
+    record fail "$check" "got '${out}'"
   fi
 }
 
-check_headers() {
-  local headers missing=()
-  headers="$(curl -sS -D - -o /dev/null --max-time 10 "${SITE_URL}/" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+check_headers() { # check_headers <check> <url>
+  local check="$1" url="$2" headers missing=()
+  headers="$(curl -sS -D - -o /dev/null --max-time 10 "$url" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
   grep -q '^strict-transport-security: .*max-age=[1-9]' <<<"$headers" || missing+=(hsts)
   grep -q '^content-security-policy: ' <<<"$headers" || missing+=(csp)
   grep -q '^x-content-type-options: nosniff' <<<"$headers" || missing+=(x-content-type-options)
@@ -75,9 +80,9 @@ check_headers() {
   grep -qE '^x-frame-options: |^content-security-policy: .*frame-ancestors' <<<"$headers" ||
     missing+=(frame-protection)
   if [ "${#missing[@]}" -eq 0 ]; then
-    record pass "security headers on /" "all present"
+    record pass "$check" "all present"
   else
-    record fail "security headers on /" "missing ${missing[*]}"
+    record fail "$check" "missing ${missing[*]}"
   fi
 }
 
@@ -99,10 +104,15 @@ check_plan() {
   fi
 }
 
-check_health
+# The site's /api/* and the API host reach the same function through two distributions, so both
+# must report the new commit. The version output comes from the site check.
+check_health "site /api/health reports this commit" "${SITE_URL}/api/health" output-version
+check_health "API host /health reports this commit" "${API_URL}/health"
 expect_status "index page" 200 --retry 3 "${SITE_URL}/"
-check_redirect
-check_headers
+check_redirect "site redirects HTTP to HTTPS" "${SITE_URL}/"
+check_redirect "API host redirects HTTP to HTTPS" "${API_URL}/health"
+check_headers "security headers on the site" "${SITE_URL}/"
+check_headers "security headers on the API host" "${API_URL}/health"
 # The API only answers through CloudFront (origin-verify header); the bucket only through OAC.
 if [ -n "${HTTP_API_URL:-}" ]; then
   expect_status "direct execute-api URL refused" 403 "${HTTP_API_URL%/}/api/health"

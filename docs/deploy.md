@@ -2,30 +2,59 @@
 
 ## Overview
 
-The site runs at https://stripe.brdjx.com in AWS account 388773186626, region us-east-1. The
-account is shared with other production stacks. CI can reach only this project's resources: those
-named `italy-planner-*`, and, for resources AWS names with generated ids (the HTTP API, the
-CloudFront distribution, its origin access control and headers policy, the certificate), exactly
+The web app runs at https://italy-planner.brdjx.com and the public API at
+https://api.italy-planner.brdjx.com, in AWS account 388773186626, region us-east-1. The account is
+shared with other production stacks. CI can reach only this project's resources: those named
+`italy-planner-*`, and, for resources AWS names with generated ids (the HTTP API, the two
+CloudFront distributions, the origin access control and headers policy, the certificate), exactly
 the ids pinned after the first deploy. A few read-only calls have no resource scope; see
 [What CI can reach](#what-ci-can-reach).
 
 ```
-browser -> CloudFront (WAF, security headers, stripe.brdjx.com)
+browser -> CloudFront site distribution (italy-planner.brdjx.com)
              /*      -> S3 bucket italy-planner-web-388773186626 (private, origin access control)
              /api/*  -> HTTP API italy-planner-api -> Lambda italy-planner-api
-                        (CloudFront adds x-origin-verify; the function refuses calls without it)
+
+scripts, evals, tools -> CloudFront API distribution (api.italy-planner.brdjx.com)
+             /*      -> the same HTTP API with origin path /api (/health reaches /api/health)
+
+Both distributions: one WAF web ACL, one security headers policy, one certificate for both
+names, and the x-origin-verify header (the function answers 403 to calls without it).
 ```
+
+### Why two hostnames
+
+The web app stays same-origin: it calls `/api/*` on its own host, so there is no CORS preflight,
+the CSP needs no second host (`connect-src 'self'` plus the map tiles), and one WAF path covers
+every browser call. The public API
+host serves scripts, evals and future tool clients with plain paths (`/health`, `/meta`,
+`/places`, `/data-issues`, `POST /plan`) through the same WAF rules and the same origin secret, so
+it opens no way around either. It sends no CORS headers, so it is not meant for other websites.
+
+```sh
+curl -s https://api.italy-planner.brdjx.com/health
+curl -s -X POST -H 'content-type: application/json' --data @request.json \
+  'https://api.italy-planner.brdjx.com/plan?mode=deterministic'
+```
+
+Paths on the API host have no `/api` prefix: CloudFront adds it, so
+`https://api.italy-planner.brdjx.com/api/health` reaches the function as `/api/api/health` and gets
+the JSON 404. Plain HTTP to the API host is redirected to HTTPS, which suits a browser or a `GET`;
+a `POST` over HTTP arrives without its body, so clients must use `https://`. The WAF plan limit
+counts `/api/plan` on the site, `/plan` on the API host and any path ending in `/plan` (so a
+leading `/../` cannot dodge it), and the AWS common rule set blocks requests without a
+`User-Agent` header (curl and most HTTP libraries send one).
 
 | Layer | Path | Applied by | State |
 |---|---|---|---|
 | Bootstrap: CI roles, permissions boundary, SAM artifacts bucket, budget | `infra/terraform/bootstrap` | an admin | `fortissimo-terraform-state`, `tour-of-italy/bootstrap.tfstate` |
 | API: Lambda, HTTP API, log group, alarms | `infra/sam` (stack `italy-planner-api`) | an admin once, then CI | CloudFormation |
-| Platform: certificate, DNS, web bucket, CloudFront, WAF, origin secret | `infra/terraform/platform` | an admin once, then CI | `tour-of-italy/platform.tfstate` |
+| Platform: certificate, DNS, web bucket, both CloudFront distributions, WAF, origin secret | `infra/terraform/platform` | an admin once, then CI | `tour-of-italy/platform.tfstate` |
 
-CI updates; an admin creates. The deploy role cannot create or delete the HTTP API, distribution,
-origin access control, headers policy or certificate, cannot change its own roles or policies,
-and every role it creates carries the `italy-planner-boundary` permissions boundary, which only
-works for the `italy-planner-api` function's own code.
+CI updates; an admin creates. The deploy role cannot create or delete the HTTP API, either
+distribution, the origin access control, headers policy or certificate, cannot change its own
+roles or policies, and every role it creates carries the `italy-planner-boundary` permissions
+boundary, which only works for the `italy-planner-api` function's own code.
 
 ## GitHub plan
 
@@ -109,26 +138,30 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
    pnpm install --frozen-lockfile && pnpm --filter @italy/api build
    bash .github/scripts/deploy-api.sh                        # prints http_api_url
    terraform -chdir=infra/terraform/platform init
-   terraform -chdir=infra/terraform/platform plan            # review: creates only
+   terraform -chdir=infra/terraform/platform plan            # review: creates only, two distributions
    bash .github/scripts/apply-platform.sh                    # prints web_bucket_name, distribution_id
    NEXT_PUBLIC_API_BASE="" pnpm --filter @italy/web build
    WEB_BUCKET=<web_bucket_name> DISTRIBUTION_ID=<distribution_id> bash .github/scripts/publish-web.sh
-   SITE_URL=https://stripe.brdjx.com WEB_BUCKET=<web_bucket_name> HTTP_API_URL=<http_api_url> \
-     bash .github/scripts/smoke-test.sh
+   SITE_URL=https://italy-planner.brdjx.com API_URL=https://api.italy-planner.brdjx.com \
+     WEB_BUCKET=<web_bucket_name> HTTP_API_URL=<http_api_url> bash .github/scripts/smoke-test.sh
    aws logs describe-log-streams --log-group-name /aws/lambda/italy-planner-api --max-items 1
    ```
 
-   The platform apply waits for certificate validation and the CloudFront rollout (10 to 20
-   minutes). A passing `/api/health` through the site and a log stream prove the boundary lets the
-   function read its parameter and write logs. Confirm the alarm subscription email.
+   The platform apply waits for certificate validation (one record per host name) and the
+   rollout of both distributions (10 to 20 minutes). A passing `/api/health` through the site,
+   `/health` through the API host and a log stream prove the boundary lets the function read its
+   parameter and write logs. Confirm the alarm subscription email.
 
-7. Pin the generated ids, so the CI roles can reach exactly these resources. Commit the file.
+7. Pin the six generated ids (the HTTP API, the site and API host distributions, the origin
+   access control, the headers policy and the certificate), so the CI roles can reach exactly
+   these resources. Commit the file.
 
    ```sh
    api_id="$(aws cloudformation describe-stacks --stack-name italy-planner-api \
      --query "Stacks[0].Outputs[?OutputKey=='HttpApiId'].OutputValue" --output text)"
    terraform -chdir=infra/terraform/platform output -json | jq -r --arg api "$api_id" '
      "http_api_id = \"\($api)\"", "distribution_id = \"\(.distribution_id.value)\"",
+     "api_distribution_id = \"\(.api_distribution_id.value)\"",
      "origin_access_control_id = \"\(.origin_access_control_id.value)\"",
      "response_headers_policy_id = \"\(.response_headers_policy_id.value)\"",
      "certificate_id = \"\(.certificate_arn.value | split("/") | last)\""' \
@@ -136,6 +169,7 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
    terraform fmt infra/terraform/bootstrap/deployed-ids.auto.tfvars
    terraform -chdir=infra/terraform/bootstrap plan -out=bootstrap.tfplan  # 3 policies updated in place
    terraform -chdir=infra/terraform/bootstrap apply bootstrap.tfplan
+   terraform -chdir=infra/terraform/bootstrap output unpinned_resource_ids  # []
    ```
 
 8. Turn CI on and prove the deploy role end to end with one run:
@@ -160,12 +194,17 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
   read-only plan role (only for runs started by `github_actor_ids`; others skip the plan).
 - Push to `main`: when CI passes, `deploy.yml` builds without credentials, then the `production`
   job assumes the deploy role and runs `deploy-api.sh`, `apply-platform.sh`, `publish-web.sh` and
-  `smoke-test.sh`. The smoke test requires `/api/health` to report the new commit, HTTPS
-  redirects, security headers, and 403 from both the direct execute-api URL and the direct S3 URL.
+  `smoke-test.sh`. The smoke test requires `/api/health` on the site and `/health` on the API host
+  to report the new commit, HTTPS redirects and security headers on both hosts, and 403 from both
+  the direct execute-api URL and the direct S3 URL.
 - An automatic deploy only moves production forward (`deploy-guard.sh`), so re-running an old
   CI run never rolls back by accident.
 - A change that would replace a pinned resource (for example a new certificate domain) fails in
   CI with AccessDenied before anything is deleted. Apply it by hand as in step 6, then repeat step 7.
+- To change a host name, set `site_domain` or `api_domain` in both `infra/terraform/bootstrap` and
+  `infra/terraform/platform` (`infra/test/hostnames.test.ts` fails if they differ), plus
+  `SITE_URL` or `API_URL` in `deploy.yml`. Apply the bootstrap first (the deploy role's Route 53
+  rights follow the names), then the platform by hand (the certificate is replaced), then step 7.
 
 ## Roll back
 
@@ -188,16 +227,18 @@ If the very first stack creation fails (`ROLLBACK_COMPLETE`), run
 ## Rotate the origin-verify secret
 
 Change the default of `origin_secret_rotation` in `infra/terraform/platform/variables.tf` (for
-example to today's date) and merge. The deploy writes a new value to SSM and to CloudFront's
-`x-origin-verify` header. Until the edge rollout finishes and the function's parameter cache
-expires (a few minutes), some `/api` calls get 403, so rotate at a quiet time. A `-var` applied
+example to today's date) and merge. The deploy writes a new value to SSM and to the
+`x-origin-verify` header of both distributions. Until both edge rollouts finish and the function's
+parameter cache expires (a few minutes), some `/api` calls on the site and some calls to the API
+host get 403, so rotate at a quiet time. A `-var` applied
 without a commit would be undone, with yet another secret, by the next deploy.
 
 ## Tear down
 
 As an admin, platform first (it reads the SAM stack's output). Empty the web bucket, including
 old versions and delete markers (`aws s3api list-object-versions`, then `delete-objects`, at most
-1000 keys per call), then run `terraform -chdir=infra/terraform/platform destroy`,
+1000 keys per call), then run `terraform -chdir=infra/terraform/platform destroy` (both
+distributions),
 `sam delete --stack-name italy-planner-api --region us-east-1` (from `infra/sam`) and
 `aws ssm delete-parameter --name /italy-planner/anthropic-api-key`. Empty
 `italy-planner-artifacts-388773186626` the same way, destroy the bootstrap, delete
@@ -224,17 +265,20 @@ Known exposures, accepted:
   and the distribution config, and the state holds it too. Pull request code runs with the plan
   role, so every account in `github_actor_ids` is trusted with the secret (pressing "Update
   branch" on someone else's pull request starts a run as you). With the secret a caller can reach
-  the execute-api URL around the WAF; API throttling (10 per second) and reserved concurrency (10)
-  still cap Claude spend.
+  the execute-api URL around the WAF; reserved concurrency (10) and API throttling (plan calls 1
+  per second, burst 6) still cap Claude spend.
 - Whoever can deploy can ship code that reads the Anthropic key. Only `deploy.yml` on `main`,
   started by `github_actor_ids`, can assume the deploy role.
 
 ## Costs
 
 At demo traffic the AWS bill is about $10 to $12 a month, almost all of it the WAF ($5 per web
-ACL plus $1 per rule, five rules, plus $0.60 per million requests). Lambda, the HTTP API
-($1 per million requests), CloudFront, S3, the CloudFront function and four alarms ($0.40) add
-cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
+ACL plus $1 per rule, five rules, plus $0.60 per million requests). One web ACL protects both
+distributions, and a CloudFront distribution has no fixed monthly cost, so the API host adds only
+its requests. Lambda, the HTTP API ($1 per million requests), CloudFront, S3, the CloudFront
+function and six alarms ($0.60) add cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
 The budget `italy-planner-monthly` (default $20) emails at 80% actual and 100% forecast. Claude API
 usage is billed by Anthropic, not AWS; it is capped by reserved concurrency (10), API throttling
-(10 per second), the WAF limit on `/api/plan` (30 per IP per 5 minutes) and the response cache.
+(plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the response
+cache. Both distributions share one web ACL and one rate rule, so one IP most likely has one count
+across both hosts, but AWS does not document that; at worst each host counts 30 separately.

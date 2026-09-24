@@ -19,7 +19,11 @@ on:
 permissions: {}
 
 env:
-  SITE_URL: https://stripe.brdjx.com
+  # The web app (it calls /api on this same host) and the public API host (paths without /api).
+  # infra/test/hostnames.test.ts keeps both equal to infra/terraform/platform site_domain and
+  # api_domain.
+  SITE_URL: https://italy-planner.brdjx.com
+  API_URL: https://api.italy-planner.brdjx.com
   AWS_ACCOUNT_ID: "388773186626"
   TF_IN_AUTOMATION: "true"
   NEXT_TELEMETRY_DISABLED: "1"
@@ -136,7 +140,7 @@ jobs:
     timeout-minutes: 45
     environment:
       name: production
-      url: https://stripe.brdjx.com
+      url: https://italy-planner.brdjx.com
     # Decision: concurrency on this job, not the workflow. A run that skips never enters the
     # group, so it cannot replace a waiting real deploy. GitHub still keeps only the newest waiting
     # deploy (an older waiting one is cancelled), which is fine going forward because the newer

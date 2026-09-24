@@ -1,7 +1,7 @@
 # Inputs this configuration reads but does not own.
 
 # The SAM stack must exist first (deploy.yml runs sam deploy before this). Its HttpApiDomain
-# output is the /api/* origin.
+# output is the origin of the site's /api/* behavior and of the API host.
 data "aws_cloudformation_stack" "api" {
   name = var.api_stack_name
 }

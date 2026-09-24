@@ -10,6 +10,7 @@ variables {
   github_subject_prefix      = "repo:Brdjx@8014925/tour-of-italy@1383701312"
   http_api_id                = "abc123def4"
   distribution_id            = "E2TESTDIST0001"
+  api_distribution_id        = "E2TESTAPI00001"
   origin_access_control_id   = "E3TESTOAC00001"
   response_headers_policy_id = "11111111-2222-3333-4444-555555555555"
   certificate_id             = "66666666-7777-8888-9999-000000000000"
@@ -133,6 +134,63 @@ run "rejects_a_region_other_than_us_east_1" {
   }
 
   expect_failures = [var.region]
+}
+
+run "rejects_host_names_outside_the_zone" {
+  command = plan
+
+  variables {
+    site_domain = "italy-planner.example.com"
+  }
+
+  expect_failures = [var.site_domain]
+}
+
+# The brdjx.com zone is shared: a name outside the project's subtree would give the deploy role
+# another stack's record. A name that only ends in "italy-planner.brdjx.com" is not under it.
+run "rejects_a_site_host_outside_the_project_subtree" {
+  command = plan
+
+  variables {
+    site_domain = "evilitaly-planner.brdjx.com"
+  }
+
+  expect_failures = [var.site_domain]
+}
+
+# A run of its own: Terraform skips api_domain's validation while site_domain is invalid.
+run "rejects_an_api_host_outside_the_project_subtree" {
+  command = plan
+
+  variables {
+    api_domain = "api.evilitaly-planner.brdjx.com"
+  }
+
+  expect_failures = [var.api_domain]
+}
+
+run "accepts_host_names_under_the_project_subtree" {
+  command = plan
+
+  variables {
+    site_domain = "beta.italy-planner.brdjx.com"
+    api_domain  = "api.beta.italy-planner.brdjx.com"
+  }
+
+  assert {
+    condition     = contains(one([for s in jsondecode(aws_iam_policy.deploy_platform.policy).Statement : s.Condition["ForAllValues:StringEquals"]["route53:ChangeResourceRecordSetsNormalizedRecordNames"] if s.Sid == "DnsSiteRecords"]), "api.beta.italy-planner.brdjx.com")
+    error_message = "A name under italy-planner.brdjx.com must be accepted and granted."
+  }
+}
+
+run "rejects_an_api_host_equal_to_the_site_host" {
+  command = plan
+
+  variables {
+    api_domain = "italy-planner.brdjx.com"
+  }
+
+  expect_failures = [var.api_domain]
 }
 
 run "artifacts_bucket_is_private_and_tls_only" {

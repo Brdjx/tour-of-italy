@@ -11,6 +11,7 @@ variables {
   github_subject_prefix      = "repo:Brdjx@8014925/tour-of-italy@1383701312"
   http_api_id                = "abc123def4"
   distribution_id            = "E2TESTDIST0001"
+  api_distribution_id        = "E2TESTAPI00001"
   origin_access_control_id   = "E3TESTOAC00001"
   response_headers_policy_id = "11111111-2222-3333-4444-555555555555"
   certificate_id             = "66666666-7777-8888-9999-000000000000"
@@ -189,15 +190,45 @@ run "deploy_role_cannot_read_the_anthropic_key" {
   }
 }
 
-run "dns_changes_are_limited_to_the_site_name" {
+run "dns_changes_are_limited_to_the_two_host_names" {
   command = plan
 
   assert {
-    condition = one([
+    condition = toset(one([
       for s in jsondecode(aws_iam_policy.deploy_platform.policy).Statement : s.Condition["ForAllValues:StringEquals"]["route53:ChangeResourceRecordSetsNormalizedRecordNames"]
       if s.Sid == "DnsSiteRecords"
-    ]) == ["stripe.brdjx.com"]
-    error_message = "Route 53 changes must be limited to stripe.brdjx.com."
+    ])) == toset(["italy-planner.brdjx.com", "api.italy-planner.brdjx.com"])
+    error_message = "Alias record changes must be limited to italy-planner.brdjx.com and api.italy-planner.brdjx.com."
+  }
+
+  assert {
+    condition = toset(one([
+      for s in jsondecode(aws_iam_policy.deploy_platform.policy).Statement : s.Condition["ForAllValues:StringLike"]["route53:ChangeResourceRecordSetsNormalizedRecordNames"]
+      if s.Sid == "DnsCertificateValidation"
+    ])) == toset(["_????????????????????????????????.italy-planner.brdjx.com", "_????????????????????????????????.api.italy-planner.brdjx.com"])
+    error_message = "Validation record changes must be limited to the ACM names of the two host names."
+  }
+
+  # IAM's "*" matches dots too: "_*.<name>" would allow _acme-challenge.<name>, which lets any
+  # public CA issue a certificate for the name. ACM tokens are exactly 32 characters.
+  assert {
+    condition = alltrue([
+      for pattern in one([
+        for s in jsondecode(aws_iam_policy.deploy_platform.policy).Statement : s.Condition["ForAllValues:StringLike"]["route53:ChangeResourceRecordSetsNormalizedRecordNames"]
+        if s.Sid == "DnsCertificateValidation"
+      ]) : !strcontains(pattern, "*") && startswith(pattern, "_${join("", [for i in range(32) : "?"])}.")
+    ])
+    error_message = "Validation record names must be _ plus exactly 32 characters of ACM token, never a * wildcard."
+  }
+
+  # Every record change must be limited by name and type, or the zone's other records are open.
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.deploy_platform.policy).Statement :
+      s.Condition.Null["route53:ChangeResourceRecordSetsNormalizedRecordNames"] == "false" && length(s.Condition["ForAllValues:StringEquals"]["route53:ChangeResourceRecordSetsRecordTypes"]) > 0
+      if contains(s.Action, "route53:ChangeResourceRecordSets")
+    ])
+    error_message = "Every Route 53 change statement must require record names and limit record types."
   }
 
   assert {

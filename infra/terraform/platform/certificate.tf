@@ -1,8 +1,10 @@
-# TLS certificate for the site, validated through DNS in the brdjx.com zone.
+# One TLS certificate for both host names, validated through DNS in the brdjx.com zone. Both
+# distributions use it.
 
 resource "aws_acm_certificate" "site" {
-  domain_name       = var.domain_name
-  validation_method = "DNS"
+  domain_name               = var.site_domain
+  subject_alternative_names = [var.api_domain]
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -10,7 +12,9 @@ resource "aws_acm_certificate" "site" {
 }
 
 locals {
-  # Decision: key the validation records by the configured name, not by the certificate's
+  certificate_names = [var.site_domain, var.api_domain]
+
+  # Decision: key the validation records by the configured names, not by the certificate's
   # computed validation options, so the set of records is known before the certificate exists.
   certificate_validation = {
     for option in aws_acm_certificate.site.domain_validation_options : option.domain_name => option
@@ -18,7 +22,7 @@ locals {
 }
 
 resource "aws_route53_record" "certificate_validation" {
-  for_each = toset([var.domain_name])
+  for_each = toset(local.certificate_names)
 
   zone_id = var.hosted_zone_id
   name    = local.certificate_validation[each.key].resource_record_name

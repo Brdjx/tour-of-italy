@@ -1,4 +1,5 @@
-# terraform test, platform root: API origin secret, web bucket, DNS and input checks.
+# terraform test, platform root: API origin secret, web bucket, DNS, certificate and input checks.
+# The API host's own distribution is covered in api-host.tftest.hcl.
 # Mocked providers, plan only: no credentials, no AWS calls.
 # Each run names the misconfiguration it prevents. Run: terraform -chdir=infra/terraform/platform test
 
@@ -25,6 +26,16 @@ override_resource {
     arn         = "arn:aws:cloudfront::388773186626:distribution/E2TESTDIST"
     id          = "E2TESTDIST"
     domain_name = "d111111abcdef8.cloudfront.net"
+  }
+}
+
+override_resource {
+  target          = aws_cloudfront_distribution.api
+  override_during = plan
+  values = {
+    arn         = "arn:aws:cloudfront::388773186626:distribution/E2TESTAPIDIST"
+    id          = "E2TESTAPIDIST"
+    domain_name = "d222222abcdef8.cloudfront.net"
   }
 }
 
@@ -118,23 +129,106 @@ run "web_bucket_is_private_and_readable_only_by_this_distribution" {
   }
 }
 
-run "dns_points_only_the_site_name_at_the_distribution" {
+run "dns_points_each_host_name_at_its_own_distribution" {
   command = plan
 
   assert {
-    condition     = alltrue([for r in aws_route53_record.site : r.name == "stripe.brdjx.com" && r.zone_id == "Z0808500BKXP102OKNM9" && r.allow_overwrite == false])
-    error_message = "Only stripe.brdjx.com may be written, and never over an existing record."
+    condition     = alltrue([for r in aws_route53_record.site : r.name == "italy-planner.brdjx.com" && r.zone_id == "Z0808500BKXP102OKNM9" && r.allow_overwrite == false])
+    error_message = "The site records must be italy-planner.brdjx.com in the brdjx.com zone, never written over an existing record."
   }
 
   assert {
-    condition     = toset([for r in aws_route53_record.site : r.type]) == toset(["A", "AAAA"])
-    error_message = "The site needs both IPv4 and IPv6 alias records."
+    condition     = alltrue([for r in aws_route53_record.api : r.name == "api.italy-planner.brdjx.com" && r.zone_id == "Z0808500BKXP102OKNM9" && r.allow_overwrite == false])
+    error_message = "The API host records must be api.italy-planner.brdjx.com in the brdjx.com zone, never written over an existing record."
   }
 
   assert {
-    condition     = aws_acm_certificate.site.domain_name == "stripe.brdjx.com" && aws_acm_certificate.site.validation_method == "DNS"
-    error_message = "The certificate must cover the site name and validate through DNS."
+    condition     = toset([for r in aws_route53_record.site : r.type]) == toset(["A", "AAAA"]) && toset([for r in aws_route53_record.api : r.type]) == toset(["A", "AAAA"])
+    error_message = "Both host names need IPv4 and IPv6 alias records."
   }
+
+  # Crossed aliases would send browsers to the API (no pages) and API clients to the site.
+  assert {
+    condition     = alltrue([for r in aws_route53_record.site : one(r.alias).name == "d111111abcdef8.cloudfront.net"])
+    error_message = "The site name must point at the site distribution."
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_route53_record.api : one(r.alias).name == "d222222abcdef8.cloudfront.net"])
+    error_message = "The API host name must point at the API distribution."
+  }
+}
+
+run "one_certificate_covers_both_host_names" {
+  command = plan
+
+  assert {
+    condition     = aws_acm_certificate.site.domain_name == "italy-planner.brdjx.com" && aws_acm_certificate.site.validation_method == "DNS"
+    error_message = "The certificate must be for the site name and validate through DNS."
+  }
+
+  assert {
+    condition     = toset(aws_acm_certificate.site.subject_alternative_names) == toset(["api.italy-planner.brdjx.com"])
+    error_message = "The certificate must also name the API host, or its distribution cannot use it."
+  }
+
+  assert {
+    condition     = toset(keys(aws_route53_record.certificate_validation)) == toset(["italy-planner.brdjx.com", "api.italy-planner.brdjx.com"])
+    error_message = "Each certificate name needs its own validation record, or validation never completes."
+  }
+}
+
+run "rejects_an_api_host_equal_to_the_site_host" {
+  command = plan
+
+  variables {
+    api_domain = "italy-planner.brdjx.com"
+  }
+
+  expect_failures = [var.api_domain]
+}
+
+run "rejects_a_site_host_outside_the_zone" {
+  command = plan
+
+  variables {
+    site_domain = "italy-planner.example.com"
+  }
+
+  expect_failures = [var.site_domain]
+}
+
+# The brdjx.com zone is shared with other stacks: the platform may only create names in the
+# project's own subtree (the bootstrap grants DNS rights on nothing else).
+run "rejects_a_site_host_outside_the_project_subtree" {
+  command = plan
+
+  variables {
+    site_domain = "evilitaly-planner.brdjx.com"
+  }
+
+  expect_failures = [var.site_domain]
+}
+
+# A run of its own: Terraform skips api_domain's validation while site_domain is invalid.
+run "rejects_an_api_host_outside_the_project_subtree" {
+  command = plan
+
+  variables {
+    api_domain = "api.evilitaly-planner.brdjx.com"
+  }
+
+  expect_failures = [var.api_domain]
+}
+
+run "rejects_a_wildcard_api_host" {
+  command = plan
+
+  variables {
+    api_domain = "*.italy-planner.brdjx.com"
+  }
+
+  expect_failures = [var.api_domain]
 }
 
 run "refuses_to_plan_without_the_sam_stack_output" {
@@ -146,7 +240,8 @@ run "refuses_to_plan_without_the_sam_stack_output" {
     values          = { outputs = {} }
   }
 
-  expect_failures = [aws_cloudfront_distribution.site]
+  # Both distributions use the SAM output as their API origin, so both must refuse.
+  expect_failures = [aws_cloudfront_distribution.site, aws_cloudfront_distribution.api]
 }
 
 run "rejects_a_plan_rate_limit_waf_cannot_enforce" {
