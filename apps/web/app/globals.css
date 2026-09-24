@@ -9,6 +9,19 @@
 @import "./styles/pwa.css";
 @import "./styles/skeleton.css";
 
+/* Decision: a stand-in with TikTok Sans's measurements while the font loads, so text does not
+   reflow when it arrives. next/font has no metrics for this family, so these are computed the way
+   next/font computes them (letter-frequency average width against Arial, then the hhea ascent and
+   descent), from TikTok Sans at weight 400, width 100 and optical size 16: body text. */
+@font-face {
+  font-family: "TikTok Sans Fallback";
+  src: local("Arial");
+  size-adjust: 104.49%;
+  ascent-override: 95.7%;
+  descent-override: 28.71%;
+  line-gap-override: 0%;
+}
+
 /*
  * Design tokens. The palette is a railway timetable: Ink text on a cool Stone page, Lagoon for
  * actions and the route, Rule hairlines, Limone for warnings, Signal for errors only. Components
@@ -98,7 +111,7 @@
   --color-focus: var(--focus);
   --color-toast-accent: var(--toast-accent);
   --color-toast-focus: var(--toast-focus);
-  --font-sans: var(--font-schibsted), system-ui, sans-serif;
+  --font-sans: var(--font-tiktok-sans), "TikTok Sans Fallback", system-ui, sans-serif;
 }
 
 /* Type scale: 14, 16, 20, 28, 40. */

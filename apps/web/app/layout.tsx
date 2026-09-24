@@ -1,15 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Schibsted_Grotesk } from "next/font/google";
+import { TikTok_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import { expectPlanScript } from "../lib/expectPlanScript";
 import "./globals.css";
 
 // Decision: one family, self-hosted by next/font at build time, so the page makes no request to
-// Google at runtime and the CSP can stay font-src 'self'.
-const schibsted = Schibsted_Grotesk({
+// Google at runtime and the CSP can stay font-src 'self'. TikTok Sans is one variable font with
+// every axis: weight 300 to 900, optical size 12 to 36 (applied from the font size), width 75 to
+// 150 (font-stretch) and slant 0 to -6 (font-style: oblique).
+const tiktokSans = TikTok_Sans({
   subsets: ["latin"],
+  axes: ["opsz", "slnt", "wdth"],
   display: "swap",
-  variable: "--font-schibsted",
+  variable: "--font-tiktok-sans",
 });
 
 export const metadata: Metadata = {
@@ -51,7 +54,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: the head script below may add data-expect-plan before React runs.
-    <html lang="en" className={schibsted.variable} suppressHydrationWarning>
+    <html lang="en" className={tiktokSans.variable} suppressHydrationWarning>
       <head>
         {/* Decision: an inline script (the CSP allows them) so a returning traveler or a shared
             link never paints the empty form first; see lib/expectPlanScript.ts. */}
