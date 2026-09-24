@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { TRIP_DAYS } from "../src/config";
 import { buildDataset } from "../src/data";
 import { DataSummarySchema } from "../src/dataSchemas";
+import { planDeterministic } from "../src/plan";
 import { ItinerarySchema, TripRequestSchema, tripRequestSchemaFor } from "../src/schemas";
+import { addDays, tripDates } from "../src/time";
 import type { Itinerary } from "../src/types";
 import { rawData } from "./helpers";
+import { realContext } from "./plannerFixtures";
 
 // The API validates requests with these schemas and the web app parses every response with them
 // (failure vector F8). A schema that is too loose lets garbage reach the planner or the screen;
@@ -30,7 +34,7 @@ const validItinerary: Itinerary = {
     mustInclude: [],
     exclude: [],
   },
-  days: ["2026-10-06", "2026-10-07", "2026-10-08"].map((date) => ({
+  days: tripDates("2026-10-06").map((date) => ({
     date,
     anchorId: "rome",
     transferMin: 0,
@@ -109,6 +113,20 @@ describe("TripRequestSchema", () => {
     expect(TripRequestSchema.safeParse(body).success).toBe(false);
   });
 
+  it("never accepts a start date whose trip would end after 2100 (the plan would fail its schema)", () => {
+    // The review's repro: 2100-12-30 and 2100-12-31 passed, and the plan's later days in 2101
+    // failed ItinerarySchema, so a valid request ended in the web app's error state.
+    const lastStart = addDays("2101-01-01", -TRIP_DAYS);
+    for (const startDate of [addDays(lastStart, 1), "2100-12-31"]) {
+      const parsed = TripRequestSchema.safeParse({ ...validRequest, startDate });
+      expect(parsed.success, startDate).toBe(false);
+      expect(parsed.error?.issues[0]?.path).toEqual(["startDate"]);
+    }
+    const request = TripRequestSchema.parse({ ...validRequest, startDate: lastStart });
+    const plan = planDeterministic(request, realContext());
+    expect(ItinerarySchema.safeParse(plan).success).toBe(true);
+  });
+
   it("allows 500 characters of notes after trimming surrounding space", () => {
     expect(
       TripRequestSchema.safeParse({ ...validRequest, notes: ` ${"x".repeat(500)} ` }).success,
@@ -124,7 +142,7 @@ describe("tripRequestSchemaFor", () => {
     anchorIds: new Set(["rome", "florence"]),
   });
 
-  it("accepts known interests, places, and bases", () => {
+  it("never rejects known interests, places, and bases", () => {
     expect(schema.safeParse({ ...validRequest, anchors: ["rome"] }).success).toBe(true);
   });
 
@@ -142,12 +160,25 @@ describe("tripRequestSchemaFor", () => {
 });
 
 describe("ItinerarySchema", () => {
-  it("accepts a well-formed plan", () => {
+  it("never rejects a well-formed plan the API would return", () => {
     expect(ItinerarySchema.safeParse(validItinerary).success).toBe(true);
   });
 
+  it("never rejects a plan that states each day's trip back to the base", () => {
+    const withReturn = {
+      ...validItinerary,
+      days: validItinerary.days.map((day) => ({ ...day, returnTravelMin: 20 })),
+    };
+    expect(ItinerarySchema.safeParse(withReturn).success).toBe(true);
+    const negative = {
+      ...withReturn,
+      days: withReturn.days.map((d) => ({ ...d, returnTravelMin: -5 })),
+    };
+    expect(ItinerarySchema.safeParse(negative).success).toBe(false);
+  });
+
   it.each<[string, (plan: Itinerary) => unknown]>([
-    ["two days instead of three", (plan) => ({ ...plan, days: plan.days.slice(0, 2) })],
+    ["one day short", (plan) => ({ ...plan, days: plan.days.slice(0, -1) })],
     [
       "an error-severity violation",
       (plan) => ({ ...plan, warnings: [{ ...plan.warnings[0], severity: "error" }] }),
@@ -190,7 +221,7 @@ describe("ItinerarySchema", () => {
 });
 
 describe("DataSummarySchema", () => {
-  it("accepts the summary built from the real data", () => {
+  it("never rejects the summary built from the real data", () => {
     expect(DataSummarySchema.safeParse(buildDataset(rawData()).summary).success).toBe(true);
   });
 });

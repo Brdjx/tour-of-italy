@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { DETAIL_MAX_CHARS, ID_MAX_CHARS } from "../src/config";
 import { type ScheduledDay, scheduleDay } from "../src/schedule";
-import { makeViolation } from "../src/scheduleChecks";
+import { ViolationSchema } from "../src/schemas";
 import type { TripRequest, ViolationCode } from "../src/types";
+import { makeViolation } from "../src/violations";
 import { makeRequest, realContext } from "./plannerFixtures";
 
 // scheduleDay must report every infeasible stop with the exact code, and still time it so the
@@ -125,7 +127,13 @@ describe("violation records", () => {
 
   it("cuts an absurdly long unknown id to 64 characters so the response schema never rejects it", () => {
     const violation = makeViolation("UNKNOWN_PLACE", "x", { placeId: "p".repeat(500) });
-    expect(violation.placeId).toHaveLength(64);
+    expect(violation.placeId).toHaveLength(ID_MAX_CHARS);
+  });
+
+  it("never lets a scheduler detail outgrow the response schema's 500 characters", () => {
+    const violation = makeViolation("UNKNOWN_PLACE", "d".repeat(900));
+    expect(violation.detail.length).toBeLessThanOrEqual(DETAIL_MAX_CHARS);
+    expect(ViolationSchema.safeParse(violation).success).toBe(true);
   });
 
   it("writes closure details in plain words with the weekday and date, never an em dash", () => {

@@ -8,7 +8,13 @@ const at = (hour: number, minute = 0): number => hour * 60 + minute;
 
 // ---------- Trip shape ----------
 
-/** Trip length in days. A 4-day trip is a one-line change here plus the UI copy. */
+/**
+ * Trip length in days. A 4-day trip is a one-line change here plus the UI copy: the planner, the
+ * validator, and the tests all read this constant, and the hand-written validator trips are
+ * fitted to it (test/validate/tripLength.ts). The whole planner suite passes at 3 and at 4.
+ */
+// Decision: 2 or 5 days also plan and validate, but some tests pin behavior that changes with
+// the length (a 2-day trip has no third day to corrupt; thin bases run dry over 5 days).
 export const TRIP_DAYS = 3;
 
 /**
@@ -33,11 +39,33 @@ export const PACE: Record<Pace, { dayStart: number; dayEnd: number; maxVisits: n
 // sides labelling a stop pushed past it differently.
 export const LATEST_MINUTE = 1800;
 
+/**
+ * An outing: a visit of at least OUTING_MIN_MINUTES that is not a meal place (a day trip, a bike
+ * ride, the Vatican Museums). An outing under way for at least MEAL_COVER_MIN minutes of a meal's
+ * start window includes that meal, so the day needs no separate stop for it.
+ */
+// Decision: 240 and 60 minutes. Every day trip in the data is 300 to 480 minutes and the longest
+// city visits are 240 (Vatican Museums, Appian Way by bike); a traveler eats during those, not
+// before. Burano from 09:05 to 14:05 is under way for two hours of the lunch window: lunch is on
+// the island, and "no lunch stop" would be a false alarm.
+export const OUTING_MIN_MINUTES = 240;
+export const MEAL_COVER_MIN = 60;
+
 /** When a meal may START. A lunch at 14:30 is fine; a lunch at 14:45 is not. */
 export const MEALS: Record<Meal, { earliestStart: number; latestStart: number }> = {
   lunch: { earliestStart: at(12), latestStart: at(14, 30) }, // 12:00 to 14:30
   dinner: { earliestStart: at(19), latestStart: at(21, 30) }, // 19:00 to 21:30
 };
+
+/**
+ * The trip back to the base after a dinner that ends the day may end up to this many minutes
+ * after the pace's day end. The dinner itself still ends inside the day window.
+ */
+// Decision: 30 minutes, for the walk home after a long dinner. A cicchetti crawl or an aperitivo
+// walk runs 3 hours from 19:00, so at a relaxed pace (day end 22:00) it ended at 22:00 with 20
+// minutes still to go and was never planned: relaxed Milan had no dinner on any day. After the
+// day's last dinner nothing else is planned, so the window only needs to cover getting home.
+export const DINNER_RETURN_GRACE_MIN = 30;
 
 // ---------- Travel ----------
 
@@ -64,6 +92,38 @@ export const TRAVEL = {
   bufferMin: 10, // slack between consecutive stops
 } as const;
 
+/**
+ * Areas where the local band is a water bus rather than a taxi or bus. A leg with both ends
+ * inside the box is labeled with `words`; the minutes are the same local band.
+ */
+export const WATER_BUS_AREAS: readonly {
+  name: string;
+  box: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  words: string;
+}[] = [
+  {
+    name: "Venice lagoon",
+    box: { minLat: 45.38, maxLat: 45.52, minLng: 12.28, maxLng: 12.46 },
+    words: "by vaporetto",
+  },
+];
+
+/**
+ * Islands reachable only by boat, as circles. A leg with one end on such an island and the other
+ * end off it is never a walk: it takes at least the local band (the water bus).
+ */
+// Decision: circles for the two lagoon islands in the data. San Giorgio Maggiore is 500 m from
+// the Doge's Palace, which the distance bands would call a 10-minute walk across open water.
+export const BOAT_ONLY_ISLANDS: readonly {
+  name: string;
+  lat: number;
+  lng: number;
+  radiusKm: number;
+}[] = [
+  { name: "San Giorgio Maggiore", lat: 45.4292, lng: 12.3434, radiusKm: 0.35 },
+  { name: "Burano", lat: 45.4852, lng: 12.4175, radiusKm: 0.8 },
+];
+
 // ---------- Bases (anchors) ----------
 
 /** A city with at least this many places becomes a base. */
@@ -83,15 +143,23 @@ export const LONG_TRANSFER_MIN = 180;
 // ---------- Scoring ----------
 
 /** Weights for scorePlace. Higher score is picked first; ties break by place id. */
+// Decision: iconic 0.75 and localFavorite 0.25 (it was 0.5 with no iconic term). With no
+// interests, 13 Roman local favorites (a book market, a gelato shop) outscored the Colosseum and
+// the Vatican Museums, which then never made a Rome trip. Headline sights now lead unless the
+// traveler's interests say otherwise (an interest match is worth up to 3).
 export const SCORE_WEIGHTS = {
   interestMatch: 3, // times the share of the traveler's interests the place matches
-  rating: 1.5, // times rating / 5 (a missing rating counts as 3.5)
-  localFavorite: 0.5, // bonus for the local-favorite tag
+  rating: 1.5, // times rating / 5 (a missing rating counts as MIN_SUGGEST_RATING)
+  iconic: 0.75, // bonus for the iconic tag: the sights a first visit is built around
+  localFavorite: 0.25, // bonus for the local-favorite tag
   hoursUnknownPenalty: 1.5, // hours not confirmed on that date
   distancePenaltyPerKm: 0.05, // per km from the previous stop
   repeatTypePenalty: 0.75, // same type as the previous stop
   mustInclude: 100, // must-include places always win
 } as const;
+
+/** An outing (a day trip) is charged for at most this distance by the score (score.ts). */
+export const OUTING_DISTANCE_CAP_KM = 10;
 
 /** Places rated below this are never suggested unless the traveler asks for them. */
 export const MIN_SUGGEST_RATING = 3.5;
@@ -124,6 +192,12 @@ export const REQUEST_LIMITS = {
 export const REASON_MAX_CHARS = 140;
 export const SUMMARY_MAX_CHARS = 300;
 
+/** Longest place or base id, violation detail, and claimed travel time the API schema accepts. */
+export const ID_MAX_CHARS = 64;
+export const DETAIL_MAX_CHARS = 500;
+export const MAX_TRAVEL_MINUTES = 1440; // any single leg, transfer, or trip back to the base
+
 // Data-cleaning policy (visit lengths, hours, notes, locations, reviewed tables) lives in
-// dataPolicy.ts and is re-exported here, so every tunable is still imported from config.
+// dataPolicy.ts and is re-exported here. The greedy planner's own tunables (how it walks a day
+// and picks bases) live in planPolicy.ts, because only the rules-only planner reads them.
 export * from "./dataPolicy";

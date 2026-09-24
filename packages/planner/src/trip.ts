@@ -1,10 +1,10 @@
 import { transferMinutes } from "./anchors";
 import type { PlannerContext } from "./context";
-import { ruleReason } from "./reasons";
+import { ruleReason, withMealsCovered } from "./reasons";
 import { type ScheduledDay, scheduleDay } from "./schedule";
-import { isError, makeViolation } from "./scheduleChecks";
 import { addDays } from "./time";
 import type { Anchor, DayPlan, Stop, TripRequest, Violation } from "./types";
+import { isError, makeViolation } from "./violations";
 
 // Timing a whole trip from ids: the planner's last step, and the same step the AI path and a
 // shared link need ("these ids on these days, now give me times, transfers, and reasons").
@@ -25,6 +25,7 @@ export interface ScheduledTrip {
  * Times each day of `selection` with scheduleDay. Day i is startDate plus i; the transfer is
  * the travel time from the previous known base (0 on day 1 and when the base does not change).
  * Stops get rule reasons, keeping a reason from `previous` when the same place keeps its role.
+ * Each day also gets returnTravelMin, its trip back to the base, for the timetable.
  * An unknown base gives an empty day and UNKNOWN_ANCHOR. Throws RangeError on a bad startDate.
  */
 export function scheduleTrip(
@@ -50,7 +51,8 @@ export function scheduleTrip(
       dayIndex: index,
     });
     const stops = attachReasons(scheduled.stops, request, ctx, previous[index]?.stops ?? []);
-    days.push({ date, anchorId: anchor.id, transferMin, stops });
+    const returnTravelMin = scheduled.returnTravelMin;
+    days.push({ date, anchorId: anchor.id, transferMin, stops, returnTravelMin });
     violations.push(...scheduled.violations);
     lastAnchor = anchor;
   });
@@ -68,6 +70,7 @@ export function attachReasons(
   ctx: PlannerContext,
   previous: readonly Stop[] = [],
 ): Stop[] {
+  const seated = stops.flatMap((stop) => (stop.role === "visit" ? [] : [stop.role]));
   return stops.map((stop, index) => {
     const kept = previous.find((old) => old.placeId === stop.placeId && old.role === stop.role);
     if (kept?.reason !== undefined && kept.reasonSource === "ai") {
@@ -77,11 +80,9 @@ export function attachReasons(
     if (!place) return { ...stop };
     const prevId = index === 0 ? undefined : stops[index - 1]?.placeId;
     const prevPlace = prevId === undefined ? null : (ctx.placesById.get(prevId) ?? null);
-    return {
-      ...stop,
-      reason: ruleReason(place, request, stop.role, prevPlace),
-      reasonSource: "rule",
-    };
+    const rule = ruleReason(place, request, stop.role, prevPlace);
+    const reason = withMealsCovered(rule, place, stop, seated);
+    return { ...stop, reason, reasonSource: "rule" };
   });
 }
 

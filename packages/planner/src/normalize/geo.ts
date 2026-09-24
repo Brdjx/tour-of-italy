@@ -17,9 +17,12 @@ export interface PointValue extends LatLng {
 
 const EARTH_RADIUS_KM = 6371;
 
+function toRad(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
 /** Great-circle distance in km. */
 export function haversineKm(a: LatLng, b: LatLng): number {
-  const toRad = (degrees: number) => (degrees * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
   const h =

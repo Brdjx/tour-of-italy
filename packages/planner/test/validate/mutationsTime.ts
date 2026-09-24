@@ -88,6 +88,13 @@ export const TIME_MUTATIONS: Mutation[] = [
     placeId: "place_052",
   },
   {
+    name: "end the last stop so late that the trip back to Bologna ends after 22:00",
+    build: tripTuscany,
+    corrupt: (p) => moveStop(p, 2, 4, 1290),
+    code: "OUTSIDE_DAY_WINDOW",
+    placeId: "place_052",
+  },
+  {
     name: "start the first stop after a 3 h 5 min transfer before the train arrives",
     build: tripNewYear,
     corrupt: (p) => moveStop(p, 1, 0, 600),

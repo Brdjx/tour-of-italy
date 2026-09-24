@@ -55,6 +55,29 @@ export function placesOfAnchor(ctx: PlannerContext, anchorId: string): Place[] {
   return result;
 }
 
+/** Symmetric same-spot links per context, built once: a link on either side counts. */
+const twinsByContext = new WeakMap<PlannerContext, Map<string, string[]>>();
+
+/**
+ * The places that share a spot (or an experience) with this one, in either direction, as
+ * sharesLocation answers it. Built once per context, so a check against a whole trip is cheap.
+ */
+export function twinIds(ctx: PlannerContext, placeId: string): readonly string[] {
+  let twins = twinsByContext.get(ctx);
+  if (!twins) {
+    twins = new Map();
+    for (const place of ctx.places) {
+      for (const other of place.sharedLocationWith) {
+        if (other === place.id) continue;
+        twins.set(place.id, [...new Set([...(twins.get(place.id) ?? []), other])]);
+        twins.set(other, [...new Set([...(twins.get(other) ?? []), place.id])]);
+      }
+    }
+    twinsByContext.set(ctx, twins);
+  }
+  return twins.get(placeId) ?? [];
+}
+
 /** The base a place belongs to, or undefined for an unknown place id. */
 export function anchorOfPlace(ctx: PlannerContext, placeId: string): Anchor | undefined {
   const anchorId = ctx.anchorIdByPlaceId.get(placeId);

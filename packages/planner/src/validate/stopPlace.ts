@@ -4,6 +4,7 @@ import { anchorOfPlace, type PlannerContext } from "../context";
 import { openStatusOn } from "../time";
 import { formatDuration } from "../travel";
 import type { Place, Stop, TripRequest, Violation } from "../types";
+import { makeViolation, type ViolationTarget } from "../violations";
 import type { DayFacts } from "./days";
 import {
   dateText,
@@ -14,7 +15,6 @@ import {
   spanText,
   weekdayPlural,
 } from "./text";
-import { type ViolationTarget, violation } from "./violations";
 
 // Checks that depend on which place a stop is: trip membership (duplicates, exclusions, shared
 // spots), the base, meals, opening hours on the day's date, budget, and rating.
@@ -42,16 +42,16 @@ export function checkMembership(
   const firstDay = trip.firstDayOf.get(stop.placeId);
   if (firstDay !== undefined) {
     const detail = `${name} is already in this trip on ${dayText(firstDay)}.`;
-    out.push(violation("DUPLICATE_PLACE", detail, target));
+    out.push(makeViolation("DUPLICATE_PLACE", detail, target));
   }
   if (isExcluded({ id: stop.placeId }, request)) {
-    out.push(violation("EXCLUDED_PLACE", `You asked to leave out ${name}.`, target));
+    out.push(makeViolation("EXCLUDED_PLACE", `You asked to leave out ${name}.`, target));
   }
   if (place && firstDay === undefined) {
     for (const other of trip.placed) {
       if (!sharesLocation(place, other)) continue;
       const detail = `${name} is at the same spot as ${other.name}, which is also in this trip.`;
-      out.push(violation("SAME_LOCATION", detail, target));
+      out.push(makeViolation("SAME_LOCATION", detail, target));
     }
     trip.placed.push(place);
   }
@@ -74,26 +74,28 @@ export function checkPlace(
   const out: Violation[] = [];
   if (timed && stop.end - stop.start !== place.durationMin) {
     const detail = `${place.name} is planned for ${formatDuration(stop.end - stop.start)}, but a visit takes ${formatDuration(place.durationMin)}.`;
-    out.push(violation("INVALID_TIME", detail, target));
+    out.push(makeViolation("INVALID_TIME", detail, target));
   }
   if (day.anchor && ctx.anchorIdByPlaceId.get(place.id) !== day.anchor.id) {
     const home = anchorOfPlace(ctx, place.id)?.name ?? "another";
     const detail = `${place.name} belongs to the ${home} base, but ${dayText(day.index)} is based in ${day.anchor.name}.`;
-    out.push(violation("OUTSIDE_ANCHOR", detail, target));
+    out.push(makeViolation("OUTSIDE_ANCHOR", detail, target));
   }
   if ((stop.role === "lunch" || stop.role === "dinner") && !servesMeal(place, stop.role)) {
-    out.push(violation("NOT_A_MEAL_PLACE", `${place.name} does not serve ${stop.role}.`, target));
+    out.push(
+      makeViolation("NOT_A_MEAL_PLACE", `${place.name} does not serve ${stop.role}.`, target),
+    );
   }
   if (timed && day.date !== null) out.push(...checkHours(stop, place, day.date, target));
   const price = place.priceLevel;
   const limit = request.maxPriceLevel;
   if (price !== null && limit !== null && !withinBudget(place, limit)) {
     const detail = `${place.name} is ${priceText(price)}, over your limit of ${priceText(limit)}.`;
-    out.push(violation("OVER_BUDGET", detail, target));
+    out.push(makeViolation("OVER_BUDGET", detail, target));
   }
   if (place.rating !== null && place.rating < MIN_SUGGEST_RATING) {
     const detail = `${place.name} is rated ${place.rating} out of 5, below the ${MIN_SUGGEST_RATING} we usually suggest.`;
-    out.push(violation("LOW_RATING", detail, target));
+    out.push(makeViolation("LOW_RATING", detail, target));
   }
   return out;
 }
@@ -107,17 +109,17 @@ function checkHours(stop: Stop, place: Place, date: string, target: ViolationTar
   const status = openStatusOn(place, date);
   if (status.state === "unknown") {
     const detail = `Opening hours for ${place.name} are not confirmed, so check before you go.`;
-    return [violation("HOURS_UNKNOWN", detail, target)];
+    return [makeViolation("HOURS_UNKNOWN", detail, target)];
   }
   if (status.state === "closed" && status.reason === "weekly") {
     const detail = `${place.name} is closed on ${weekdayPlural(date)}.`;
-    return [violation("CLOSED_AT_TIME", detail, target)];
+    return [makeViolation("CLOSED_AT_TIME", detail, target)];
   }
   if (status.state === "closed") {
     const detail = `${place.name} is closed on ${dateText(date)}${noteText(status.rule?.source)}.`;
-    return [violation("SEASONAL_CLOSED", detail, target)];
+    return [makeViolation("SEASONAL_CLOSED", detail, target)];
   }
   if (isOpenDuring(place, date, stop.start, stop.end) === "yes") return [];
   const detail = `${place.name} is open ${rangesText(status.ranges)} on ${dateText(date)}, but this visit runs ${spanText(stop.start, stop.end)}.`;
-  return [violation("CLOSED_AT_TIME", detail, target)];
+  return [makeViolation("CLOSED_AT_TIME", detail, target)];
 }

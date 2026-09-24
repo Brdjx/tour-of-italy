@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateItinerary } from "../../src/validate";
-import { ctx, dayOf, errorCodes, key, miniTrip, stopOf, withCode } from "./fixtures";
-import { stop } from "./trips";
+import { ctx, dayOf, errorCodes, key, miniTrip, redate, stopOf, withCode } from "./fixtures";
+import { itinerary, stop } from "./trips";
 
 // One test per stop-level code, each on the mini trip (Rome, Rome, Florence from Tue 20 Oct
 // 2026) with one change and the exact list of errors asserted.
@@ -88,10 +88,7 @@ describe("stop times", () => {
   });
 
   it("rejects a Borghese Gallery visit on its closed Monday (CLOSED_AT_TIME)", () => {
-    const plan = miniTrip({ startDate: "2026-10-19" });
-    ["2026-10-19", "2026-10-20", "2026-10-21"].forEach((date, i) => {
-      dayOf(plan, i).date = date;
-    });
+    const plan = redate(miniTrip({ startDate: "2026-10-19" }));
     dayOf(plan, 0).stops = [stop("place_007", 600, 720, 20, "visit")]; // Borghese Gallery
     expect(errorCodes(plan)).toEqual(["CLOSED_AT_TIME"]);
     expect(withCode(plan, "CLOSED_AT_TIME")[0]?.detail).toBe(
@@ -100,10 +97,7 @@ describe("stop times", () => {
   });
 
   it("rejects a seasonal place out of season, not as a time problem (SEASONAL_CLOSED)", () => {
-    const plan = miniTrip({ startDate: "2026-11-03" }); // same weekdays, one week into November
-    ["2026-11-03", "2026-11-04", "2026-11-05"].forEach((date, i) => {
-      dayOf(plan, i).date = date;
-    });
+    const plan = redate(miniTrip({ startDate: "2026-11-03" })); // same weekdays, in November
     dayOf(plan, 2).stops = [stop("place_035", 750, 1230, 50, "visit")]; // Chianti by bike
     expect(errorCodes(plan)).toEqual(["SEASONAL_CLOSED"]);
     expect(withCode(plan, "SEASONAL_CLOSED")[0]?.detail).toBe(
@@ -112,14 +106,17 @@ describe("stop times", () => {
   });
 
   it("rejects the Parma tour on a Saturday, its date rule says weekdays only (SEASONAL_CLOSED)", () => {
-    const plan = miniTrip({ startDate: "2026-10-22" });
-    ["2026-10-22", "2026-10-23", "2026-10-24"].forEach((date, i) => {
-      dayOf(plan, i).date = date;
+    const mini = miniTrip({ startDate: "2026-10-22" });
+    ["2026-10-22", "2026-10-23"].forEach((date, i) => {
+      dayOf(mini, i).date = date;
     });
-    const day = dayOf(plan, 2);
-    day.anchorId = "bologna";
-    day.transferMin = 155; // Rome to Bologna
-    day.stops = [stop("place_053", 830, 1190, 105, "visit")]; // Cheese and Prosciutto Tour
+    const saturday = {
+      date: "2026-10-24",
+      anchorId: "bologna",
+      transferMin: 155, // Rome to Bologna
+      stops: [stop("place_053", 830, 1190, 105, "visit")], // Cheese and Prosciutto Tour
+    };
+    const plan = itinerary(mini.request, [dayOf(mini, 0), dayOf(mini, 1), saturday]);
     expect(errorCodes(plan)).toEqual(["SEASONAL_CLOSED"]);
     expect(withCode(plan, "SEASONAL_CLOSED")[0]?.detail).toContain("weekday mornings only");
   });

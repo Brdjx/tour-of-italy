@@ -1,6 +1,7 @@
 import { REASON_MAX_CHARS } from "./config";
+import { coversMeal } from "./constraints";
 import { type LatLng, travelMode } from "./travel";
-import type { Place, PlaceType, StopRole, TripRequest } from "./types";
+import type { Meal, Place, PlaceType, Stop, StopRole, TripRequest } from "./types";
 
 // Rule-based reasons: one short sentence or two per stop, built only from the place's own data
 // and the request. Used by the deterministic planner, and in place of any AI reason the API
@@ -29,10 +30,10 @@ const FALLBACK: Record<StopRole, string> = {
 };
 
 /** Types named in a meal reason ("Lunch at a market in Testaccio"). */
-// Decision: other allowlisted meal places (a cicchetti crawl is an "experience") read as "Dinner
-// in Cannaregio", because "Dinner at an experience" is not plain English. Every venue word here
-// starts with a consonant, so the article is always "a".
-const MEAL_VENUE_TYPES: readonly PlaceType[] = ["restaurant", "cafe", "market", "shop"];
+// Decision: other allowlisted meal places (a cicchetti crawl is an "experience", Eataly a "shop")
+// read as "Dinner in Cannaregio", because "Dinner at an experience" or "at a shop" is not plain
+// English. Every venue word here starts with a consonant, so the article is always "a".
+const MEAL_VENUE_TYPES: readonly PlaceType[] = ["restaurant", "cafe", "market"];
 
 /** Most matched interests named in one reason, so the sentence stays short. */
 const MAX_NAMED_INTERESTS = 3;
@@ -65,6 +66,28 @@ export function ruleReason(
       ? visitSentences(place, request)
       : mealSentences(place, request, role, prevPlace ?? null);
   return fitSentences(sentences, FALLBACK[role]);
+}
+
+/**
+ * The reason with "Lunch is part of this outing." (or dinner) added when the stop is an outing
+ * under way through that meal's window and the day has no stop for that meal (`seated`), so the
+ * traveler sees why. Unchanged when the sentence does not fit REASON_MAX_CHARS.
+ */
+export function withMealsCovered(
+  reason: string,
+  place: Pick<Place, "mealCapable" | "durationMin">,
+  stop: Pick<Stop, "start" | "end" | "role">,
+  seated: readonly Meal[] = [],
+): string {
+  if (stop.role !== "visit") return reason;
+  const meals = (["lunch", "dinner"] as const).filter(
+    (meal) => !seated.includes(meal) && coversMeal(place, stop.start, stop.end, meal),
+  );
+  if (meals.length === 0) return reason;
+  const verb = meals.length > 1 ? "are" : "is";
+  const sentence = `${capitalize(joinWords([...meals]))} ${verb} part of this outing.`;
+  const next = `${reason} ${sentence}`;
+  return next.length <= REASON_MAX_CHARS ? next : reason;
 }
 
 function visitSentences(

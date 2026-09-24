@@ -1,4 +1,5 @@
 import { buildPlannerContext, type PlannerContext } from "../../src/context";
+import { addDays } from "../../src/time";
 import type {
   DayPlan,
   Itinerary,
@@ -9,6 +10,7 @@ import type {
 } from "../../src/types";
 import { validateItinerary } from "../../src/validate";
 import { realResult } from "../helpers";
+import { fittedWarnings } from "./tripLength";
 import { itinerary, stop, tripMilan, tripNewYear, tripRome, tripTuscany } from "./trips";
 
 // Shared helpers for the validator tests: the real context, the valid trips with the exact
@@ -71,26 +73,31 @@ export interface ValidTrip {
 }
 
 export const VALID_TRIPS: readonly ValidTrip[] = [
-  { name: "Rome, balanced", build: tripRome, warnings: [] },
+  { name: "Rome, balanced", build: tripRome, warnings: fittedWarnings([]) },
   {
     name: "Florence and Bologna, relaxed",
     build: tripTuscany,
-    warnings: ["HOURS_UNKNOWN 1 place_035", "MEAL_MISSING 1 -"],
+    // No MEAL_MISSING for day 2's lunch: the Chianti bike day covers it (coversMeal).
+    warnings: fittedWarnings(["HOURS_UNKNOWN 1 place_035"]),
   },
   {
     name: "Milan, packed",
     build: tripMilan,
-    warnings: [
+    warnings: fittedWarnings([
       "MEAL_MISSING 1 -",
       "OVER_BUDGET 2 place_102",
       "MEAL_MISSING 2 -",
       "MEAL_MISSING 2 -",
-    ],
+    ]),
   },
   {
     name: "Rome to Venice over New Year, packed",
     build: tripNewYear,
-    warnings: ["LOW_RATING 0 place_025", "LONG_TRANSFER 1 -", "HOURS_UNKNOWN 2 place_071"],
+    warnings: fittedWarnings([
+      "LOW_RATING 0 place_025",
+      "LONG_TRANSFER 1 -",
+      "HOURS_UNKNOWN 2 place_071",
+    ]),
   },
 ];
 
@@ -109,6 +116,14 @@ export function errorCodes(plan: Itinerary): ViolationCode[] {
 /** The violations for a plan with the given code. */
 export function withCode(plan: Itinerary, code: ViolationCode): Violation[] {
   return validateItinerary(plan, ctx()).filter((item) => item.code === code);
+}
+
+/** Dates every day of the plan from its request's start date: day i is the start plus i. */
+export function redate(plan: Itinerary): Itinerary {
+  plan.days.forEach((day, index) => {
+    day.date = addDays(plan.request.startDate, index);
+  });
+  return plan;
 }
 
 /** A day of a plan, throwing when it is missing so a bad index fails loudly. */

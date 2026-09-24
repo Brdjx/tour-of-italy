@@ -1,18 +1,24 @@
+import { dayOrigin } from "./anchors";
+import { MAX_TRAVEL_MINUTES } from "./config";
 import { isCandidate, sharesLocation } from "./constraints";
 import { type PlannerContext, placesOfAnchor } from "./context";
 import { mayVisit } from "./dayLimits";
 import { compareViolations } from "./plan";
 import { scheduleDay } from "./schedule";
-import { isError, makeViolation } from "./scheduleChecks";
 import { compareScored, scorePlace } from "./score";
+import { idsOf, replaceStop, requireIndex } from "./stopEdits";
+import { isValidIsoDate } from "./time";
 import { attachReasons } from "./trip";
-import type { DayPlan, Itinerary, Place, Stop, Violation } from "./types";
+import type { DayPlan, Itinerary, Place, Stop, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
+import { isError, isWarning, makeViolation } from "./violations";
+
+export { moveStop, removeStop, replaceStop } from "./stopEdits";
 
 // Edits in the browser: remove, move, and swap a stop, then retime the day. The reducer builds a
 // new order with removeStop, moveStop, or replaceStop and passes it to rescheduleDay. Swap only
 // offers alternatives whose rebuilt day passes scheduleDay and the validator, so the common path
-// never produces an error.
+// never produces an error. After every edit the warnings are the validator's (planWarnings).
 
 /** A place that can replace a stop, with the day as it would be after the swap. */
 export interface Alternative {
@@ -24,90 +30,116 @@ export interface Alternative {
 
 /** A day retimed after an edit. */
 export interface RescheduledDay {
-  itinerary: Itinerary; // a copy with the day rebuilt and that day's warnings refreshed
+  itinerary: Itinerary; // a copy with the day rebuilt and the whole trip's warnings refreshed
   violations: Violation[]; // everything scheduleDay found on the rebuilt day, errors included
-}
-
-function requireIndex(index: number, length: number, what: string): void {
-  if (!Number.isInteger(index) || index < 0 || index >= length) {
-    throw new RangeError(`${what} ${index} is out of range 0 to ${length - 1}`);
-  }
-}
-
-function idsOf(day: DayPlan): string[] {
-  return day.stops.map((stop) => stop.placeId);
-}
-
-/** The day's ids without the stop at `stopIndex`. Throws RangeError on a bad index. */
-export function removeStop(day: DayPlan, stopIndex: number): string[] {
-  requireIndex(stopIndex, day.stops.length, "Stop");
-  return idsOf(day).filter((_, index) => index !== stopIndex);
-}
-
-/** The day's ids with the stop at `from` moved to `to`. Throws RangeError on a bad index. */
-export function moveStop(day: DayPlan, from: number, to: number): string[] {
-  requireIndex(from, day.stops.length, "Stop");
-  requireIndex(to, day.stops.length, "Stop");
-  const ids = idsOf(day);
-  const [moved] = ids.splice(from, 1);
-  ids.splice(to, 0, moved as string);
-  return ids;
-}
-
-/** The day's ids with the stop at `stopIndex` replaced by `placeId`. Throws on a bad index. */
-export function replaceStop(day: DayPlan, stopIndex: number, placeId: string): string[] {
-  requireIndex(stopIndex, day.stops.length, "Stop");
-  const ids = idsOf(day);
-  ids[stopIndex] = placeId;
-  return ids;
 }
 
 /**
  * Retimes day `dayIndex` with `orderedIds` using the day's own date, base, and transfer. Roles
  * are inferred again from the new order. AI reasons are kept for stops that keep their place and
- * role; every other stop gets a rule reason. The itinerary's warnings become the validator's
- * warnings for the edited trip; other days are untouched. Throws RangeError on a bad day index.
+ * role; every other stop gets a rule reason. A must-include the edit takes out of the trip is
+ * taken off request.mustInclude too. The itinerary's warnings become the validator's warnings
+ * for the edited trip; other days are untouched. A day whose date or transfer is not valid is
+ * left as it was, with the validator's errors for it. Throws RangeError on a bad day index.
  */
+// Decision: removing a place you asked for is an explicit choice, so it leaves the must-include
+// list. Before, the browser showed the edited plan as clean while the server's validator called
+// it MUST_INCLUDE_MISSING, and a shared link of it failed. Swaps still never replace a must-
+// include (alternativesFor), because a suggestion should not undo a request.
 export function rescheduleDay(
   itinerary: Itinerary,
   dayIndex: number,
   orderedIds: readonly string[],
   ctx: PlannerContext,
 ): RescheduledDay {
-  const rebuilt = rebuildDay(itinerary, dayIndex, orderedIds, ctx);
+  const rebuilt = rebuildDay(itinerary, dayIndex, orderedIds, ctx, true);
   return { itinerary: rebuilt.itinerary, violations: rebuilt.violations };
 }
 
-/** rescheduleDay plus the validator's full verdict on the edited trip, so callers reuse it. */
+/** rescheduleDay's work, plus the validator's verdict on the edited trip for alternativesFor. */
 function rebuildDay(
   itinerary: Itinerary,
   dayIndex: number,
   orderedIds: readonly string[],
   ctx: PlannerContext,
-): RescheduledDay & { validation: Violation[] } {
+  dropRemovedMustIncludes: boolean,
+): Rebuilt {
   requireIndex(dayIndex, itinerary.days.length, "Day");
   const day = itinerary.days[dayIndex] as DayPlan;
   const anchor = ctx.anchorById.get(day.anchorId);
-  if (!anchor) {
-    const detail = "This day's base is not in the data.";
-    const violations = [makeViolation("UNKNOWN_ANCHOR", detail, { day: dayIndex })];
-    const copy = { ...itinerary, days: [...itinerary.days] };
-    return { itinerary: copy, violations, validation: validateItinerary(copy, ctx) };
-  }
+  if (!anchor || !canTime(day)) return unchangedDay(itinerary, dayIndex, ctx, anchor !== undefined);
   const { request } = itinerary;
-  const scheduled = scheduleDay(orderedIds, day.date, anchor, request, ctx, day.transferMin, {
-    dayIndex,
-  });
+  const timing = { dayIndex };
+  const scheduled = scheduleDay(
+    orderedIds,
+    day.date,
+    anchor,
+    request,
+    ctx,
+    day.transferMin,
+    timing,
+  );
   const stops = attachReasons(scheduled.stops, request, ctx, day.stops);
-  const days = itinerary.days.map((old, index) => (index === dayIndex ? { ...old, stops } : old));
-  const edited = { ...itinerary, days };
+  const rebuiltDay = { ...day, stops, returnTravelMin: scheduled.returnTravelMin };
+  const days = itinerary.days.map((old, index) => (index === dayIndex ? rebuiltDay : old));
+  const kept = dropRemovedMustIncludes
+    ? withoutRemovedMustIncludes(request, itinerary.days, days)
+    : request;
+  const edited = { ...itinerary, request: kept, days };
   const validation = validateItinerary(edited, ctx);
   // Decision: the validator's warnings are the source of truth after an edit, as they are for a
-  // new plan (chooseWarnings in plan.ts). Refreshing only the edited day from scheduleDay gave
-  // the same codes in different words, and lost trip-level warnings such as a SAME_LOCATION
-  // pair across days (property tests, disagreement 3 in the T17 report).
-  const warnings = validation.filter((violation) => !isError(violation)).sort(compareViolations);
+  // new plan (planWarnings in plan.ts). Refreshing only the edited day from scheduleDay gave the
+  // same codes in different words and lost trip-level warnings such as a SAME_LOCATION pair
+  // across days (see disagreement 3 in test/disagreements.test.ts).
+  const warnings = validation.filter(isWarning).sort(compareViolations);
   return { itinerary: { ...edited, warnings }, violations: scheduled.violations, validation };
+}
+
+/** A rebuilt day, plus the validator's full verdict on the edited trip so callers reuse it. */
+type Rebuilt = RescheduledDay & { validation: Violation[] };
+
+/**
+ * A day that cannot be timed (an unknown base, a date or transfer that is not valid) left as it
+ * was, with UNKNOWN_ANCHOR or the validator's errors for that day.
+ */
+function unchangedDay(
+  itinerary: Itinerary,
+  dayIndex: number,
+  ctx: PlannerContext,
+  knownBase: boolean,
+): Rebuilt {
+  const days = [...itinerary.days];
+  const validation = validateItinerary({ ...itinerary, days }, ctx);
+  const warnings = validation.filter(isWarning).sort(compareViolations);
+  const unknown = "This day's base is not in the data.";
+  const violations = knownBase
+    ? validation.filter((v) => isError(v) && v.day === dayIndex)
+    : [makeViolation("UNKNOWN_ANCHOR", unknown, { day: dayIndex })];
+  return { itinerary: { ...itinerary, days, warnings }, violations, validation };
+}
+
+/** True when the day's date and transfer are valid enough to time stops (the schema's rules). */
+function canTime(day: DayPlan): boolean {
+  const transfer = day.transferMin;
+  return (
+    isValidIsoDate(day.date) &&
+    Number.isInteger(transfer) &&
+    transfer >= 0 &&
+    transfer <= MAX_TRAVEL_MINUTES
+  );
+}
+
+/** The request without the must-includes that were in `before` and are not in `after`. */
+function withoutRemovedMustIncludes(
+  request: TripRequest,
+  before: readonly DayPlan[],
+  after: readonly DayPlan[],
+): TripRequest {
+  const had = new Set(before.flatMap(idsOf));
+  const has = new Set(after.flatMap(idsOf));
+  const removed = request.mustInclude.filter((id) => had.has(id) && !has.has(id));
+  if (removed.length === 0) return request;
+  return { ...request, mustInclude: request.mustInclude.filter((id) => !removed.includes(id)) };
 }
 
 /**
@@ -115,7 +147,9 @@ function rebuildDay(
  * A candidate is in the day's base, not used elsewhere in the trip, not sharing a location with
  * a used place, not excluded, suggestable, and within budget. It is kept only when the rebuilt
  * day has no error from scheduleDay, every stop keeps its role (a lunch is swapped for a lunch),
- * and the validator finds no new error. Returns [] for an index or base that does not exist.
+ * and the validator finds no error on the edited day and no new error elsewhere. Returns [] for
+ * an index or base that does not exist, or a day whose date or transfer is not valid. Like
+ * validateItinerary, it expects a value of the Itinerary type (parse with ItinerarySchema first).
  */
 export function alternativesFor(
   itinerary: Itinerary,
@@ -127,23 +161,26 @@ export function alternativesFor(
   const day = itinerary.days[dayIndex];
   const current = day?.stops[stopIndex];
   const anchor = day ? ctx.anchorById.get(day.anchorId) : undefined;
-  if (!day || !current || !anchor || !Number.isFinite(limit) || limit < 1) return [];
+  if (!day || !current || !anchor || !canTime(day) || !Number.isFinite(limit) || limit < 1) {
+    return [];
+  }
   const { request } = itinerary;
   const used = usedPlaces(itinerary, ctx, dayIndex, stopIndex);
   const baseline = new Set(validateItinerary(itinerary, ctx).filter(isError).map(errorKey));
   const previous = stopIndex === 0 ? undefined : placeOf(ctx, day.stops[stopIndex - 1]);
   const situation = {
     date: day.date,
-    from: previous ?? anchor.centroid,
+    from: previous ?? dayOrigin(anchor, request),
     previousType: previous?.type ?? null,
   };
   const found: Alternative[] = [];
   for (const place of placesOfAnchor(ctx, anchor.id)) {
     if (place.id === current.placeId || !isCandidate(place, request, anchor.id, ctx)) continue;
     if (used.some((other) => other.id === place.id || sharesLocation(other, place))) continue;
-    // A restaurant replaces a visit only when the traveler asked for it, as in the planner.
+    // A meal place replaces a visit only when the traveler asked for it, as in the planner.
     if (current.role === "visit" && !mayVisit(place, request.mustInclude)) continue;
-    const rebuilt = rebuildDay(itinerary, dayIndex, replaceStop(day, stopIndex, place.id), ctx);
+    const ids = replaceStop(day, stopIndex, place.id);
+    const rebuilt = rebuildDay(itinerary, dayIndex, ids, ctx, false);
     const newDay = rebuilt.itinerary.days[dayIndex] as DayPlan;
     if (rebuilt.violations.some(isError) || !sameRoles(newDay.stops, day.stops)) continue;
     const errors = rebuilt.validation.filter(isError);

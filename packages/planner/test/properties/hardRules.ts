@@ -1,11 +1,19 @@
-import { MAX_ANCHORS_PER_TRIP, MEALS, PACE, TRAVEL, TRIP_DAYS } from "../../src/config";
+import {
+  DINNER_RETURN_GRACE_MIN,
+  MAX_ANCHORS_PER_TRIP,
+  MEALS,
+  PACE,
+  TRAVEL,
+  TRIP_DAYS,
+} from "../../src/config";
 import type { PlannerContext } from "../../src/context";
 import { addDays, hoursOn } from "../../src/time";
 import { type LatLng, travelMinutes } from "../../src/travel";
 import type { Anchor, DayPlan, Itinerary, Meal, Place, Stop } from "../../src/types";
 
 // The hard rules re-checked from first principles for the property tests: the config tables
-// (PACE, MEALS, TRAVEL), hoursOn for opening, and travelMinutes for legs. Nothing here calls the
+// (PACE, MEALS, TRAVEL), hoursOn for opening, and travelMinutes for legs (the trip back to the
+// base at the end of each day included). Nothing here calls the
 // scheduler, the validator, or the constraint helpers they share, so a bug in any of those
 // cannot also hide itself here. Each problem is a readable string; an empty list means valid.
 
@@ -68,6 +76,7 @@ function dayProblems(
   let from: LatLng = anchor.centroid;
   let free = windowStart;
   let visits = 0;
+  let last: { stop: Stop; place: Place } | null = null;
   const mealsSeated = new Set<Meal>();
   day.stops.forEach((stop, s) => {
     const at = (text: string) => problems.push(`day ${index} stop ${s} (${stop.placeId}): ${text}`);
@@ -76,6 +85,7 @@ function dayProblems(
       at("unknown place");
       return;
     }
+    last = { stop, place };
     if (seen.has(place.id)) at("duplicate in the trip");
     seen.add(place.id);
     if (request.exclude.includes(place.id)) at("excluded by the traveler");
@@ -96,6 +106,28 @@ function dayProblems(
     free = stop.end;
   });
   if (visits > pace.maxVisits) problems.push(`day ${index}: ${visits} visits`);
+  problems.push(...returnProblems(day, index, anchor, pace.dayEnd, last));
+  return problems;
+}
+
+/** The day must end with time to get back to the base, and state that trip back correctly. */
+function returnProblems(
+  day: DayPlan,
+  index: number,
+  anchor: Anchor,
+  dayEnd: number,
+  last: { stop: Stop; place: Place } | null,
+): string[] {
+  const back = last ? travelMinutes(last.place, anchor.centroid) : 0;
+  const problems: string[] = [];
+  if (day.returnTravelMin !== undefined && day.returnTravelMin !== back) {
+    problems.push(`day ${index}: claims ${day.returnTravelMin} min back to the base, is ${back}`);
+  }
+  // After a dinner that ends the day, the walk home may run DINNER_RETURN_GRACE_MIN past it.
+  const grace = last?.stop.role === "dinner" ? DINNER_RETURN_GRACE_MIN : 0;
+  if (last && last.stop.end + back > dayEnd + grace) {
+    problems.push(`day ${index}: back at the base after the day ends`);
+  }
   return problems;
 }
 

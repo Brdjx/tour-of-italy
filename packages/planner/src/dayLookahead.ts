@@ -1,5 +1,6 @@
 import { PACE, TRAVEL } from "./config";
-import { sharesLocation } from "./constraints";
+import { coversMeal, servesMeal, withinBudget } from "./constraints";
+import { twinIds } from "./context";
 import type { DayInput } from "./dayBuilder";
 import type { LatestStarts } from "./dayLimits";
 import type { DayCursor, TimedStep } from "./schedule";
@@ -19,12 +20,13 @@ export interface Option {
   obligation: boolean; // a must-include to place today if at all possible
 }
 
-/** Where the walk is and what it has used. */
+/** Where the walk is and what it has taken today. The rest of the trip is in DayInput.used. */
 export interface WalkState {
   cursor: DayCursor;
   visits: number;
   previousType: PlaceType | null;
-  usedIds: Set<string>;
+  today: Place[]; // this day's places so far, in order
+  fed: boolean; // the day has a lunch or dinner, as a stop or inside an outing (coversMeal)
 }
 
 export type Limits = ReadonlyMap<string, LatestStarts>;
@@ -36,49 +38,78 @@ export interface Promises {
 }
 
 /**
- * True when the place is used, or shares a location with a used place. Links are symmetric
- * even when only one side lists the other.
+ * True when the place is already in the trip (on another day, or `today`), or shares a location
+ * with a place that is. Links are symmetric even when only one side lists the other.
  */
-// Decision: two must-include places may share a spot (Trevi Fountain by day and by night both
-// asked for): the traveler named both, so both are planned and SAME_LOCATION warns. Every other
-// pair is blocked, and tripBuilder drops non-must-include twins of a must-include up front.
-export function isBlocked(place: Place, usedIds: ReadonlySet<string>, input: DayInput): boolean {
-  if (usedIds.has(place.id)) return true;
-  const must = input.request.mustInclude;
-  for (const id of usedIds) {
-    if (must.includes(id) && must.includes(place.id)) continue;
-    const used = input.ctx.placesById.get(id);
-    if (used && sharesLocation(used, place)) return true;
+// Decision: never two places at one spot in a trip, even when the traveler asked for both
+// (Trevi Fountain by day and by night): the first one placed wins and the validator explains the
+// other ("at the same spot as ..."). The brief asks for one of each pair, and the pools drop
+// ordinary twins of a must-include up front so the must-include keeps its spot.
+export function isBlocked(place: Place, input: DayInput, today: readonly Place[]): boolean {
+  if (input.used.has(place.id)) return true;
+  const twins = twinIds(input.ctx, place.id);
+  for (const other of today) {
+    if (other.id === place.id || twins.includes(other.id)) return true;
   }
-  return false;
+  return twins.some((id) => input.used.has(id));
 }
 
 /**
- * `meals`: after the option, every meal reachable now is still reachable.
+ * `meals`: after the option, every meal reachable now is still reachable (with `laterMeals` false,
+ * only the meals some option could seat next).
  * `all`: that, and the must-includes still possible today are no worse off. "No worse off" is
  * the shortfall of a slot matching (see slotShortfall), so an option is only refused when it
- * costs a must-include its place, never because two must-includes already compete.
+ * costs a must-include its place, never because two must-includes already compete. When the
+ * option is itself a must-include, only must-includes with no more chances on other days than it
+ * has count: a less flexible must-include may go first.
  */
+// Decision: flexibility decides between must-includes. With Torre degli Asinelli (open all three
+// days) as a promise, the Parma tour (Friday only) could not go first and started at 12:15
+// instead of 11:15. Dropping flexible must-includes from every promise went too far: two days
+// each left the Mercato Testaccio lunch to the other, and neither kept it.
 export function keepsPromises(
   options: readonly Option[],
   input: DayInput,
   state: WalkState,
   limits: Limits,
+  laterMeals = true,
 ): Promises {
   const taken = state.cursor.mealsTaken;
-  const pendingMeals = (["lunch", "dinner"] as const).filter(
-    (meal) => !taken.includes(meal) && options.some((o) => o.step.role === meal),
-  );
-  const pending = options.filter((o) => o.obligation).map((o) => o.place);
-  const visitsLeft = PACE[input.request.pace].maxVisits - state.visits;
   const now: At = { ...state.cursor };
-  const before = slotShortfall(pending, now, taken, visitsLeft, limits);
+  // Decision: a meal is a promise as soon as any unused place can still seat it (`laterMeals`),
+  // not only when it could be the very next stop. At 10:20 in Bologna, Via Drapperie was a visit
+  // option (lunch was 95 minutes off), so lunch was no promise and a Ferrari Museum visit until
+  // 14:05 took it. When no option keeps such a promise, the walk asks again without it (choose).
+  const pendingMeals = (["lunch", "dinner"] as const).filter(
+    (meal) =>
+      !taken.includes(meal) &&
+      (options.some((o) => o.step.role === meal) ||
+        (laterMeals && mealReachable(meal, now, state.today, input, limits))),
+  );
+  // Every must-include of the base still unplaced, not only those that could come next: the
+  // Mercato Testaccio lunch is no option at 10:20, but a museum until 12:50 would still lose it.
+  const pending = input.pool.filter(
+    (place) => input.obligations.has(place.id) && !isBlocked(place, input, state.today),
+  );
+  const chances = (place: Place) => input.otherChances(place.id);
+  const visitsLeft = PACE[input.request.pace].maxVisits - state.visits;
+  const shortfallNow = new Map<number, number>(); // by the most chances a promise may have
+  const promisedFor = (option: Option): { places: Place[]; before: number } => {
+    const most = option.obligation ? chances(option.place) : Number.POSITIVE_INFINITY;
+    const places = pending.filter((place) => chances(place) <= most);
+    let before = shortfallNow.get(most);
+    if (before === undefined) {
+      before = slotShortfall(places, now, taken, visitsLeft, limits);
+      shortfallNow.set(most, before);
+    }
+    return { places, before };
+  };
   const meals = (option: Option): boolean => {
-    const usedAfter = new Set(state.usedIds).add(option.place.id);
+    const todayAfter = [...state.today, option.place];
     const after = atEndOf(option);
     for (const meal of pendingMeals) {
-      if (option.step.role === meal) continue;
-      if (!mealReachable(meal, after, usedAfter, input, limits)) return false;
+      if (option.step.role === meal || coversOption(option, meal)) continue;
+      if (!mealReachable(meal, after, todayAfter, input, limits)) return false;
     }
     return true;
   };
@@ -86,11 +117,17 @@ export function keepsPromises(
     if (!meals(option)) return false;
     const isVisit = option.step.role === "visit";
     const takenAfter = isVisit ? taken : [...taken, option.step.role as Meal];
-    const rest = pending.filter((place) => place.id !== option.place.id);
+    const { places, before } = promisedFor(option);
+    const rest = places.filter((place) => place.id !== option.place.id);
     const left = visitsLeft - (isVisit ? 1 : 0);
     return slotShortfall(rest, atEndOf(option), takenAfter, left, limits) <= before;
   };
   return { meals, all };
+}
+
+/** True when the option is an outing under way through the meal window: it includes the meal. */
+function coversOption(option: Option, meal: Meal): boolean {
+  return coversMeal(option.place, option.step.start, option.step.end, meal);
 }
 
 /** A moment and a place in the day, for arrival estimates. */
@@ -134,7 +171,9 @@ function slotsFor(place: Place, at: At, taken: readonly Meal[], limits: Limits):
   // Decision: a meal place is not a possible visit while a meal it serves is still open, because
   // inferRole would seat it as that meal. Counting it as a visit hid real conflicts (a cafe and a
   // restaurant, both must-include, competing for one dinner).
-  const mealStillOpen = place.meals.some((meal) => !taken.includes(meal));
+  const mealStillOpen = (["lunch", "dinner"] as const).some(
+    (meal) => servesMeal(place, meal) && !taken.includes(meal),
+  );
   if (!mealStillOpen && latest.visit !== undefined && arrive <= latest.visit) slots.push("visit");
   return slots;
 }
@@ -175,18 +214,35 @@ export function slotShortfall(
   return lost + worst;
 }
 
-/** True when some unused meal place can still seat `meal` after `at`. */
+/**
+ * True when a meal place one level over the budget may take `meal` now: no meal place within
+ * the budget could still seat it today (pools.ts, isMealFallback).
+ */
+export function overBudgetMealAllowed(
+  meal: Meal,
+  input: DayInput,
+  state: WalkState,
+  limits: Limits,
+): boolean {
+  const budget = input.request.maxPriceLevel;
+  const inBudget = (place: Place) => withinBudget(place, budget);
+  return !mealReachable(meal, { ...state.cursor }, state.today, input, limits, inBudget);
+}
+
+/** True when some unused meal place (that `accept` allows) can still seat `meal` after `at`. */
 function mealReachable(
   meal: Meal,
   at: At,
-  usedAfter: ReadonlySet<string>,
+  todayAfter: readonly Place[],
   input: DayInput,
   limits: Limits,
+  accept: (place: Place) => boolean = () => true,
 ): boolean {
   for (const place of input.pool) {
+    if (!accept(place)) continue;
     const latest = limits.get(place.id)?.[meal];
     if (latest === undefined || arriveAt(at, place) > latest) continue;
-    if (!isBlocked(place, usedAfter, input)) return true;
+    if (!isBlocked(place, input, todayAfter)) return true;
   }
   return false;
 }

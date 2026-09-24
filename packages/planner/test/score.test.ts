@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { SCORE_WEIGHTS } from "../src/config";
+import { MIN_SUGGEST_RATING, OUTING_DISTANCE_CAP_KM, SCORE_WEIGHTS } from "../src/config";
 import { placesOfAnchor } from "../src/context";
 import { DEFAULT_RATING, interestShare, rankPlaces, scoreParts, scorePlace } from "../src/score";
 import { addDays } from "../src/time";
@@ -14,15 +14,30 @@ const TUESDAY = "2026-10-20";
 const none = { interests: [], mustInclude: [] };
 
 describe("score terms", () => {
-  it("adds interest share, rating, and local favorite for Da Enzo exactly as the formula says", () => {
+  it("never drifts from the formula: interest share, rating, and local favorite for Da Enzo", () => {
     const parts = scoreParts(realPlace("place_003"), {
       interests: ["food", "wine"],
       mustInclude: [],
     });
     expect(parts.interest).toBeCloseTo(SCORE_WEIGHTS.interestMatch * 0.5, 9);
     expect(parts.rating).toBeCloseTo(SCORE_WEIGHTS.rating * (4.6 / 5), 9);
+    expect(parts.iconic).toBe(0);
     expect(parts.localFavorite).toBe(SCORE_WEIGHTS.localFavorite);
-    expect(parts.total).toBeCloseTo(1.5 + 1.38 + 0.5, 6);
+    expect(parts.total).toBeCloseTo(1.5 + 1.38 + 0.25, 6);
+  });
+
+  it("never buries a headline sight under a local favorite when no interests are chosen", () => {
+    // The review found 13 Roman local favorites (a book market among them) above the Colosseum
+    // and the Vatican Museums, which then never made a Rome trip.
+    const colosseum = scorePlace(realPlace("place_001"), none);
+    const vatican = scorePlace(realPlace("place_010"), none);
+    const bookMarket = scorePlace(realPlace("place_024"), none);
+    const trastevere = scorePlace(realPlace("place_002"), none);
+    expect(scoreParts(realPlace("place_001"), none).iconic).toBe(SCORE_WEIGHTS.iconic);
+    for (const favorite of [bookMarket, trastevere]) {
+      expect(colosseum).toBeGreaterThan(favorite);
+      expect(vatican).toBeGreaterThan(favorite);
+    }
   });
 
   it("counts each interest once, so repeating an interest cannot inflate the match", () => {
@@ -35,7 +50,8 @@ describe("score terms", () => {
     expect(Number.isFinite(scorePlace(makePlace(), none))).toBe(true);
   });
 
-  it("treats a missing rating as the 3.5 threshold, neither rewarded nor sunk", () => {
+  it("never rewards or sinks a missing rating: it counts as the 3.5 suggestion threshold", () => {
+    expect(DEFAULT_RATING).toBe(MIN_SUGGEST_RATING);
     expect(scoreParts(makePlace({ rating: null }), none).rating).toBeCloseTo(
       SCORE_WEIGHTS.rating * (DEFAULT_RATING / 5),
       9,
@@ -57,6 +73,29 @@ describe("score terms", () => {
     expect(Object.is(scoreParts(realPlace("place_001"), none, { from: null }).distance, 0)).toBe(
       true,
     );
+  });
+
+  it("never charges a day trip for every km of the trip out, but still charges a sight in town", () => {
+    // Review finding: charged per km from Florence, Pienza (-4.2) and Siena (-2.5) lost to any
+    // city sight even for a traveler whose interests they match, so no day trip was ever planned.
+    const florence = realContext().anchorById.get("florence")?.centroid ?? null;
+    const cap = -SCORE_WEIGHTS.distancePenaltyPerKm * OUTING_DISTANCE_CAP_KM;
+    expect(scoreParts(realPlace("place_089"), none, { from: florence }).distance).toBeCloseTo(
+      cap,
+      6,
+    );
+    expect(scoreParts(realPlace("place_038"), none, { from: florence }).distance).toBeCloseTo(
+      cap,
+      6,
+    );
+    // An ordinary stop out of town (a 90-minute tasting in Modena) still pays for every km.
+    const bologna = realContext().anchorById.get("bologna")?.centroid ?? null;
+    const acetaia = scoreParts(realPlace("place_083"), none, { from: bologna }).distance;
+    expect(acetaia).toBeLessThan(cap * 3);
+    // An outing close by (the Vatican Museums from the Pantheon) pays its real distance.
+    const vatican = scoreParts(realPlace("place_010"), none, { from: realPlace("place_005") });
+    expect(vatican.distance).toBeGreaterThan(cap);
+    expect(vatican.distance).toBeLessThan(0);
   });
 
   it("penalizes a second museum in a row but not a museum after a restaurant", () => {

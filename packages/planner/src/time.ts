@@ -9,6 +9,8 @@ import type {
   WeeklyHours,
 } from "./types";
 
+export { formatClock, parseClock } from "./clock";
+
 // Clock and calendar helpers, and the single answer to "is this place open on this date".
 // Dates are YYYY-MM-DD strings and times are minutes from local midnight in Italy.
 // Decision: the only Date use is Date.UTC plus getUTC* on a calendar date, so the result never
@@ -32,46 +34,7 @@ export const MONTH_SHORT = [
   "Dec",
 ] as const;
 
-const MINUTES_PER_DAY = 1440;
-const CLOCK_PATTERN = /^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?$/i;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-// ---------- Clock ----------
-
-/**
- * Parses "9:30", "09.30", "9", "24:00", "9am", "12:30pm" into minutes from midnight.
- * Returns null for anything else, including "25:00", "9:60", and "13pm".
- */
-export function parseClock(text: string): number | null {
-  const match = CLOCK_PATTERN.exec(text.trim());
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = match[2] === undefined ? 0 : Number(match[2]);
-  const suffix = match[3]?.toLowerCase();
-  if (minute > 59) return null;
-  if (suffix) {
-    if (hour < 1 || hour > 12) return null;
-    const hour24 = (hour % 12) + (suffix === "pm" ? 12 : 0); // 12am = 0, 12pm = 12
-    return hour24 * 60 + minute;
-  }
-  if (hour > 24 || (hour === 24 && minute !== 0)) return null;
-  return hour * 60 + minute;
-}
-
-/**
- * Formats minutes from midnight as "HH:MM". 1440 is "24:00" (closing at midnight); later values
- * wrap to the next day, so 1500 is "01:00". Throws RangeError for negative or non-finite input.
- */
-export function formatClock(minutes: number): string {
-  if (!Number.isFinite(minutes) || minutes < 0) {
-    throw new RangeError(`formatClock needs a non-negative number of minutes, got ${minutes}`);
-  }
-  const rounded = Math.round(minutes);
-  const clock = rounded === MINUTES_PER_DAY ? MINUTES_PER_DAY : rounded % MINUTES_PER_DAY;
-  const hours = Math.floor(clock / 60);
-  const mins = clock % 60;
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-}
 
 // ---------- Calendar ----------
 
@@ -81,9 +44,26 @@ export interface CalendarDate {
   day: number; // 1..31
 }
 
+/** Parsed dates by text. The planner asks about the same few trip dates many thousand times. */
+const parsedDates = new Map<string, Readonly<CalendarDate> | null>();
+const PARSED_DATES_MAX = 4096;
+
 /** Parses a YYYY-MM-DD string into its parts, or null when it is not a real calendar date. */
+// Decision: remembered, because every opening-hours question starts here (it was a fifth of the
+// planner's time). The answer depends on the text alone; results are frozen, and the store is
+// cleared when full, so it can neither be corrupted by a caller nor grow without bound.
 export function parseIsoDate(date: string): CalendarDate | null {
-  const match = typeof date === "string" ? ISO_DATE_PATTERN.exec(date) : null;
+  if (typeof date !== "string") return null;
+  const known = parsedDates.get(date);
+  if (known !== undefined) return known;
+  const parsed = parseIsoDateText(date);
+  if (parsedDates.size >= PARSED_DATES_MAX) parsedDates.clear();
+  parsedDates.set(date, parsed === null ? null : Object.freeze(parsed));
+  return parsedDates.get(date) ?? null;
+}
+
+function parseIsoDateText(date: string): CalendarDate | null {
+  const match = ISO_DATE_PATTERN.exec(date);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -113,10 +93,18 @@ function toIsoDate(utc: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Weekdays by date text, remembered for the same reason as parsed dates. */
+const weekdays = new Map<string, Weekday>();
+
 /** Day of week for a date, 0 = Sunday. Time zone independent. Throws RangeError on bad input. */
 export function weekdayOf(date: string): Weekday {
+  const known = weekdays.get(date);
+  if (known !== undefined) return known;
   const { year, month, day } = requireDate(date);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay() as Weekday;
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay() as Weekday;
+  if (weekdays.size >= PARSED_DATES_MAX) weekdays.clear();
+  weekdays.set(date, weekday);
+  return weekday;
 }
 
 /** The date `days` days after `date` (negative goes back). Handles month, year, and leap days. */

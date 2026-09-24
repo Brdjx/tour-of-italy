@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { TRAVEL } from "../src/config";
+import { TRAVEL, WATER_BUS_AREAS } from "../src/config";
 import {
   formatDuration,
   haversineKm,
@@ -134,15 +134,59 @@ describe("travel properties", () => {
     );
   });
 
-  it("labels every leg with its own minutes and mode words", () => {
+  it("never labels a leg with other minutes or mode words than its own", () => {
+    const lagoon = WATER_BUS_AREAS[0]?.box;
+    const inLagoon = (p: { lat: number; lng: number }) =>
+      lagoon !== undefined &&
+      p.lat >= lagoon.minLat &&
+      p.lat <= lagoon.maxLat &&
+      p.lng >= lagoon.minLng &&
+      p.lng <= lagoon.maxLng;
     fc.assert(
       fc.property(italyPoint, italyPoint, (a, b) => {
         const leg = travelLeg(a, b);
-        expect(leg.label).toBe(travelLabelFor(leg.minutes, leg.mode));
+        const byBoat = leg.mode === "local" && inLagoon(a) && inLagoon(b);
+        const expected = byBoat
+          ? `${formatDuration(leg.minutes)} by vaporetto`
+          : travelLabelFor(leg.minutes, leg.mode);
+        expect(leg.label).toBe(expected);
         expect(travelLabel(a, b)).toBe(leg.label);
       }),
       FC_SETTINGS,
     );
+  });
+});
+
+describe("Venice: the water bus and the islands", () => {
+  const venice = realPlace("place_067"); // Doge's Palace, San Marco
+  const basilica = realPlace("place_074"); // St. Mark's Basilica, next door
+  const sanGiorgio = realPlace("place_088"); // San Giorgio Maggiore, its own island
+  const burano = realPlace("place_070");
+
+  it("never labels a leg inside the lagoon by taxi or bus", () => {
+    expect(travelLeg(venice, burano).label).toBe(
+      `${formatDuration(travelMinutes(venice, burano))} by vaporetto`,
+    );
+    expect(travelLeg(venice, burano).label).not.toMatch(/taxi/);
+  });
+
+  it("never calls the crossing to San Giorgio Maggiore a walk, in either direction", () => {
+    const there = travelLeg(venice, sanGiorgio);
+    expect(there.mode).toBe("local");
+    expect(there.label).toMatch(/by vaporetto$/);
+    expect(there.minutes).toBeGreaterThanOrEqual(TRAVEL.localOverheadMin);
+    expect(travelMinutes(sanGiorgio, venice)).toBe(there.minutes);
+    expect(travelMode(sanGiorgio, venice)).toBe("local");
+  });
+
+  it("keeps a walk a walk between neighbors on the same island", () => {
+    expect(travelLeg(venice, basilica).mode).toBe("walk");
+    expect(travelLeg(venice, basilica).label).toMatch(/walk$/);
+  });
+
+  it("never changes a leg outside the lagoon: Rome still goes by taxi or bus", () => {
+    const leg = travelLeg(realPlace("place_001"), realPlace("place_002")); // Colosseum, Trastevere
+    expect(leg.label).toMatch(/by taxi or bus$/);
   });
 });
 

@@ -1,21 +1,30 @@
 import { compareText } from "./anchors";
 import type { PlannerContext } from "./context";
-import { unplacedMustIncludes } from "./mustInclude";
+import { fillMissingMeals } from "./mealFill";
+import { shareMeals } from "./mealShare";
 import { repairMustIncludes } from "./mustRepair";
 import { EPOCH_ISO } from "./planPolicy";
+import { PoolCache } from "./pools";
+import { shortenRoutes } from "./route";
 import { scheduleDay } from "./schedule";
-import { isError } from "./scheduleChecks";
 import { addDays, tripDates } from "./time";
 import { type DaySelection, scheduleTrip, withoutErrorStops } from "./trip";
 import { chooseTrip, type TripDraft } from "./tripBuilder";
 import type { FallbackReason, Itinerary, ItineraryMeta, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
+import { isError, isWarning } from "./violations";
 
 // planDeterministic: a whole trip from the rules alone. It is the plan when the AI layer is off
 // and the fallback whenever the AI path fails, so it must always return TRIP_DAYS days with no
-// error violation. Steps: choose bases and build days greedily (tripBuilder.ts), insert any
-// must-include the walk left out where it still fits (mustRepair.ts), time the days with
-// scheduleDay and add rule reasons (trip.ts), then explain any must-include still left out.
+// error violation. Steps:
+//   1. choose bases and build days greedily (tripBuilder.ts, tripWalk.ts, dayBuilder.ts), each
+//      candidate trip with any must-include the walk left out inserted where it still fits
+//      (mustRepair.ts);
+//   2. reorder each day to travel less where that keeps every rule (route.ts), then repair again;
+//   3. seat any missing lunch or dinner an unused meal place can take (mealFill.ts), move a meal
+//      to a day with none from a day with two (mealShare.ts), and fill again;
+//   4. time the days with scheduleDay and add rule reasons (trip.ts);
+//   5. take the warnings, including why any must-include is missing, from the validator.
 
 /** Options for planDeterministic. Nothing here changes which places are chosen. */
 export interface PlanOptions {
@@ -53,14 +62,23 @@ export function planDeterministic(
   const dates = tripDates(request.startDate);
   const chosen = chooseTrip(request, ctx, dates);
   if (!chosen) throw new NoFeasiblePlanError();
-  const draft = repairMustIncludes(chosen, request, ctx, dates);
-  const trip = scheduleTrip(request, cleanSelection(draft, request, ctx), ctx);
-  const placedIds = new Set(trip.days.flatMap((day) => day.stops.map((stop) => stop.placeId)));
-  const mustWarnings = unplacedMustIncludes(request, ctx, {
+  // Decision: the repair runs again after the route pass. A shorter order can move a
+  // must-include earlier and open the gap a missing one needs (Pienza after the Duomo), and the
+  // validator judges the final order, so the planner must too.
+  const routed = repairMustIncludes(
+    shortenRoutes(chosen, request, ctx, dates),
+    request,
+    ctx,
     dates,
-    anchorIds: draft.anchorIds,
-    placedIds,
-  });
+  );
+  // Decision: meals are filled last, after every pass that may remove an ordinary stop. The fill
+  // only adds and the sharing only moves meal places, so no must-include is ever moved.
+  const pools = new PoolCache(request, ctx);
+  const fed = fillMissingMeals(routed, request, ctx, dates, pools);
+  // A day that gave a meal away may take an unused place the first fill could not seat there.
+  const shared = shareMeals(fed, request, ctx, dates, pools);
+  const refed = shared === fed ? fed : fillMissingMeals(shared, request, ctx, dates, pools);
+  const trip = scheduleTrip(request, cleanSelection(refed, request, ctx), ctx);
   const itinerary: Itinerary = {
     request: copyRequest(request),
     days: trip.days,
@@ -68,8 +86,7 @@ export function planDeterministic(
     warnings: [],
     meta: makeMeta(opts, startedAt),
   };
-  const own = trip.violations.filter((violation) => !isError(violation));
-  itinerary.warnings = chooseWarnings(own, mustWarnings, validateItinerary(itinerary, ctx));
+  itinerary.warnings = planWarnings(itinerary, ctx);
   if (startedAt !== undefined && opts.now) {
     itinerary.meta.latencyMs = Math.max(0, opts.now() - startedAt);
   }
@@ -110,24 +127,32 @@ function selectionOf(draft: TripDraft): DaySelection[] {
 }
 
 /**
- * The warnings to show. Once the validator reports anything, its warnings are the source of
- * truth (the web app shows the same list after every edit); until then, scheduleDay's. Must-
- * include explanations are added unless the chosen list already covers that place.
+ * The warnings the traveler sees for a plan: the validator's, in a stable order. planDeterministic
+ * and rescheduleDay both use it, so a new plan and an edited one show the same list the server
+ * would (F10), including why a must-include is missing.
  */
 // Decision: warnings only. An error from the validator on a planner output is a bug that the
 // sweep and property tests catch; it is never copied into a list the traveler sees.
+export function planWarnings(itinerary: Itinerary, ctx: PlannerContext): Violation[] {
+  return validateItinerary(itinerary, ctx).filter(isWarning).sort(compareViolations);
+}
+
+/**
+ * @deprecated planDeterministic no longer calls this; use planWarnings. Kept, unchanged, so code
+ * written against the earlier API still compiles. It returns the validator's warnings when the
+ * validator reported anything, else `own`, plus any must-include warning not already covered.
+ */
 export function chooseWarnings(
   own: readonly Violation[],
   mustInclude: readonly Violation[],
   fromValidator: readonly Violation[],
 ): Violation[] {
-  const validatorWarnings = fromValidator.filter((violation) => !isError(violation));
-  const base = fromValidator.length > 0 ? validatorWarnings : [...own];
+  const shown = fromValidator.length > 0 ? fromValidator.filter(isWarning) : [...own];
   const extra = mustInclude.filter(
     (warning) =>
-      !base.some((other) => other.code === warning.code && other.placeId === warning.placeId),
+      !shown.some((other) => other.code === warning.code && other.placeId === warning.placeId),
   );
-  return [...base, ...extra].sort(compareViolations);
+  return [...shown, ...extra].sort(compareViolations);
 }
 
 /** Trip-level first, then by day, stop, code, place, and detail, so the order is stable. */

@@ -1,4 +1,5 @@
 import type { DayPlan, Itinerary, Stop, StopRole, TripRequest } from "../../src/types";
+import { fitToTripLength } from "./tripLength";
 
 // Known-valid itineraries, written by hand from the real data (never produced by the scheduler,
 // so the validator is tested independently of it). Every time below was worked out from the
@@ -17,10 +18,11 @@ export function stop(
   return { placeId, start, end, travelFromPrevMin: travel, role };
 }
 
+/** A trip from written days, fitted to TRIP_DAYS (tripLength.ts; unchanged at 3 days). */
 export function itinerary(request: TripRequest, days: DayPlan[]): Itinerary {
   return {
     request,
-    days,
+    days: fitToTripLength(request, days),
     source: "deterministic",
     warnings: [],
     meta: { attempts: 0, latencyMs: 12, generatedAt: "2026-09-23T10:00:00.000Z" },

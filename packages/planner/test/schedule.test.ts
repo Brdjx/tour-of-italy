@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { MEALS, PACE, TRAVEL } from "../src/config";
-import { inferRole, type ScheduledDay, scheduleDay, startCursor, timeStep } from "../src/schedule";
+import {
+  inferRole,
+  lastStopStep,
+  type ScheduledDay,
+  scheduleDay,
+  startCursor,
+  timeStep,
+} from "../src/schedule";
 import { travelMinutes } from "../src/travel";
 import type { TripRequest } from "../src/types";
 import { makeRequest, realContext, realPlace } from "./plannerFixtures";
@@ -55,10 +62,18 @@ describe("meal placement", () => {
     expect(errors(day)).toEqual([]);
   });
 
-  it("treats a market reached at breakfast time as a visit, not a lunch two hours later", () => {
-    const day = schedule(["place_015"], "rome");
-    expect(day.stops[0]?.role).toBe("visit");
-    expect(day.stops[0]?.start).toBeLessThan(MEALS.lunch.earliestStart - 60);
+  it("treats a market reached mid-morning, after a sight, as a visit, not a lunch hours later", () => {
+    const day = schedule(["place_005", "place_015"], "rome"); // Pantheon, then Mercato Testaccio
+    expect(day.stops[1]?.role).toBe("visit");
+    expect(day.stops[1]?.start).toBeLessThan(MEALS.lunch.earliestStart - 60);
+  });
+
+  it("never makes a meal place the day's first sightseeing visit: the traveler leaves for its meal", () => {
+    // The review's repro: a restaurant asked for was "visited" at 09:35 and lunch was eaten at
+    // another restaurant. As the first stop, it is lunch; the traveler leaves the base later.
+    const day = schedule(["place_015", "place_005"], "rome");
+    expect(day.stops[0]).toMatchObject({ role: "lunch", start: MEALS.lunch.earliestStart });
+    expect(errors(day)).toEqual([]);
   });
 
   it("keeps a meal place that serves only dinner waiting for dinner, not a morning visit", () => {
@@ -72,9 +87,45 @@ describe("meal placement", () => {
     expect(day.stops[3]?.start).toBe(1170);
   });
 
-  it("calls a restaurant still open after lunch a visit, not a lunch or a dinner hours away", () => {
+  it("calls a restaurant still open after lunch a visit when a stop follows, not a dinner hours away", () => {
+    const ids = ["place_005", "place_008", "place_020", "place_022", "place_002"];
+    const day = schedule(ids, "rome");
+    expect(roles(day)).toEqual(["visit", "visit", "lunch", "visit", "visit"]);
+  });
+
+  it("never leaves a restaurant open all afternoon as a visit when it ends the day: it waits for dinner", () => {
+    // Review finding: a day that ended at 15:15 could not gain Il Sorpasso as its dinner, because
+    // any order with it last timed it as a 15:40 visit. The traveler goes back, then out at 19:00.
     const day = schedule(["place_005", "place_008", "place_020", "place_022"], "rome");
-    expect(roles(day)).toEqual(["visit", "visit", "lunch", "visit"]);
+    expect(roles(day)).toEqual(["visit", "visit", "lunch", "dinner"]);
+    expect(day.stops[3]?.start).toBe(1170); // Roscioli's dinner service opens at 19:30
+    expect(errors(day)).toEqual([]);
+    const late = schedule(["place_001", "place_013", "place_020"], "rome"); // Il Sorpasso last
+    expect(late.stops[2]).toMatchObject({ role: "dinner", start: MEALS.dinner.earliestStart });
+    expect(errors(late)).toEqual([]);
+  });
+
+  it("keeps a meal place that ends the day before noon a morning visit, not a dinner nine hours later", () => {
+    const day = schedule(["place_005", "place_099"], "rome"); // Pantheon, then Eataly at 10:40
+    expect(day.stops[1]?.role).toBe("visit");
+    expect(day.stops[1]?.start).toBeLessThan(MEALS.lunch.earliestStart);
+  });
+
+  it("never makes a last stop a dinner when dinner is taken or the trip back would be too late", () => {
+    const afterDinner = schedule(["place_003", "place_001", "place_009", "place_020"], "rome");
+    expect(roles(afterDinner)).toEqual(["lunch", "visit", "dinner", "visit"]);
+    const place = realPlace("place_020"); // Il Sorpasso: a 90-minute dinner from 19:00
+    const centroid = anchor("rome").centroid;
+    const origin = { lat: centroid.lat + 0.12, lng: centroid.lng }; // a hotel far out of town
+    const cursor = { ...startCursor(anchor("rome"), "balanced", 0), clock: 900, first: false };
+    const step = timeStep(place, TUESDAY, cursor);
+    expect(step.role).toBe("visit");
+    const back = travelMinutes(place, origin);
+    expect(back).toBeGreaterThan(30);
+    const fits = { start: 570, end: 1140 + 90 + back - 30 }; // home 30 minutes after the end
+    expect(lastStopStep(place, TUESDAY, cursor, step, fits, origin).role).toBe("dinner");
+    const tooLate = { start: 570, end: fits.end - 5 };
+    expect(lastStopStep(place, TUESDAY, cursor, step, tooLate, origin).role).toBe("visit");
   });
 
   it("does not count meals toward a relaxed day's three visits", () => {

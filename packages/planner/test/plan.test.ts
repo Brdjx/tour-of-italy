@@ -84,14 +84,18 @@ describe("requests that used to break planners", () => {
     expectValid(itinerary);
   });
 
-  it("puts an evening-only must-include after the day's dinner, never at 10:00", () => {
+  it("puts an evening-only must-include in the evening next to the day's dinner, never at 10:00", () => {
+    // Since a dinner that ends the day may leave the walk home past the window, the walk may see
+    // Trevi by night at 20:15 and dine at 21:15; before, dinner had to come first.
     const itinerary = plan({ mustInclude: ["place_077"] });
     const day = itinerary.days.find((d) => d.stops.some((s) => s.placeId === "place_077"));
     const stops = day?.stops ?? [];
     const night = stops.findIndex((s) => s.placeId === "place_077");
     const dinner = stops.findIndex((s) => s.role === "dinner");
     expect(stops[night]?.start).toBeGreaterThanOrEqual(1200);
-    if (dinner >= 0) expect(night).toBeGreaterThan(dinner);
+    expect(dinner).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(night - dinner)).toBe(1);
+    expectValid(itinerary);
   });
 
   it("never plans Trevi Fountain by day when the traveler asked for it by night (same spot)", () => {
@@ -106,10 +110,17 @@ describe("requests that used to break planners", () => {
     expect(ids).not.toContain("place_018");
   });
 
-  it("plans both Trevi Fountain listings when the traveler asked for both, with SAME_LOCATION", () => {
+  it("never plans both Trevi Fountain listings, even when both are asked for, and says why", () => {
+    // The brief: two listings of one spot never share a trip. The review found both planned
+    // back to back with only a SAME_LOCATION note.
     const itinerary = plan({ mustInclude: ["place_018", "place_077"], anchors: ["rome"] });
-    expect(placeIds(itinerary)).toEqual(expect.arrayContaining(["place_018", "place_077"]));
-    expect(itinerary.warnings.some((w) => w.code === "SAME_LOCATION")).toBe(true);
+    const ids = placeIds(itinerary);
+    expect(ids.filter((id) => id === "place_018" || id === "place_077")).toHaveLength(1);
+    const missing = ids.includes("place_018") ? "place_077" : "place_018";
+    const warning = itinerary.warnings.find((w) => w.placeId === missing);
+    expect(warning?.code).toBe("MUST_INCLUDE_UNPLACEABLE");
+    expect(warning?.detail).toMatch(/same spot as Trevi Fountain/);
+    expect(itinerary.warnings.some((w) => w.code === "SAME_LOCATION")).toBe(false);
     expectValid(itinerary);
   });
 });
@@ -198,10 +209,11 @@ describe("contexts that cannot fill a day", () => {
   }
 
   it("rescues each over-budget day with exactly one open-access public space", () => {
+    const spaces = Array.from({ length: TRIP_DAYS }, (_, i) => i + 3);
     const places = [
       place(1, { priceLevel: 4 }),
       place(2, { priceLevel: 4 }),
-      ...[3, 4, 5].map((n) =>
+      ...spaces.map((n) =>
         place(n, {
           type: "viewpoint",
           priceLevel: 4,
@@ -214,12 +226,10 @@ describe("contexts that cannot fill a day", () => {
       makeRequest({ maxPriceLevel: 1 }),
       buildPlannerContext(places),
     );
-    expect(itinerary.days.map((day) => day.stops.map((stop) => stop.placeId))).toEqual([
-      ["place_t3"],
-      ["place_t4"],
-      ["place_t5"],
-    ]);
-    expect(itinerary.warnings.filter((w) => w.code === "OVER_BUDGET")).toHaveLength(3);
+    const days = itinerary.days.map((day) => day.stops.map((stop) => stop.placeId));
+    expect(days.every((ids) => ids.length === 1)).toBe(true);
+    expect(days.flat().sort()).toEqual(spaces.map((n) => `place_t${n}`));
+    expect(itinerary.warnings.filter((w) => w.code === "OVER_BUDGET")).toHaveLength(TRIP_DAYS);
   });
 
   it("throws NoFeasiblePlanError rather than return a plan with an empty day", () => {

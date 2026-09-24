@@ -1,17 +1,20 @@
 import { compareText } from "./anchors";
-import { SCORE_WEIGHTS } from "./config";
+import { MIN_SUGGEST_RATING, OUTING_DISTANCE_CAP_KM, SCORE_WEIGHTS } from "./config";
+import { isOuting } from "./constraints";
 import { haversineKm, type LatLng } from "./normalize/geo";
-import { hoursOn } from "./time";
+import { hoursOn, weekdayOf } from "./time";
 import type { Place, PlaceType, TripRequest } from "./types";
 
 // How much a traveler would want a place next. Higher is better. The score only ranks places
 // that already pass the hard rules in constraints.ts; it never makes an invalid stop valid.
 //
 //   score = interestMatch * (interests the place matches / max(1, interests))
-//         + rating * ((rating ?? 3.5) / 5)
+//         + rating * ((rating ?? MIN_SUGGEST_RATING) / 5)
+//         + iconic                         if tagged iconic
 //         + localFavorite                  if tagged local-favorite
 //         - hoursUnknownPenalty            if hours are unknown on that date
-//         - distancePenaltyPerKm * km      from where the traveler is
+//         - distancePenaltyPerKm * km      from where the traveler is (for an outing, at
+//                                          most OUTING_DISTANCE_CAP_KM)
 //         - repeatTypePenalty              if the same type as the previous stop
 //         + mustInclude                    if the traveler asked for it
 
@@ -29,6 +32,7 @@ export type ScoreRequest = Pick<TripRequest, "interests" | "mustInclude">;
 export interface ScoreParts {
   interest: number;
   rating: number;
+  iconic: number;
   localFavorite: number;
   hoursUnknown: number; // zero or negative
   distance: number; // zero or negative
@@ -38,12 +42,14 @@ export interface ScoreParts {
 }
 
 /** Rating assumed when a place has none: the suggestion threshold, neither rewarded nor hidden. */
-export const DEFAULT_RATING = 3.5;
+export const DEFAULT_RATING = MIN_SUGGEST_RATING;
 
 const LOCAL_FAVORITE_TAG = "local-favorite";
+const ICONIC_TAG = "iconic";
 
 /** The share of the traveler's distinct interests that the place is tagged with, 0..1. */
 export function interestShare(place: Pick<Place, "tags">, interests: readonly string[]): number {
+  if (interests.length === 0) return 0;
   const wanted = new Set(interests);
   if (wanted.size === 0) return 0;
   let matched = 0;
@@ -60,20 +66,22 @@ export function scoreParts(
   const w = SCORE_WEIGHTS;
   const interest = w.interestMatch * interestShare(place, request.interests);
   const rating = w.rating * ((place.rating ?? DEFAULT_RATING) / 5);
+  const iconic = place.tags.includes(ICONIC_TAG) ? w.iconic : 0;
   const localFavorite = place.tags.includes(LOCAL_FAVORITE_TAG) ? w.localFavorite : 0;
   const hoursUnknown = hoursUnknownOn(place, situation.date) ? -w.hoursUnknownPenalty : 0;
-  const km = situation.from ? haversineKm(situation.from, place) : 0;
+  const km = situation.from ? travelKm(place, haversineKm(situation.from, place)) : 0;
   const distance = km === 0 ? 0 : -w.distancePenaltyPerKm * km; // never -0
   const repeatType = situation.previousType === place.type ? -w.repeatTypePenalty : 0;
   const mustInclude = request.mustInclude.includes(place.id) ? w.mustInclude : 0;
   const sum =
-    interest + rating + localFavorite + hoursUnknown + distance + repeatType + mustInclude;
+    interest + rating + iconic + localFavorite + hoursUnknown + distance + repeatType + mustInclude;
   // Decision: round to 6 decimals so two places that tie on paper also tie in floating point and
   // fall back to id order, whatever order the terms were added in.
   const total = Math.round(sum * 1e6) / 1e6;
   return {
     interest,
     rating,
+    iconic,
     localFavorite,
     hoursUnknown,
     distance,
@@ -113,8 +121,20 @@ export function rankPlaces(
   return scored.sort(compareScored);
 }
 
+/** The distance the score charges for: capped for an outing, whose trip there is the point. */
+// Decision: a day trip is its own destination. Charged per km from the base (Pienza -4.2, Parma
+// -4.4, Siena -2.5 against a full interest match of +3), no day trip was ever planned, even for a
+// wine lover in Chianti's harvest month. Capped at OUTING_DISTANCE_CAP_KM, an outing still pays
+// for crossing town, a day trip only wins a day when the traveler's interests match it, and an
+// ordinary sight out of town (a 90-minute tasting in Modena) still pays for every km.
+function travelKm(place: Place, km: number): number {
+  return isOuting(place) ? Math.min(km, OUTING_DISTANCE_CAP_KM) : km;
+}
+
 /** True when the place has no usable hours: on the date when given, else at all. */
 function hoursUnknownOn(place: Place, date: string | undefined): boolean {
   if (date === undefined) return place.hours === null;
-  return hoursOn(place, date) === "unknown";
+  if (place.hours === null) return hoursOn(place, date) === "unknown";
+  weekdayOf(date); // listed, derived, or open-access hours are known; still reject a bad date
+  return false;
 }

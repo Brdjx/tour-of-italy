@@ -1,21 +1,33 @@
+import { dayOrigin } from "./anchors";
 import { PACE } from "./config";
-import { dayWindow } from "./constraints";
+import { coversMeal, withinBudget } from "./constraints";
 import type { PlannerContext } from "./context";
-import { latestStartsFor, mayVisit } from "./dayLimits";
-import { isBlocked, keepsPromises, type Limits, type Option, type WalkState } from "./dayLookahead";
-import { MAX_IDLE_MIN } from "./planPolicy";
+import { latestStartsFor } from "./dayLimits";
+import {
+  isBlocked,
+  type Limits,
+  type Option,
+  overBudgetMealAllowed,
+  type WalkState,
+} from "./dayLookahead";
+import { choose } from "./dayPicks";
+import { keepsDayRules } from "./dayRules";
 import { advanceCursor, startCursor, timeStep } from "./schedule";
-import { compareScored, scorePlace } from "./score";
+import { scorePlace } from "./score";
 import type { Anchor, Place, TripRequest } from "./types";
 
-// The greedy "walk the day" of planDeterministic. At each step it asks timeStep what every
-// remaining place would look like next, keeps those that fit, and picks, in this order:
-//   1. a must-include that can start now;
-//   2. a meal that is due (can start now) and keeps the promises below;
-//   3. the best visit that can start now and still leaves the pending meals and must-includes
-//      reachable (dayLookahead.ts);
-//   4. otherwise whatever can start soonest without breaking those promises.
-// "Now" means within MAX_IDLE_MIN of arriving. Evening-only places land after dinner this way.
+// The greedy "walk the day" of planDeterministic. At each step it times every unused pool place
+// as the next stop (timeStep), keeps the options that fit the hard rules, the trip back to the
+// base, and the day rules (dayRules.ts), and takes the first pick of:
+//   1. pickObligationNow: a must-include that can start now, the least flexible first;
+//   2. pickDueMeal: the meal that is due now, a must-include meal place first;
+//   3. pickVisitNow: the best visit that can start now and keeps every promise;
+//   4. pickSoonest: whatever can start soonest without breaking a promise;
+//   5. pickFirstStop: on a day still empty, whatever can start soonest.
+// "Now" means within MAX_IDLE_MIN of arriving. The promises are the meals still reachable and the
+// must-includes still possible today (dayLookahead.ts). Evening-only places land in the evening,
+// after dinner or, when a later dinner still fits, just before it.
+// A walk moves one stop at a time (stepWalk), so the trip builder can take turns between days.
 
 /** What one day may use. */
 export interface DayInput {
@@ -25,10 +37,14 @@ export interface DayInput {
   request: TripRequest;
   ctx: PlannerContext;
   pool: readonly Place[]; // places this day may use, already filtered (base, exclusions, budget)
-  used: ReadonlySet<string>; // ids already in the trip on earlier days
+  used: ReadonlySet<string>; // ids in the trip on other days; the trip builder keeps it current
   obligations: ReadonlySet<string>; // must-include ids to fit today if at all possible
-  laterDays: ReadonlyMap<string, number>; // per obligation: later trip days that could hold it
-  visitCap?: number; // cap on ordinary visits, below the pace's cap to spread a thin base
+  otherChances: (placeId: string) => number; // other days that could still hold a must-include
+  mealChances?: (place: Place) => number; // meals the place could serve on other unfinished days
+  mealWanted?: (place: Place) => boolean; // another day with no meal yet could still eat here
+  visitChances?: (place: Place) => number; // later unfinished days that could still visit it
+  visitCap?: number; // cap on visits below the pace's cap
+  mealVisits?: boolean; // a rescued day: a meal place may be a visit (tripWalk.ts)
 }
 
 /** The day the greedy walk produced: ids in visiting order and the summed selection scores. */
@@ -37,138 +53,137 @@ export interface BuiltDay {
   score: number;
 }
 
-/** Builds one day greedily. Pure and deterministic: ties always break by place id. */
-export function buildDay(input: DayInput): BuiltDay {
-  const limits = latestStartsFor({
-    ...input,
-    pace: input.request.pace,
-    mustInclude: input.request.mustInclude,
-  });
-  const state: WalkState = {
-    cursor: startCursor(input.anchor, input.request.pace, input.transferMin),
-    visits: 0,
-    previousType: null,
-    usedIds: new Set(input.used),
-  };
-  const ids: string[] = [];
-  let score = 0;
-  // Each round adds one unused pool place or stops, so the loop runs at most pool.length times.
-  for (;;) {
-    const pick = choose(collectOptions(input, state), input, state, limits);
-    if (!pick) break;
-    ids.push(pick.place.id);
-    score += pick.score;
-    state.cursor = advanceCursor(state.cursor, pick.place, pick.step);
-    if (pick.step.role === "visit") state.visits++;
-    state.previousType = pick.place.type;
-    state.usedIds.add(pick.place.id);
-  }
-  return { ids, score: Math.round(score * 1e6) / 1e6 };
+/** A day being walked: its input, where it is, and what it has taken so far. */
+export interface DayWalk extends BuiltDay {
+  input: DayInput;
+  state: WalkState;
+  limits: Limits;
+  heldBack: boolean; // the last step found nothing, but a meal place held for another day fit
 }
 
-/** Every pool place that could come next: open for its whole visit and inside the day window. */
-function collectOptions(input: DayInput, state: WalkState): Option[] {
-  const window = dayWindow(input.request.pace, input.transferMin);
-  const maxVisits = PACE[input.request.pace].maxVisits;
-  // Decision: the spread cap limits ordinary visits only. Must-include places still get every
-  // visit slot the pace allows, so spreading a thin base never costs the traveler a named place.
-  const ordinaryCap = Math.min(maxVisits, input.visitCap ?? maxVisits);
+/** A walk at the start of its day: at the day's start point, after any transfer. */
+export function startWalk(input: DayInput): DayWalk {
+  const { request, anchor, transferMin } = input;
+  const origin = dayOrigin(anchor, request);
+  const limits = latestStartsFor({
+    date: input.date,
+    pace: request.pace,
+    transferMin,
+    origin,
+    pool: input.pool,
+    mustInclude: request.mustInclude,
+    mealVisits: input.mealVisits ?? false,
+  });
+  const state: WalkState = {
+    cursor: startCursor(anchor, request.pace, transferMin, origin),
+    visits: 0,
+    previousType: null,
+    today: [],
+    fed: false,
+  };
+  return { input, state, limits, ids: [], score: 0, heldBack: false };
+}
+
+/** Takes the walk's next stop and returns it, or null when nothing fits (the day is done). */
+export function stepWalk(walk: DayWalk): Option | null {
+  const { input, state, limits } = walk;
+  const { options, heldBack } = collectOptions(input, state, limits);
+  const pick = choose(options, input, state, limits);
+  walk.heldBack = pick === null && heldBack;
+  if (!pick) return null;
+  walk.ids.push(pick.place.id);
+  walk.score = Math.round((walk.score + pick.score) * 1e6) / 1e6;
+  state.cursor = advanceCursor(state.cursor, pick.place, pick.step);
+  if (pick.step.role === "visit") state.visits++;
+  state.previousType = pick.place.type;
+  state.today.push(pick.place);
+  state.fed ||= pick.step.role !== "visit" || coversAMeal(pick);
+  return pick;
+}
+
+/** Builds one day greedily on its own. Pure and deterministic: ties always break by place id. */
+export function buildDay(input: DayInput): BuiltDay {
+  const walk = startWalk(input);
+  // Each step adds one unused pool place or stops, so the loop runs at most pool.length times.
+  while (stepWalk(walk));
+  return { ids: walk.ids, score: walk.score };
+}
+
+/**
+ * Every pool place that could come next: open for its whole visit, starting no later than its
+ * latest start for that role (which leaves time to get back to the base), under the visit cap,
+ * and keeping the day rules. `heldBack` is true when a meal place fit but was left to another day
+ * with no meal yet (savedForAnotherDay), so the day may get another turn once that day eats.
+ */
+function collectOptions(
+  input: DayInput,
+  state: WalkState,
+  limits: Limits,
+): { options: Option[]; heldBack: boolean } {
   const situation = {
     date: input.date,
     from: state.cursor.position,
     previousType: state.previousType,
   };
+  const daySoFar = {
+    mealVisits: input.mealVisits ?? false,
+    clock: state.cursor.clock,
+    mealsTaken: state.cursor.mealsTaken,
+    today: state.today,
+    anchor: input.anchor,
+  };
   const options: Option[] = [];
+  let heldBack = false;
   for (const place of input.pool) {
-    if (isBlocked(place, state.usedIds, input)) continue;
+    if (isBlocked(place, input, state.today)) continue;
     const step = timeStep(place, input.date, state.cursor);
-    if (!step.fits || step.end > window.end) continue;
-    if (step.role === "visit" && !mayVisit(place, input.request.mustInclude)) continue;
+    const latest = limits.get(place.id);
+    const lastStart = latest?.[step.role];
+    if (!step.fits || lastStart === undefined || step.start > lastStart) continue;
     const obligation = input.obligations.has(place.id);
-    const cap = obligation ? maxVisits : ordinaryCap;
-    if (step.role === "visit" && state.visits >= cap) continue;
+    if (step.role === "visit" && state.visits >= visitCapFor(input, place.id, obligation)) continue;
+    if (step.role !== "visit" && !obligation) {
+      const overBudget = !withinBudget(place, input.request.maxPriceLevel);
+      if (overBudget && !overBudgetMealAllowed(step.role, input, state, limits)) continue;
+      if (savedForAnotherDay(input, state, place)) {
+        heldBack = true;
+        continue;
+      }
+    }
+    const { role, arrive, start, travelMin } = step;
+    const next = { place, role, arrive, start, travelMin, obligation, latest };
+    if (!keepsDayRules(next, daySoFar)) continue;
     const score = scorePlace(place, input.request, situation);
     options.push({ place, step, score, obligation });
   }
-  return options;
-}
-
-function isNow(option: Option): boolean {
-  return option.step.start - option.step.arrive <= MAX_IDLE_MIN;
-}
-
-function best(options: readonly Option[]): Option | null {
-  let top: Option | null = null;
-  for (const option of options) if (top === null || compareScored(option, top) < 0) top = option;
-  return top;
-}
-
-/** Earliest start first, then must-includes, then score, then id. */
-function compareSoonest(a: Option, b: Option): number {
-  return (
-    a.step.start - b.step.start ||
-    Number(b.obligation) - Number(a.obligation) ||
-    compareScored(a, b)
-  );
-}
-
-/** The next stop, or null when nothing fits. The order is described at the top of the file. */
-function choose(options: Option[], input: DayInput, state: WalkState, limits: Limits) {
-  const keeps = keepsPromises(options, input, state, limits);
-  const urgent = (candidates: Option[]) => mostUrgent(candidates, input, state, limits);
-  // A must-include that can start now goes first, preferring one that costs no other promise.
-  const obligationsNow = options.filter((o) => o.obligation && isNow(o));
-  const obligationNow = urgent(obligationsNow.filter(keeps.all)) ?? urgent(obligationsNow);
-  if (obligationNow) return obligationNow;
-  // A meal is due when some place can seat it now; a must-include meal place may then be chosen
-  // even if it means waiting a little longer for its own opening.
-  const due = options.find((o) => o.step.role !== "visit" && isNow(o))?.step.role;
-  const meals = options.filter((o) => o.step.role === due && (isNow(o) || o.obligation));
-  // When every must-include meal costs another promise (two must-include dinners, one slot),
-  // the least flexible one still takes the meal; the other keeps its later chances.
-  const mustMeals = meals.filter((o) => o.obligation);
-  const mealDue =
-    urgent(mustMeals.filter(keeps.all)) ?? urgent(mustMeals) ?? best(meals.filter(keeps.all));
-  if (mealDue) return mealDue;
-  const visitNow = best(options.filter((o) => o.step.role === "visit" && isNow(o) && keeps.all(o)));
-  if (visitNow) return visitNow;
-  const later = options.filter((o) => o.obligation || keeps.all(o)).sort(compareSoonest);
-  const next = later[0];
-  if (!next || next.step.role === "visit") return next ?? null;
-  // The next thing is a meal: the must-include places for that meal compete by urgency.
-  const rivals = later.filter((o) => o.obligation && o.step.role === next.step.role);
-  return urgent(rivals.filter(keeps.all)) ?? urgent(rivals) ?? next;
+  return { options, heldBack };
 }
 
 /**
- * The must-include with the fewest other chances, then the best score. Chances are later trip
- * days that could hold it, plus one for a lunch place that could still be tonight's dinner.
+ * The visit cap for one place: the day's cap, except that a must-include on its last chance (no
+ * other day could hold it) may use every visit slot the pace allows.
  */
-// Decision: least flexible first. With two must-include restaurants and one lunch slot, the
-// lunch-only one takes lunch and the other waits for dinner, instead of whichever scores higher
-// taking lunch and the other being lost.
-function mostUrgent(
-  candidates: Option[],
-  input: DayInput,
-  state: WalkState,
-  limits: Limits,
-): Option | null {
-  const chances = (option: Option): number => {
-    const later = input.laterDays.get(option.place.id) ?? 0;
-    const dinnerLater =
-      option.step.role === "lunch" &&
-      !state.cursor.mealsTaken.includes("dinner") &&
-      limits.get(option.place.id)?.dinner !== undefined;
-    return later + (dinnerLater ? 1 : 0);
-  };
-  let top: Option | null = null;
-  for (const option of candidates) {
-    if (top === null) {
-      top = option;
-      continue;
-    }
-    const order = chances(option) - chances(top) || compareScored(option, top);
-    if (order < 0) top = option;
-  }
-  return top;
+// Decision: a must-include with other chances obeys the cap like any other visit. When it did
+// not, four must-includes of one base all landed on day 1 and the base ran dry, so the plan left
+// the base the traveler chose for the other two days.
+/** A second meal here would take one of the last places another day with no meal yet needs. */
+// Decision: where meal places are scarce (Bologna and Milan have three or four for six meals), a
+// day already fed leaves the last ones to a day that has none, so no day ends with two meals
+// while another has nothing. A meal place over the budget is held the same way: at budget 1 in
+// Florence, day 1 took two of them while day 3 ended at 12:50 with no meal.
+function savedForAnotherDay(input: DayInput, state: WalkState, place: Place): boolean {
+  return state.fed && (input.mealWanted?.(place) ?? false);
+}
+
+function coversAMeal(option: Option): boolean {
+  const { place, step } = option;
+  return (["lunch", "dinner"] as const).some((meal) =>
+    coversMeal(place, step.start, step.end, meal),
+  );
+}
+
+function visitCapFor(input: DayInput, placeId: string, obligation: boolean): number {
+  const maxVisits = PACE[input.request.pace].maxVisits;
+  if (obligation && input.otherChances(placeId) === 0) return maxVisits;
+  return Math.min(maxVisits, input.visitCap ?? maxVisits);
 }

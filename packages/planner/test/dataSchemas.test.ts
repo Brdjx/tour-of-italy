@@ -7,7 +7,7 @@ import { place, rawRecord } from "./helpers";
 // F8). Every value the normalizer can produce must pass, and nothing it cannot produce may.
 
 describe("ExcludedRecordSchema and AnchorSchema", () => {
-  it("accepts every kind of excluded record the normalizer produces", () => {
+  it("never rejects an excluded record the normalizer produces", () => {
     const { excluded } = normalizePlaces([
       42,
       rawRecord({ id: "a", name: " " }),

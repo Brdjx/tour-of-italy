@@ -1,11 +1,13 @@
 import { z } from "zod";
+import { ID_MAX_CHARS } from "./config";
 import { EXCLUSION_REASONS, ISSUE_KINDS, PLACE_TYPES } from "./enums";
+import type { Assert, Both } from "./typeChecks";
 import type { Anchor, DataIssue, DataSummary, ExcludedRecord, Place } from "./types";
 
 // Zod schemas for places and data notes, as served by GET /api/places and GET /api/data-issues.
 // The web app parses those responses with these before rendering anything.
 
-const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const ID_PATTERN = new RegExp(`^[A-Za-z0-9_-]{1,${ID_MAX_CHARS}}$`);
 const MAX_MINUTES = 2 * 1440; // past-midnight closings reach past 1440, never past two days
 
 export const IdSchema = z.string().regex(ID_PATTERN, "Expected an id of letters, digits, _ or -");
@@ -134,10 +136,7 @@ export const DataSummarySchema = z.strictObject({
   ),
 });
 
-// Compile-time agreement between these schemas and the types in types.ts.
-type Assert<T extends true> = T;
-type Extends<A, B> = [A] extends [B] ? true : false;
-type Both<A, B> = Extends<A, B> extends true ? Extends<B, A> : false;
+// Compile-time agreement between these schemas and the types in types.ts (typeChecks.ts).
 
 export type DataSchemaTypeChecks = [
   Assert<Both<z.output<typeof PlaceSchema>, Place>>,
