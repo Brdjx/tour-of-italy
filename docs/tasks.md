@@ -103,15 +103,15 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T47 | Fifteen eval cases using real place ids | in progress | |
-| T48 | Live eval runner with recordings, replayed in CI without network | in progress | |
+| T47 | Fifteen eval cases using real place ids | done | 3ae21f4; 15 cases on real places |
+| T48 | Live eval runner with recordings, replayed in CI without network | done | 3ae21f4; replay 100% final valid, 11/11 guardrail recordings |
 | T49 | Compare Sonnet 5, Haiku 4.5, and the rules-only baseline | todo | |
 
 ## Phase 8: docs
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | in progress | decisions, testing, architecture, README drafting; write-up waits for eval numbers |
+| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | in progress | README, architecture, decisions, testing done (53314d7); write-up waits for live eval numbers |
 
 ## Phase 9: final pass
 
@@ -125,7 +125,7 @@ Statuses:
 | T56 | Tighten the deploy role trust to the `production` environment subject only | todo | |
 | T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | done | live at italy-planner.brdjx.com and api.italy-planner.brdjx.com |
 | T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | waiting for a workspace-scoped key in .env.anthropic |
-| T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | in progress | |
+| T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | done | a577b1d; 25 rules removed, 7 files merged, judged on 3 seeds |
 | T60 | Simpler default view: filters behind More options, collapsed trip summary after planning | in progress | |
 | T61 | Loading skeletons before search (meta, places, map) and after search (timetable while planning) | in progress | |
 
