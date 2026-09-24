@@ -58,6 +58,14 @@ export default defineConfig({
       // Decision: entry points are exercised by the dev server and the deploy smoke test, not
       // by unit tests, so they do not count against coverage.
       exclude: ["services/api/src/local.ts", "services/api/src/lambda.ts", "packages/evals/src/**"],
+      // Decision: floors per area, so one well-covered package cannot hide a poorly covered one.
+      // The brief's minimums are planner 90, api 85 and web lib 90 (lines); each floor here is the
+      // measured figure on 2026-09-24 rounded down, which is higher, so coverage can only ratchet up.
+      thresholds: {
+        "packages/planner/src/**/*.ts": { lines: 99, statements: 98, branches: 94, functions: 99 },
+        "services/api/src/**/*.ts": { lines: 99, statements: 98, branches: 92, functions: 98 },
+        "apps/web/lib/**/*.ts": { lines: 98, statements: 96, branches: 92, functions: 96 },
+      },
     },
   },
 });

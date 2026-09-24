@@ -272,11 +272,13 @@ Known exposures, accepted:
 
 ## Costs
 
-At demo traffic the AWS bill is about $10 to $12 a month, almost all of it the WAF ($5 per web
+At demo traffic the AWS bill is about $10 to $13 a month, almost all of it the WAF ($5 per web
 ACL plus $1 per rule, five rules, plus $0.60 per million requests). One web ACL protects both
 distributions, and a CloudFront distribution has no fixed monthly cost, so the API host adds only
-its requests. Lambda, the HTTP API ($1 per million requests), CloudFront, S3, the CloudFront
-function and six alarms ($0.60) add cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
+its requests. Six alarms cost $0.70 (the model failures alarm reads two metrics). The API's five
+custom metrics cost at most $1.50, since CloudWatch bills them only for hours that receive data.
+Lambda, the HTTP API ($1 per million requests), CloudFront, S3 and the CloudFront function add
+cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
 The budget `italy-planner-monthly` (default $20) emails at 80% actual and 100% forecast. Claude API
 usage is billed by Anthropic, not AWS; it is capped by reserved concurrency (10), API throttling
 (plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the response
