@@ -1,0 +1,618 @@
+place_001 [historic_site] Colosseum
+  hours listed: Mon-Sun 09:00-19:00
+  visit 120 listed; price 2; rating 4.8; meals none
+  where Rome, Celio (41.89020, 12.49220) listed; linked none
+  tags iconic, historic, tourist-heavy, cultural; booking yes; book ahead yes
+  chips: Book ahead
+place_002 [neighborhood] Trastevere Neighborhood
+  hours open_access (open_access "neighborhood" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 180 listed; price 1; rating 4.7; meals none
+  where Rome, Trastevere (41.88930, 12.47060) listed; linked none
+  tags romantic, evening, local-favorite, scenic, food; booking no; book ahead no
+  chips: Public space, no set hours
+place_003 [restaurant] Da Enzo al 29
+  hours listed: Mon-Sat 12:30-14:30+19:30-22:30, Sun closed
+  visit 90 listed; price 2; rating 4.6; meals lunch+dinner
+  where Rome, Trastevere (41.88750, 12.47200) listed; linked none
+  tags food, local-favorite, hidden-gem, cultural; booking yes; book ahead yes
+  chips: Book ahead
+place_004 [historic_site] Roman Forum
+  hours listed: Mon-Sun 09:00-19:00
+  visit 90 listed; price 2; rating 4.6; meals none
+  where Rome, Celio (41.89250, 12.48530) listed; linked none
+  tags historic, iconic, cultural, morning; booking yes; book ahead yes
+  chips: Book ahead
+place_005 [historic_site] Pantheon
+  hours listed: Mon-Sun 09:00-19:00
+  visit 45 listed; price 1; rating 4.8; meals none
+  where Rome, Pigna (41.89860, 12.47690) listed; linked none
+  tags iconic, historic, cultural, tourist-heavy; booking no; book ahead no
+  chips: none
+place_006 [market] Campo de' Fiori Market
+  hours derived (free_text "Morning only" 07:00-13:00): Mon-Sun 07:00-13:00
+  visit 60 listed; price 1; rating 4.2; meals none
+  where Rome, Parione (41.89550, 12.47220) listed; linked none
+  tags market, morning, food, photogenic, local-favorite; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_007 [museum] Borghese Gallery
+  hours listed: Mon closed, Tue-Sun 09:00-19:00
+  visit 120 listed; price 2; rating 4.9; meals none
+  where Rome, Parioli (41.91430, 12.49240) listed; linked none
+  tags art, cultural, rainy-day, iconic, splurge; booking yes; book ahead yes
+  chips: Book ahead
+place_008 [historic_site] Piazza Navona
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 45 listed; price 1; rating 4.5; meals none
+  where Rome, Parione (41.89920, 12.47310) listed; linked none
+  tags historic, photogenic, tourist-heavy, evening, scenic; booking no; book ahead no
+  chips: Public space, no set hours
+place_009 [restaurant] Osteria Fernanda
+  hours listed: Mon closed, Tue-Sun 19:30-22:30
+  visit 100 listed; price 3; rating 4.5; meals dinner
+  where Rome, Trastevere (41.88480, 12.47400) listed; linked none
+  tags food, romantic, evening, local-favorite; booking yes; book ahead yes
+  chips: Book ahead
+place_010 [museum] Vatican Museums
+  hours listed: Mon-Sat 09:00-18:00, Sun closed
+  visit 240 listed; price 2; rating 4.7; meals none
+  where Rome, Borgo (41.90650, 12.45360) listed; linked none
+  tags iconic, art, cultural, tourist-heavy, rainy-day; booking yes; book ahead yes
+  chips: Book ahead
+place_011 [cafe] Gelato at Giolitti
+  hours listed: Mon-Sun 07:30-24:00
+  visit 20 listed; price 1; rating 4.3; meals none
+  where Rome, Pigna (41.89970, 12.47630) listed; linked none
+  tags food, budget, local-favorite, iconic; booking no; book ahead no
+  chips: none
+place_012 [historic_site] Mouth of Truth (Bocca della Verità)
+  hours listed: Mon-Sun 09:30-17:30
+  visit 15 listed; price 1; rating 3.8; meals none
+  where Rome, Ripa (41.88820, 12.48160) listed; linked none
+  tags historic, tourist-heavy, photogenic; booking no; book ahead no
+  chips: none
+place_013 [neighborhood] Pigneto Neighborhood
+  hours open_access (open_access "neighborhood" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 120 listed; price 1; rating 4.4; meals none
+  where Rome, Pigneto (41.88720, 12.53420) listed; linked none
+  tags local-favorite, evening, hidden-gem, food; booking no; book ahead no
+  chips: Public space, no set hours
+place_014 [viewpoint] Aventine Keyhole
+  hours open_access (open_access "viewpoint" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 type_default; price 1; rating 4.6; meals none
+  where Rome, Aventino (41.88330, 12.47800) listed; linked none
+  tags hidden-gem, scenic, photogenic, views, local-favorite; booking no; book ahead no
+  chips: Public space, no set hours; Estimated visit time
+place_015 [market] Mercato Testaccio
+  hours listed: Mon-Sat 07:00-14:00, Sun closed
+  visit 60 listed; price 1; rating 4.7; meals lunch
+  where Rome, Testaccio (41.87930, 12.47730) listed; linked none
+  tags market, food, local-favorite, morning, budget; booking no; book ahead no
+  chips: none
+place_016 [historic_site] Palatine Hill
+  hours listed: Mon-Sun 09:00-19:00
+  visit 90 listed; price 2; rating 4.4; meals none
+  where Rome, Celio (41.88930, 12.48730) listed; linked none
+  tags historic, scenic, views, cultural, morning; booking yes; book ahead yes
+  chips: Book ahead
+place_017 [historic_site] Castel Sant'Angelo
+  hours listed: Mon-Sun 09:00-19:30
+  visit 90 listed; price 2; rating 4.5; meals none
+  where Rome, Borgo (41.90310, 12.46630) listed; linked none
+  tags historic, views, scenic, photogenic, cultural; booking no; book ahead no
+  chips: none
+place_018 [historic_site] Trevi Fountain
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 listed; price 1; rating 4.7; meals none
+  where Rome, Trevi (41.90090, 12.48330) listed; linked place_077
+  tags iconic, photogenic, tourist-heavy, morning; booking no; book ahead no
+  chips: Public space, no set hours
+place_019 [historic_site] Spanish Steps
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 20 listed; price 1; rating 3.9; meals none
+  where Rome, Trevi (41.90580, 12.48230) listed; linked none
+  tags iconic, tourist-heavy, photogenic, views; booking no; book ahead no
+  chips: Public space, no set hours
+place_020 [restaurant] Il Sorpasso
+  hours listed: Mon-Sun 08:00-01:00+1
+  visit 90 listed; price 2; rating 4.4; meals lunch+dinner
+  where Rome, Prati (41.90510, 12.46140) listed; linked none
+  tags food, local-favorite, evening, relaxing; booking ?; book ahead no
+  chips: none
+place_021 [experience] Appian Way Bike Ride
+  hours unknown: unknown
+  visit 240 listed; price 2; rating 4.8; meals none
+  where Rome, - (41.85470, 12.51030) listed; linked none
+  tags active, outdoors, historic, morning, local-favorite, scenic; booking no; book ahead no
+  chips: Hours not confirmed
+place_022 [restaurant] Roscioli Salumeria
+  hours listed: Mon-Sat 12:30-15:30+19:30-23:00, Sun closed
+  visit 90 listed; price 3; rating 4.7; meals lunch+dinner
+  where Rome, Campo de' Fiori (41.89500, 12.47420) listed; linked none
+  tags food, wine, local-favorite, splurge; booking yes; book ahead yes
+  chips: Book ahead
+place_023 [viewpoint] Piazza del Popolo at Dawn
+  hours derived (name_hint "at Dawn" 06:00-10:00): Mon-Sun 06:00-10:00
+  visit 30 type_default; price 1; rating 4.6; meals none
+  where Rome, Flaminio (41.91080, 12.47640) listed; linked none
+  tags views, scenic, photogenic, morning, hidden-gem, free; booking no; book ahead no
+  chips: Hours estimated from the listing; Estimated visit time
+place_024 [market] Fontanella Borghese Book Market
+  hours listed: Mon-Sat 09:00-19:00, Sun closed
+  visit 45 listed; price 1; rating 4.1; meals none
+  where Rome, Colonna (41.90450, 12.47630) listed; linked none
+  tags market, local-favorite, morning, hidden-gem, cultural; booking no; book ahead no
+  chips: none
+place_025 [restaurant] Hard Rock Cafe Rome
+  hours listed: Mon-Sun 11:00-24:00
+  visit 90 listed; price 3; rating 2.1; meals lunch+dinner
+  where Rome, Trevi (41.90200, 12.48490) listed; linked none
+  tags tourist-heavy; booking no; book ahead no
+  chips: none
+place_026 [museum] Uffizi Gallery
+  hours listed: Mon closed, Tue-Sun 08:15-18:50
+  visit 180 listed; price 2; rating 4.8; meals none
+  where Florence, Piazza della Signoria (43.76870, 11.25580) listed; linked none
+  tags art, iconic, cultural, rainy-day, tourist-heavy; booking yes; book ahead yes
+  chips: Book ahead
+place_027 [viewpoint] Piazzale Michelangelo
+  hours open_access (open_access "viewpoint" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 type_default; price 1; rating 4.6; meals none
+  where Florence, Oltrarno (43.76290, 11.26500) listed; linked none
+  tags views, scenic, photogenic, iconic, tourist-heavy, morning; booking no; book ahead no
+  chips: Public space, no set hours; Estimated visit time
+place_028 [neighborhood] Oltrarno Neighborhood
+  hours open_access (open_access "neighborhood" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 180 listed; price 2; rating 4.7; meals none
+  where Florence, Oltrarno (43.76440, 11.24690) listed; linked none
+  tags local-favorite, hidden-gem, evening, food, wine, cultural; booking no; book ahead no
+  chips: Public space, no set hours
+place_029 [restaurant] Buca Mario
+  hours listed: Mon-Sun 12:00-14:30+19:00-22:30
+  visit 100 listed; price 3; rating 4.3; meals lunch+dinner
+  where Florence, Santa Croce (43.77060, 11.25580) listed; linked none
+  tags food, iconic, splurge, cultural, wine; booking yes; book ahead yes
+  chips: Book ahead
+place_030 [market] Mercato Centrale Firenze
+  hours listed: Mon-Fri 07:00-14:00, Sat 07:00-17:00, Sun closed
+  visit 60 listed; price 1; rating 4.3; meals none
+  where Florence, San Lorenzo (43.77670, 11.25350) listed; linked place_031
+  tags market, food, local-favorite, morning; booking no; book ahead no
+  chips: none
+place_031 [experience] Mercato Centrale
+  hours listed: Mon-Sun 10:00-24:00
+  visit 75 listed; price 2; rating 4; meals lunch+dinner
+  where Florence, San Lorenzo (43.77670, 11.25350) listed; linked place_030
+  tags food, market, rainy-day, tourist-heavy; booking no; book ahead no
+  chips: none
+place_032 [museum] Accademia Gallery (Michelangelo's David)
+  hours listed: Mon closed, Tue-Sun 08:15-18:50
+  visit 90 listed; price 2; rating 4.9; meals none
+  where Florence, San Marco (43.77660, 11.25870) listed; linked none
+  tags art, iconic, cultural, tourist-heavy, rainy-day; booking yes; book ahead yes
+  chips: Book ahead
+place_033 [restaurant] Buca dell'Orafo
+  hours listed: Mon closed, Tue-Sun 12:00-14:30+19:00-22:30
+  visit 90 listed; price 2; rating 4.4; meals lunch+dinner
+  where Florence, - (43.76810, 11.25270) listed; linked none
+  tags food, local-favorite, cultural, hidden-gem; booking yes; book ahead yes
+  chips: Book ahead
+place_034 [park] Boboli Gardens
+  hours listed: Mon-Sun 08:15-16:30
+  visit 120 listed; price 2; rating 4.4; meals none
+  where Florence, Oltrarno (43.76280, 11.24910) listed; linked none
+  tags outdoors, scenic, relaxing, views, historic, family-friendly; booking no; book ahead no
+  chips: none
+place_035 [experience] Chianti Day Trip by Bike
+  hours unknown: unknown; season 4/1-10/31
+  visit 480 listed; price 2; rating 4.8; meals none
+  where Florence, - (43.58330, 11.31670) listed; linked none
+  tags wine, outdoors, active, scenic, romantic, splurge; booking yes; book ahead yes
+  chips: Hours not confirmed; Open Apr to Oct; Book ahead
+place_036 [historic_site] Santa Croce Basilica
+  hours listed: Mon-Sat 09:30-17:30, Sun 14:00-17:30
+  visit 75 listed; price 1; rating 4.6; meals none
+  where Florence, Santa Croce (43.76850, 11.26220) listed; linked none
+  tags historic, art, cultural, iconic; booking no; book ahead no
+  chips: none
+place_037 [cafe] Aperitivo at Rasputin
+  hours derived (free_text "Evenings" 18:00-24:00): Mon-Sun 18:00-24:00
+  visit 90 listed; price 1; rating 4.5; meals dinner
+  where Florence, Oltrarno (43.76550, 11.24580) listed; linked none
+  tags local-favorite, hidden-gem, evening, food, budget; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_038 [experience] Siena Day Trip
+  hours unknown: unknown
+  visit 360 listed; price 2; rating 4.7; meals none
+  where Siena, - (43.31860, 11.33070) listed; linked none
+  tags historic, scenic, cultural, outdoors, family-friendly; booking no; book ahead no
+  chips: Hours not confirmed
+place_039 [restaurant] Il Latini
+  hours listed: Mon closed, Tue-Sun 12:30-14:30+19:30-22:30
+  visit 120 listed; price 2; rating 4.4; meals lunch+dinner
+  where Florence, San Giovanni (43.77210, 11.24970) listed; linked none
+  tags food, local-favorite, wine, lively, cultural; booking yes; book ahead yes
+  chips: Book ahead
+place_040 [historic_site] San Miniato al Monte
+  hours listed: Mon-Sun 08:00-19:00
+  visit 60 listed; price 1; rating 4.7; meals none
+  where Florence, Oltrarno (43.75940, 11.26440) listed; linked none
+  tags historic, views, hidden-gem, scenic, morning, cultural; booking no; book ahead no
+  chips: none
+place_041 [restaurant] Osteria dell'Enoteca
+  hours listed: Mon-Sat 19:30-22:30, Sun closed
+  visit 150 listed; price 4; rating 4.8; meals dinner
+  where Florence, Gavinana (43.75830, 11.27280) listed; linked none
+  tags food, wine, splurge, romantic, local-favorite; booking yes; book ahead yes
+  chips: Book ahead
+place_042 [restaurant] Trattoria da Cesare al Casaletto
+  hours listed: Mon closed, Tue-Sat 13:00-15:00+20:00-22:30, Sun closed
+  visit 90 listed; price 2; rating 4.8; meals lunch+dinner
+  where Rome, - (41.87330, 12.42100) listed; linked none
+  tags food, local-favorite, hidden-gem; booking yes; book ahead yes
+  chips: Book ahead
+place_043 [restaurant] Osteria Francescana
+  hours listed: Mon closed, Tue-Sat 12:30-14:00+20:00-22:00, Sun closed
+  visit 120 clamped; price 4; rating 5; meals dinner
+  where Modena, - (44.64690, 10.92640) listed; linked none
+  tags food, splurge, iconic, romantic; booking yes; book ahead yes
+  chips: Estimated visit time; Book ahead
+place_044 [experience] Traditional Balsamic Vinegar Tasting, Modena
+  hours unknown: unknown
+  visit 90 listed; price 2; rating 4.8; meals none
+  where Modena, - (44.64690, 10.92570) listed; linked place_083
+  tags food, cultural, local-favorite, hidden-gem, experience; booking yes; book ahead yes
+  chips: Hours not confirmed; Book ahead
+place_045 [museum] Ferrari Museum, Maranello
+  hours listed: Mon-Sun 09:30-18:00
+  visit 150 listed; price 2; rating 4.5; meals none
+  where Maranello, - (44.52890, 10.86530) listed; linked none
+  tags cultural, family-friendly, iconic, active; booking no; book ahead no
+  chips: none
+place_046 [market] Via Drapperie, Bologna
+  hours listed: Mon-Sat 08:00-13:00+16:30-19:30, Sun closed
+  visit 60 listed; price 1; rating 4.7; meals lunch
+  where Bologna, Quadrilatero (44.49440, 11.34400) listed; linked none
+  tags market, food, local-favorite, morning, cultural, photogenic; booking no; book ahead no
+  chips: none
+place_047 [restaurant] Tagliatelle al Ragù at Trattoria Anna Maria
+  hours listed: Mon closed, Tue-Sat 12:30-14:30+19:30-22:00, Sun closed
+  visit 90 listed; price 2; rating 4.9; meals lunch+dinner
+  where Bologna, Irnerio (44.49920, 11.34670) listed; linked none
+  tags food, local-favorite, iconic, cultural; booking yes; book ahead yes
+  chips: Book ahead
+place_048 [historic_site] Torre degli Asinelli Climb
+  hours listed: Mon-Sun 09:00-18:00
+  visit 45 listed; price 1; rating 4.6; meals none
+  where Bologna, Piazza di Porta Ravegnana (44.49420, 11.34610) listed; linked none
+  tags views, historic, active, scenic, photogenic; booking no; book ahead no
+  chips: none
+place_049 [experience] University of Bologna Porticoes Walk
+  hours unknown: unknown
+  visit 120 listed; price 1; rating 4.6; meals none
+  where Bologna, University Quarter (44.49490, 11.34260) listed; linked none
+  tags outdoors, scenic, cultural, local-favorite, active; booking no; book ahead no
+  chips: Hours not confirmed
+place_050 [restaurant] Enoteca Italiana, Bologna
+  hours listed: Mon closed, Tue-Sun 18:00-23:00
+  visit 90 listed; price 2; rating 4.4; meals dinner
+  where Bologna, Saragozza (44.48900, 11.32750) listed; linked none
+  tags wine, food, evening, local-favorite, relaxing; booking no; book ahead no
+  chips: none
+place_051 [museum] Pinacoteca Nazionale di Bologna
+  hours listed: Mon closed, Tue-Sun 09:00-19:00
+  visit 120 listed; price 1; rating 4.5; meals none
+  where Bologna, Irnerio (44.49810, 11.35100) listed; linked none
+  tags art, cultural, rainy-day, hidden-gem, quiet; booking no; book ahead no
+  chips: none
+place_052 [viewpoint] Piazza Maggiore at Night
+  hours derived (name_hint "at Night" 20:00-24:00): Mon-Sun 20:00-24:00
+  visit 30 type_default; price 1; rating 4.7; meals none
+  where Bologna, Centro Storico (44.49380, 11.34270) listed; linked none
+  tags scenic, photogenic, evening, historic, views; booking no; book ahead no
+  chips: Hours estimated from the listing; Estimated visit time
+place_053 [experience] Cheese and Prosciutto Tour, Parma
+  hours unknown: unknown; only Mon/Tue/Wed/Thu/Fri
+  visit 360 listed; price 2; rating 4.7; meals none
+  where Parma, - (44.80150, 10.32790) listed; linked none
+  tags food, experience, cultural, local-favorite, outdoors; booking yes; book ahead yes
+  chips: Hours not confirmed; Mon to Fri only; Book ahead
+place_054 [cafe] Gelato at La Sorbetteria Castiglione
+  hours listed: Mon-Sun 11:00-23:00
+  visit 20 listed; price 1; rating 4.8; meals none
+  where Bologna, Castiglione (44.48910, 11.34120) listed; linked none
+  tags food, local-favorite, budget; booking no; book ahead no
+  chips: none
+place_055 [historic_site] Duomo di Milano
+  hours listed: Mon-Sun 09:00-18:00
+  visit 90 listed; price 2; rating 4.7; meals none
+  where Milan, Duomo (45.46410, 9.19190) listed; linked none
+  tags iconic, historic, views, photogenic, tourist-heavy; booking no; book ahead no
+  chips: none
+place_056 [museum] The Last Supper (Cenacolo Vinciano)
+  hours listed: Mon closed, Tue-Sun 08:15-19:00
+  visit 30 listed; price 2; rating 4.9; meals none
+  where Milan, Magenta (45.46580, 9.17130) listed; linked none
+  tags art, iconic, cultural, historic; booking yes; book ahead yes
+  chips: Book ahead
+place_057 [neighborhood] Navigli Canals at Aperitivo Hour
+  hours derived (name_hint "Aperitivo" 17:30-21:00): Mon-Sun 17:30-21:00
+  visit 120 listed; price 2; rating 4.6; meals none
+  where Milan, Navigli (45.45380, 9.17300) listed; linked none
+  tags evening, local-favorite, scenic, food, romantic; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_058 [museum] Pinacoteca di Brera
+  hours listed: Mon closed, Tue-Sun 08:30-19:15
+  visit 150 listed; price 2; rating 4.7; meals none
+  where Milan, Brera (45.47180, 9.18830) listed; linked none
+  tags art, cultural, rainy-day, quiet; booking no; book ahead no
+  chips: none
+place_059 [market] Brera Antique Market
+  hours listed: Mon-Fri closed, Sat-Sun 09:00-19:00; only Sun/Sat; only days 15-21 of the month
+  visit 90 listed; price 1; rating 4.2; meals none
+  where Milan, Brera (45.47175, 9.18880) neighborhood_centroid; linked none
+  tags market, local-favorite, morning, hidden-gem; booking no; book ahead no
+  chips: Third Saturday and Sunday of the month only; Hours conflict in source, using the stricter one; Approximate location
+place_060 [historic_site] Galleria Vittorio Emanuele II
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 45 listed; price 3; rating 4.6; meals none
+  where Milan, Duomo (45.46600, 9.18990) listed; linked none
+  tags iconic, historic, photogenic, shop, scenic; booking no; book ahead no
+  chips: Public space, no set hours
+place_061 [restaurant] Risotto alla Milanese at Trattoria Milanese
+  hours listed: Mon closed, Tue-Sun 12:00-15:00+19:00-23:00
+  visit 100 listed; price 2; rating 4.5; meals lunch+dinner
+  where Milan, Duomo (45.46380, 9.18540) listed; linked none
+  tags food, local-favorite, cultural, iconic; booking yes; book ahead yes
+  chips: Book ahead
+place_062 [museum] Fondazione Prada
+  hours listed: Mon 10:00-19:00, Tue closed, Wed-Sun 10:00-19:00
+  visit 120 listed; price 2; rating 4.6; meals none
+  where Milan, Lodi (45.44430, 9.20240) listed; linked none
+  tags art, cultural, rainy-day, modern; booking no; book ahead no
+  chips: none
+place_063 [experience] Bellagio, Lake Como
+  hours unknown: unknown; season 4/1-10/31
+  visit 360 listed; price 3; rating 4.8; meals none
+  where Bellagio, - (45.98540, 9.25930) listed; linked none
+  tags scenic, romantic, photogenic, outdoors, views; booking no; book ahead no
+  chips: Hours not confirmed; Open Apr to Oct
+place_064 [historic_site] Villa del Balbianello, Lake Como
+  hours listed: Mon closed, Tue 10:00-18:00, Wed closed, Thu-Sun 10:00-18:00; season 4/1-10/31
+  visit 120 listed; price 2; rating 4.9; meals none
+  where Lenno, - (45.96110, 9.16330) listed; linked none
+  tags scenic, romantic, historic, photogenic, outdoors, views; booking yes; book ahead yes
+  chips: Open Apr to Oct; Book ahead
+place_065 [cafe] Aperitivo at Ceresio 7
+  hours listed: Mon-Tue closed, Wed-Sun 12:30-23:30; season 5/1-9/30
+  visit 90 listed; price 3; rating 4.5; meals none
+  where Milan, Isola (45.47690, 9.17820) listed; linked none
+  tags views, evening, splurge, scenic, photogenic, romantic; booking yes; book ahead yes
+  chips: Open May to Sep; Book ahead
+place_066 [historic_site] Rialto Bridge
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 60 type_default; price 1; rating 4.7; meals none
+  where Venice, San Polo (45.43800, 12.33590) listed; linked none
+  tags iconic, photogenic, tourist-heavy, morning, views, historic; booking no; book ahead no
+  chips: Public space, no set hours; Estimated visit time
+place_067 [museum] Doge's Palace
+  hours listed: Mon-Sun 09:00-19:00
+  visit 150 listed; price 2; rating 4.7; meals none
+  where Venice, San Marco (45.43380, 12.34110) listed; linked none
+  tags historic, art, cultural, iconic, tourist-heavy; booking yes; book ahead yes
+  chips: Book ahead
+place_068 [experience] Cicchetti Bar Crawl, Cannaregio
+  hours derived (free_text "Evenings" 18:00-24:00): Mon-Sun 18:00-24:00
+  visit 180 listed; price 1; rating 4.8; meals dinner
+  where Venice, Cannaregio (45.44670, 12.32670) listed; linked none
+  tags food, wine, local-favorite, evening, cultural, hidden-gem; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_069 [museum] Peggy Guggenheim Collection
+  hours listed: Mon 10:00-18:00, Tue closed, Wed-Sun 10:00-18:00
+  visit 120 listed; price 2; rating 4.7; meals none
+  where Venice, Dorsoduro (45.43100, 12.33170) listed; linked none
+  tags art, cultural, rainy-day, views, iconic; booking no; book ahead no
+  chips: none
+place_070 [experience] Burano Island Trip
+  hours unknown: unknown
+  visit 300 listed; price 2; rating 4.7; meals none
+  where Burano, - (45.48520, 12.41750) listed; linked none
+  tags photogenic, scenic, outdoors, local-favorite, morning; booking no; book ahead no
+  chips: Hours not confirmed
+place_071 [experience] Gondola on a Back Canal
+  hours unknown: unknown
+  visit 60 listed; price 3; rating 4.4; meals none
+  where Venice, - (45.44080, 12.31550) listed; linked none
+  tags romantic, scenic, iconic, splurge, photogenic; booking yes; book ahead yes
+  chips: Hours not confirmed; Book ahead
+place_072 [neighborhood] Dorsoduro Neighborhood
+  hours open_access (open_access "neighborhood" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 180 listed; price 2; rating 4.6; meals none
+  where Venice, Dorsoduro (45.43240, 12.32590) listed; linked none
+  tags local-favorite, relaxing, scenic, art, evening; booking no; book ahead no
+  chips: Public space, no set hours
+place_073 [restaurant] Spaghetti alle Vongole at Osteria da Rioba
+  hours listed: Mon closed, Tue-Sun 12:30-14:30+19:00-22:00
+  visit 90 listed; price 3; rating 4.6; meals lunch+dinner
+  where Venice, Cannaregio (45.44750, 12.32390) listed; linked none
+  tags food, romantic, local-favorite, scenic; booking yes; book ahead yes
+  chips: Book ahead
+place_074 [historic_site] St. Mark's Basilica
+  hours listed: Mon-Sat 09:30-17:15, Sun 14:00-17:00
+  visit 90 listed; price 1; rating 4.8; meals none
+  where Venice, San Marco (45.43450, 12.33970) listed; linked none
+  tags iconic, historic, art, cultural, tourist-heavy; booking yes; book ahead yes
+  chips: Book ahead
+place_075 [experience] Early Morning in Cannaregio
+  hours derived (name_hint "Early Morning" 06:00-10:00): Mon-Sun 06:00-10:00
+  visit 90 listed; price 1; rating 4.7; meals none
+  where Venice, Cannaregio (45.44540, 12.32890) listed; linked none
+  tags local-favorite, quiet, morning, photogenic, hidden-gem; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_076 [restaurant] Osteria Alla Staffa
+  hours listed: Mon-Sat 11:00-21:00, Sun closed
+  visit 60 listed; price 1; rating 4.5; meals lunch+dinner
+  where Venice, San Marco (45.43530, 12.33780) listed; linked none
+  tags food, local-favorite, budget, hidden-gem; booking no; book ahead no
+  chips: none
+place_077 [viewpoint] Trevi Fountain by Night
+  hours derived (name_hint "by Night" 20:00-24:00): Mon-Sun 20:00-24:00
+  visit 30 type_default; price 1; rating 4.6; meals none
+  where Rome, Trevi (41.90090, 12.48330) listed; linked place_018
+  tags romantic, evening, scenic, iconic, photogenic; booking no; book ahead no
+  chips: Hours estimated from the listing; Estimated visit time
+place_078 [cafe] Enoteca al Volto, Venice
+  hours listed: Mon-Sat 10:00-20:00, Sun closed
+  visit 45 listed; price 2; rating 4.6; meals none
+  where Venice, San Marco (45.43690, 12.33390) listed; linked none
+  tags wine, local-favorite, historic, quiet; booking no; book ahead no
+  chips: none
+place_079 [cafe] Prosciutto e Melone at Cremeria Mascareta
+  hours derived (free_text "Evenings" 18:00-24:00): Mon-Sun 18:00-24:00
+  visit 90 listed; price 2; rating 4.7; meals dinner
+  where Venice, Castello (45.43710, 12.35200) listed; linked none
+  tags wine, local-favorite, evening, hidden-gem, food; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_080 [park] Borghese Park (Villa Borghese)
+  hours open_access (open_access "park" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 120 listed; price 1; rating 4.5; meals none
+  where Rome, Parioli (41.91350, 12.49240) listed; linked none
+  tags outdoors, relaxing, scenic, family-friendly, morning; booking no; book ahead no
+  chips: Public space, no set hours
+place_081 [museum] Pitti Palace
+  hours listed: Mon closed, Tue-Sun 08:15-18:50
+  visit 150 listed; price 2; rating 4.5; meals none
+  where Florence, Oltrarno (43.76510, 11.24950) listed; linked none
+  tags art, historic, cultural, rainy-day; booking no; book ahead no
+  chips: none
+place_082 [restaurant] Rossopomodoro, Milan
+  hours listed: Mon-Sun 12:00-23:00
+  visit 60 listed; price 2; rating 3.9; meals lunch+dinner
+  where Milan, Brera (45.47170, 9.18930) listed; linked none
+  tags food, budget, family-friendly; booking no; book ahead no
+  chips: none
+place_083 [experience] Acetaia Giusti, Modena
+  hours listed: Mon-Sat 10:00-18:00, Sun closed
+  visit 90 listed; price 2; rating 4.8; meals none
+  where Modena, - (44.64510, 10.92970) listed; linked place_044
+  tags food, cultural, local-favorite, experience; booking yes; book ahead yes
+  chips: Book ahead
+place_084 [historic_site] Ponte Vecchio
+  hours open_access (open_access "historic_site" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 listed; price 1; rating 4.5; meals none
+  where Florence, Oltrarno (43.76800, 11.25310) listed; linked none
+  tags iconic, historic, photogenic, tourist-heavy; booking no; book ahead no
+  chips: Public space, no set hours
+place_085 [viewpoint] Como Town Lakefront
+  hours open_access (open_access "viewpoint" 07:00-23:00): Mon-Sun 07:00-23:00; season 4/1-10/31
+  visit 30 type_default; price 1; rating 4.4; meals none
+  where Como, - (45.80850, 9.08520) listed; linked none
+  tags scenic, views, relaxing, morning, outdoors; booking no; book ahead no
+  chips: Public space, no set hours; Open Apr to Oct; Estimated visit time
+place_086 [museum] Museo del Novecento, Milan
+  hours listed: Mon closed, Tue-Sun 10:00-19:30
+  visit 90 listed; price 1; rating 4.4; meals none
+  where Milan, Duomo (45.46400, 9.18920) listed; linked none
+  tags art, cultural, rainy-day, quiet, modern; booking no; book ahead no
+  chips: none
+place_087 [experience] Flavors of Bologna Cooking Class
+  hours listed: Mon-Sun 09:00-12:30
+  visit 210 listed; price 3; rating 4.9; meals none
+  where Bologna, - (44.49920, 11.34240) listed; linked none
+  tags experience, food, cultural, local-favorite; booking yes; book ahead yes
+  chips: Book ahead
+place_088 [viewpoint] San Giorgio Maggiore Campanile
+  hours listed: Mon-Sun 09:30-17:30
+  visit 45 listed; price 1; rating 4.8; meals none
+  where Venice, San Giorgio Maggiore (45.42920, 12.34340) listed; linked none
+  tags views, scenic, photogenic, hidden-gem, morning; booking no; book ahead no
+  chips: none
+place_089 [experience] Pienza Village Day Trip
+  hours unknown: unknown
+  visit 360 listed; price 1; rating 4.7; meals none
+  where Pienza, - (43.07780, 11.67930) listed; linked none
+  tags scenic, historic, outdoors, views, local-favorite, romantic; booking no; book ahead no
+  chips: Hours not confirmed
+place_090 [experience] Isola della Scala Risotto Festival
+  hours unknown: unknown; season 10/1-10/31
+  visit 300 listed; price 2; rating 4.6; meals none
+  where Isola della Scala, - (45.26610, 11.00080) listed; linked none
+  tags food, local-favorite, seasonal, cultural, experience; booking no; book ahead no
+  chips: Hours not confirmed; Open Oct only
+place_091 [cafe] Caffè Florian, Venice
+  hours listed: Mon-Sun 10:00-23:00
+  visit 45 listed; price 4; rating 4.3; meals none
+  where Venice, San Marco (45.43410, 12.33900) listed; linked none
+  tags iconic, historic, splurge, scenic, experience; booking no; book ahead no
+  chips: none
+place_092 [restaurant] Prosciutto di Parma at Cantina di Parma
+  hours listed: Mon-Sat 12:00-14:30, Sun closed
+  visit 75 listed; price 2; rating 4.6; meals lunch
+  where Parma, - (44.80230, 10.32740) listed; linked none
+  tags food, local-favorite, cultural, wine; booking no; book ahead no
+  chips: none
+place_093 [viewpoint] Piazza del Duomo, Florence (Exterior)
+  hours open_access (open_access "viewpoint" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 type_default; price 1; rating 4.8; meals none
+  where Florence, San Giovanni (43.77310, 11.25610) listed; linked none
+  tags iconic, historic, photogenic, scenic, free; booking no; book ahead no
+  chips: Public space, no set hours; Estimated visit time
+place_094 [viewpoint] Roof Garden at the Rinascente, Milan
+  hours listed: Mon-Sun 09:00-21:00
+  visit 45 listed; price 2; rating 4.5; meals none
+  where Milan, Duomo (45.46540, 9.18980) listed; linked none
+  tags views, hidden-gem, scenic, photogenic; booking no; book ahead no
+  chips: none
+place_095 [park] Orto Botanico di Padova
+  hours listed: Mon-Sun 09:00-19:00
+  visit 90 listed; price 1; rating 4.5; meals none
+  where Padua, - (45.39940, 11.88090) listed; linked none
+  tags outdoors, quiet, cultural, historic, morning; booking no; book ahead no
+  chips: none
+place_096 [restaurant] Al Quadri, Venice
+  hours listed: Mon-Sun 09:00-23:00
+  visit 120 listed; price 4; rating 4.5; meals lunch+dinner
+  where Venice, San Marco (45.43410, 12.33940) listed; linked none
+  tags iconic, splurge, food, historic, scenic; booking yes; book ahead yes
+  chips: Book ahead
+place_097 [viewpoint] Passeggiata del Gianicolo, Rome
+  hours open_access (open_access "viewpoint" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 30 type_default; price 1; rating 4.6; meals none
+  where Rome, Gianicolo (41.89390, 12.46340) listed; linked none
+  tags views, scenic, quiet, morning, outdoors, local-favorite; booking no; book ahead no
+  chips: Public space, no set hours; Estimated visit time
+place_098 [historic_site] Basilica di Sant'Ambrogio, Milan
+  hours listed: Mon-Sat 10:00-12:00+14:30-18:00, Sun closed
+  visit 60 listed; price 1; rating 4.6; meals none
+  where Milan, Sant'Ambrogio (45.46030, 9.17410) listed; linked none
+  tags historic, cultural, quiet, hidden-gem, art; booking no; book ahead no
+  chips: none
+place_099 [shop] Eataly Roma Ostiense
+  hours listed: Mon-Sun 09:00-24:00
+  visit 60 listed; price 2; rating 4.1; meals lunch+dinner
+  where Rome, Ostiense (41.87180, 12.47850) listed; linked none
+  tags food, shop, market; booking no; book ahead no
+  chips: none
+place_100 [experience] Aperitivo Culture Walk, Milan
+  hours derived (free_text "Evenings" 18:00-24:00): Mon-Sun 18:00-24:00
+  visit 180 listed; price 2; rating 4.7; meals dinner
+  where Milan, Isola (45.47910, 9.18750) listed; linked none
+  tags local-favorite, evening, food, wine, cultural, active; booking no; book ahead no
+  chips: Hours estimated from the listing
+place_101 [museum] Museo Nazionale del Bargello, Florence
+  hours listed: Mon-Sun 08:15-13:50
+  visit 90 listed; price 1; rating 4.7; meals none
+  where Florence, Santa Croce (43.77000, 11.25690) listed; linked none
+  tags art, historic, cultural, quiet, rainy-day, hidden-gem; booking no; book ahead no
+  chips: none
+place_102 [neighborhood] Quadrilatero della Moda, Milan
+  hours open_access (open_access "neighborhood" 07:00-23:00): Mon-Sun 07:00-23:00
+  visit 90 listed; price 4; rating 4.3; meals none
+  where Milan, Quadrilatero della Moda (45.46950, 9.19910) listed; linked none
+  tags shop, scenic, iconic, splurge; booking no; book ahead no
+  chips: Public space, no set hours
+place_103 [museum] Palazzo Vecchio
+  hours listed: Mon-Sun 09:00-23:00
+  visit 90 listed; price 2; rating 4.5; meals none
+  where Florence, Piazza della Signoria (43.76960, 11.25580) listed; linked none
+  tags historic, views, art, cultural, hidden-gem; booking no; book ahead no
+  chips: none
