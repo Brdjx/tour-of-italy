@@ -1,7 +1,8 @@
 /*
  * The trip form. The start date and the pace are always on screen; everything else folds into
- * "More options" (options.css). Every control is at least 44 px tall and every text input uses
- * a 16 px font so iOS does not zoom on focus.
+ * "More options" (options.css). Containers and inputs are square, anything pressed is a pill.
+ * Every control is at least 44 px tall and every text input uses a 16 px font so iOS does not
+ * zoom on focus.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -9,7 +10,7 @@
   .primary-controls,
   .option-fields {
     display: grid;
-    gap: 24px;
+    gap: 28px;
   }
 
   .field {
@@ -21,21 +22,25 @@
 
   .field-label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     padding: 0;
     color: var(--fg);
-    font-size: 1rem;
+    font-size: 0.875rem;
+    font-stretch: 87.5%;
     font-weight: 600;
+    letter-spacing: 0.02em;
   }
 
   .field-hint {
-    margin-top: 6px;
+    margin-top: 8px;
     color: var(--muted);
     font-size: 0.875rem;
+    line-height: 1.35;
+    text-wrap: pretty;
   }
 
   .field-error {
-    margin-top: 6px;
+    margin-top: 8px;
     color: var(--danger);
     font-size: 0.875rem;
     font-weight: 600;
@@ -47,13 +52,18 @@
     min-width: 0;
     max-width: 100%;
     min-height: 48px;
-    padding: 0 12px;
+    padding: 0 14px;
     border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    border-radius: 0;
     background: var(--surface);
     color: var(--fg);
     font: inherit;
     font-size: 16px;
+    transition: border-color var(--dur-color) ease;
+  }
+
+  .text-input:hover {
+    border-color: var(--fg);
   }
 
   .text-input::placeholder {
@@ -62,8 +72,9 @@
   }
 
   .text-input:focus-visible {
+    border-color: var(--fg);
     outline: 2px solid var(--focus);
-    outline-offset: 1px;
+    outline-offset: 2px;
   }
 
   .text-input[aria-invalid="true"] {
@@ -82,49 +93,76 @@
     -webkit-appearance: none;
     padding-block: 11px;
     text-align: left;
+    font-variant-numeric: tabular-nums;
   }
 
   input[type="date"].text-input::-webkit-date-and-time-value {
     text-align: left;
   }
 
+  /*
+   * A segmented control as a pill track: a 3 px inset, equal segments, and one ink thumb that
+   * springs to the chosen segment (--n segments, --i the chosen one, set by SegmentedField).
+   * The labels only change colour, so their text never reflows while the thumb moves.
+   */
   .segmented {
-    display: flex;
-    flex-wrap: wrap;
-    overflow: hidden;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+    padding: 3px;
     border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    border-radius: 999px;
     background: var(--surface);
+    isolation: isolate;
+  }
+
+  .segmented::before {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    z-index: -1;
+    width: calc((100% - 6px) / var(--n, 3));
+    border-radius: 999px;
+    background: var(--fill);
+    content: "";
+    transform: translateX(calc(var(--i, 0) * 100%));
+    transition: transform var(--dur-spring) var(--spring-snappy);
   }
 
   .segment {
     display: inline-flex;
     min-height: 44px;
-    flex: 1 1 auto;
+    min-width: 0;
     align-items: center;
     justify-content: center;
-    padding: 0 12px;
-    border-left: 1px solid var(--line);
+    padding: 0 10px;
+    border-radius: 999px;
     color: var(--fg);
-    font-size: 1rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
     text-align: center;
     cursor: pointer;
-  }
-
-  .segment:first-child {
-    border-left: 0;
+    transition: color var(--dur-color) ease;
   }
 
   .segment:has(input:checked) {
-    background: var(--accent);
-    color: var(--accent-fg);
-    font-weight: 600;
+    color: var(--fill-fg);
+  }
+
+  .segment:not(:has(input:checked)):hover {
+    background: var(--hover);
   }
 
   .segment:has(input:focus-visible) {
-    box-shadow:
-      inset 0 0 0 2px var(--surface),
-      inset 0 0 0 4px var(--focus);
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .segmented::before {
+      transition: none;
+    }
   }
 
   /* The submit button stays in reach at the bottom of the screen while the open options
@@ -133,7 +171,7 @@
     position: sticky;
     bottom: 0;
     z-index: 10;
-    margin-top: 20px;
+    margin-top: 28px;
     padding: 12px 0 max(12px, var(--safe-bottom));
     background: var(--page);
   }
@@ -142,21 +180,31 @@
     border-top: 1px solid var(--line);
   }
 
+  /* "Plan my trip": the page's one ink pill. */
   .primary-button {
     display: inline-flex;
     width: 100%;
-    min-height: 48px;
+    min-height: 52px;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-fg);
+    gap: 10px;
+    border-radius: 999px;
+    background: var(--fill);
+    color: var(--fill-fg);
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    transition:
+      background-color var(--dur-color) ease,
+      transform var(--dur-press) var(--ease-out);
   }
 
-  .primary-button:hover {
-    filter: brightness(1.08);
+  .primary-button:hover:not([aria-disabled="true"]) {
+    background: var(--fill-hover);
+  }
+
+  .primary-button:active:not([aria-disabled="true"]) {
+    transform: scale(0.985);
   }
 
   .primary-button:focus-visible {
@@ -166,6 +214,12 @@
 
   .primary-button[aria-disabled="true"] {
     cursor: progress;
-    opacity: 0.75;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .primary-button,
+    .primary-button:active {
+      transform: none;
+    }
   }
 }

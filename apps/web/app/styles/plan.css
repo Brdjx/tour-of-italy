@@ -1,0 +1,163 @@
+/*
+ * The plan's header: the source badge with its drawn check, the details that open under it,
+ * the AI summary, and the board's wrapper. The day tabs and the board are in timetable.css.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  .source-button {
+    display: inline-flex;
+    min-height: 44px;
+    max-width: 100%;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px 4px 0;
+    border-radius: 999px;
+    color: var(--fg);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-align: left;
+    transition: background-color var(--dur-color) ease;
+  }
+
+  .source-button:hover {
+    background: var(--hover);
+  }
+
+  .source-button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* The check draws itself once when the plan arrives: the ring, then the tick. */
+  .source-mark {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .source-mark-ring,
+  .source-mark-check {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  .source-mark-ring {
+    stroke-width: 1.4;
+    animation: mark-draw 420ms var(--ease-out) 120ms both;
+  }
+
+  .source-mark-check {
+    stroke-width: 1.8;
+    animation: mark-draw 320ms var(--ease-out) 420ms both;
+  }
+
+  .source-mark--ai {
+    stroke: var(--gold);
+  }
+
+  .source-mark--ai .source-mark-check {
+    stroke: var(--accent);
+  }
+
+  .source-mark--rules {
+    stroke: var(--fg);
+  }
+
+  .source-mark--problem {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin: 0 5px;
+    border-radius: 999px;
+    background: var(--danger);
+  }
+
+  .source-chevron {
+    flex-shrink: 0;
+    color: var(--muted);
+    transition: transform var(--dur-move) var(--ease-out);
+  }
+
+  .source-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* The details on warm paper, with a gold hairline that draws down beside them. */
+  .source-details {
+    position: relative;
+    max-width: 62ch;
+    margin-top: 8px;
+    padding: 12px 14px 12px 16px;
+    background: var(--surface-warm);
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .source-details:not([hidden]) {
+    animation: details-in var(--dur-move) var(--ease-content) both;
+  }
+
+  .source-details::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    background: var(--gold);
+    content: "";
+    transform-origin: 50% 0;
+  }
+
+  .source-details:not([hidden])::before {
+    animation: rule-draw 240ms var(--ease-out) both;
+  }
+
+  .source-details > p + p {
+    margin-top: 6px;
+  }
+
+  .plan-summary {
+    max-width: 62ch;
+    margin-top: 10px;
+    color: var(--fg);
+    font-size: 1.0625rem;
+    line-height: 1.45;
+  }
+
+  @keyframes mark-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes details-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes rule-draw {
+    from {
+      transform: scaleY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .source-mark-ring,
+    .source-mark-check,
+    .source-details:not([hidden]),
+    .source-details:not([hidden])::before {
+      animation: none;
+    }
+
+    .source-chevron {
+      transition: none;
+    }
+  }
+}

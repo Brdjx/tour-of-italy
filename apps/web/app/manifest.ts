@@ -5,8 +5,8 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-/** Stone, the page background in the light scheme (see globals.css). */
-const MANIFEST_THEME_COLOR = "#f4f6f5";
+/** The page background in the light scheme (see globals.css). */
+const MANIFEST_THEME_COLOR = "#ffffff";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

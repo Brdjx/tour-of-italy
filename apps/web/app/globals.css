@@ -8,6 +8,8 @@
 @import "./styles/map.css";
 @import "./styles/pwa.css";
 @import "./styles/skeleton.css";
+@import "./styles/compose.css";
+@import "./styles/plan.css";
 
 /* Decision: a stand-in with TikTok Sans's measurements while the font loads, so text does not
    reflow when it arrives. next/font has no metrics for this family, so these are computed the way
@@ -23,37 +25,91 @@
 }
 
 /*
- * Design tokens. The palette is a railway timetable: Ink text on a cool Stone page, Lagoon for
- * actions and the route, Rule hairlines, Limone for warnings, Signal for errors only. Components
- * use the semantic names (page, fg, muted, line, accent...) so dark mode is one block below.
- * Contrast (WCAG AA) was checked for every text pair in both schemes.
+ * Design tokens, in the Goodpix language. Paper and ink: a white page, warm paper for photo mats
+ * and details, ink (--fill) as the only solid fill, and gold that only draws (the chosen day, the
+ * AI mark, focus). Hairlines separate; boxes are rare. Warnings take the caution fill, errors are
+ * text and hairlines only. Components use the semantic names, so dark mode is one block below.
+ * Contrast (WCAG AA) is checked for every text pair in both schemes (test/cssContracts.test.ts).
  */
 :root {
-  --page: #f4f6f5; /* Stone */
-  --surface: #ffffff;
-  --fg: #18222f; /* Ink */
-  --muted: #4f5b67;
-  --line: #d3d9d6; /* Rule */
-  --line-strong: #7d8a86; /* input borders, 3:1 against page and surface */
-  --accent: #17616b; /* Lagoon */
+  --page: #ffffff;
+  --surface: #ffffff; /* inputs and sheets */
+  --surface-warm: #f6f5f0; /* photo mats, opened details */
+  --tile: #f4f4f1; /* a photo that has not loaded */
+  --fg: #11110f; /* ink */
+  --muted: #6a6a63; /* 5.45:1 on the page */
+  --line: #dcdad3; /* hairlines, decorative only */
+  --line-strong: #85837a; /* input and chip borders, 3.8:1 on the page */
+  --fill: #11110f; /* the one solid fill: the primary button, the chosen pace, markers */
+  --fill-fg: #ffffff;
+  --fill-hover: #2a2a26;
+  --accent: #7d5f2c; /* gold text, 5.9:1 on the page */
   --accent-fg: #ffffff;
-  --accent-soft: #e3eeef;
-  --hover: rgb(23 97 107 / 0.08);
-  --warn: #e9c53a; /* Limone */
-  --warn-fg: #18222f;
-  --danger: #a8322d; /* Signal */
-  --danger-soft: #f8e9e8;
-  --focus: #17616b;
-  --toast-bg: #18222f;
-  --toast-fg: #f4f6f5;
-  --toast-accent: #e9c53a;
-  --toast-focus: #e9c53a; /* Limone on the Ink toast, 9.6:1 */
-  --changed-bg: color-mix(in srgb, var(--warn) 40%, transparent); /* edited-row flash */
+  --accent-soft: #f6f0e1; /* a chosen chip or option */
+  --gold: #a8864b; /* marks that are not text: the day indicator, the AI dot */
+  --gold-soft: #d8bd82; /* the count badge, the edited-row flash */
+  --hover: #f3f3f0;
+  --warn: #f3d27a; /* caution fill, ink text on it */
+  --warn-fg: #11110f;
+  --danger: #b3261e;
+  --danger-soft: #fbeceb;
+  --focus: #7d5f2c;
+  --toast-bg: #11110f;
+  --toast-fg: #ffffff;
+  --toast-accent: #d8bd82;
+  --toast-focus: #d8bd82; /* gold on the ink toast, 10.4:1 */
+  --changed-bg: color-mix(in srgb, var(--gold-soft) 22%, transparent); /* edited-row flash */
   /* The status bar strip in the installed iOS app. black-translucent draws white status text,
-     so light mode paints the strip Ink; dark mode keeps the page colour. */
-  --status-bar: #18222f;
-  /* Loading placeholders: Rule on the page. Dark mode follows through --line. */
+     so light mode paints the strip ink; dark mode keeps the page colour. */
+  --status-bar: #11110f;
+  /* Loading placeholders: a hairline tone on the page. Dark mode follows through --line. */
   --skeleton: var(--line);
+  --shadow-float: 0 14px 40px -8px rgb(17 17 15 / 0.22);
+  --shadow-menu: 0 18px 50px rgb(17 17 15 / 0.14);
+  --scrim: rgb(17 17 15 / 0.42);
+
+  /* Motion. Exponential ease-outs for things arriving, a shorter ease-in for things leaving, and
+     two springs written as linear() curves. Only transform and opacity move. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-content: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --spring-snappy: linear(
+    0,
+    0.022 2.8%,
+    0.096 6.3%,
+    0.511 19.5%,
+    0.689 26.3%,
+    0.814 32.8%,
+    0.903 39.8%,
+    0.938 43.8%,
+    0.965 48.3%,
+    0.985 53.3%,
+    0.997 58.8%,
+    1.006 72.3%,
+    1
+  );
+  --spring-smooth: linear(
+    0,
+    0.006 1.5%,
+    0.022 3%,
+    0.086 6.5%,
+    0.446 20.3%,
+    0.613 27.8%,
+    0.731 34.8%,
+    0.822 42.3%,
+    0.899 52%,
+    0.95 63.5%,
+    0.978 77%,
+    0.995 99.8%,
+    1
+  );
+  --dur-press: 100ms;
+  --dur-color: 140ms;
+  --dur-exit: 160ms;
+  --dur-fade: 180ms;
+  --dur-move: 220ms;
+  --dur-arrive: 320ms;
+  --dur-spring: 450ms;
 
   /* Safe areas for notches, the Dynamic Island, and the home indicator (viewport-fit=cover). */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -68,28 +124,38 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #11191f; /* deep lagoon slate */
-    --surface: #18232b;
-    --fg: #f4f6f5;
-    --muted: #a3afb8;
-    --line: #2c3a44;
-    --line-strong: #647480; /* 3.3:1 on surface, 3.7:1 on page */
-    --accent: #5fb0ba;
-    --accent-fg: #0c1419;
-    --accent-soft: #1d3339;
-    --hover: rgb(95 176 186 / 0.12);
-    --warn: #e9c53a;
-    --warn-fg: #18222f;
-    --danger: #f08a82;
-    --danger-soft: #2c1b1c;
-    --focus: #7cc4cc;
-    --toast-bg: #f4f6f5;
-    --toast-fg: #18222f;
-    --toast-accent: #17616b;
-    --toast-focus: #17616b; /* Lagoon on the Stone toast, 6.5:1 */
+    --page: #11110f;
+    --surface: #1b1b18;
+    --surface-warm: #1f1e1a;
+    --tile: #1f1f1c;
+    --fg: #f3f2ec;
+    --muted: #a3a197;
+    --line: #34332d;
+    --line-strong: #75736a; /* 4.0:1 on the page, 3.6:1 on surface */
+    --fill: #f3f2ec;
+    --fill-fg: #11110f;
+    --fill-hover: #dcdad3;
+    --accent: #d8bd82;
+    --accent-fg: #11110f;
+    --accent-soft: #2a261c;
+    --gold: #c29d55;
+    --gold-soft: #5a4a2a;
+    --hover: #25241f;
+    --warn: #e3c46a;
+    --warn-fg: #11110f;
+    --danger: #f2837a;
+    --danger-soft: #2c1b1a;
+    --focus: #d8bd82;
+    --toast-bg: #f3f2ec;
+    --toast-fg: #11110f;
+    --toast-accent: #7d5f2c;
+    --toast-focus: #7d5f2c; /* dark gold on the paper toast, 5.3:1 */
     /* A lighter flash keeps muted and accent text at 4.5:1 or more while it fades. */
-    --changed-bg: color-mix(in srgb, var(--warn) 18%, transparent);
+    --changed-bg: color-mix(in srgb, var(--gold) 14%, transparent);
     --status-bar: var(--page);
+    --shadow-float: 0 14px 40px -8px rgb(0 0 0 / 0.55);
+    --shadow-menu: 0 18px 50px rgb(0 0 0 / 0.45);
+    --scrim: rgb(0 0 0 / 0.56);
   }
 }
 
@@ -103,6 +169,12 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-surface-warm: var(--surface-warm);
+  --color-tile: var(--tile);
+  --color-fill: var(--fill);
+  --color-fill-fg: var(--fill-fg);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
   --color-hover: var(--hover);
   --color-warn: var(--warn);
   --color-warn-fg: var(--warn-fg);
@@ -144,22 +216,93 @@ body {
   background: var(--page);
   color: var(--fg);
   font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.45;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overflow-x: clip;
+  caret-color: var(--accent);
+  accent-color: var(--fill);
+  scrollbar-color: var(--line-strong) transparent;
 }
 
+/* The browser's own surfaces carry the palette too. */
 :focus-visible {
-  outline-color: var(--focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--warn);
-  color: var(--warn-fg);
+  background: var(--gold-soft);
+  color: var(--fg);
+}
+
+a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 summary::-webkit-details-marker {
   display: none;
+}
+
+/*
+ * Type roles. TikTok Sans carries rank in its width axis (font-stretch), not in weight: weight
+ * marks state. Optical size follows the font size on its own. Checked facts stand upright; the
+ * one line of commentary per stop (the reason) leans on the slant axis.
+ */
+.t-display {
+  font-size: clamp(2.125rem, 7vw, 3rem);
+  font-stretch: 150%;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.t-day {
+  font-size: clamp(1.625rem, 4vw, 2.25rem);
+  font-stretch: 125%;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.t-title {
+  font-size: 1.25rem;
+  font-stretch: 125%;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.t-tab {
+  font-stretch: 112.5%;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.t-time {
+  font-stretch: 87.5%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.t-label {
+  font-size: 0.8125rem;
+  font-stretch: 87.5%;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.t-lean {
+  font-style: oblique 6deg;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 .skip-link {
@@ -167,13 +310,94 @@ summary::-webkit-details-marker {
   left: var(--gutter-x-left);
   top: -200px;
   z-index: 70;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: 600;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--fill-fg);
+  font-weight: 500;
 }
 
 .skip-link:focus {
   top: calc(var(--safe-top) + 8px);
+}
+
+/* Pills: anything pressed is round; containers stay square. One solid fill (ink), one outline. */
+.pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-color) ease,
+    border-color var(--dur-color) ease,
+    color var(--dur-color) ease,
+    transform var(--dur-press) var(--ease-out);
+}
+
+.pill:active:not([aria-disabled="true"]) {
+  transform: scale(0.97);
+}
+
+.pill--fill {
+  background: var(--fill);
+  color: var(--fill-fg);
+}
+
+.pill--fill:hover:not([aria-disabled="true"]) {
+  background: var(--fill-hover);
+}
+
+.pill--line {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.pill--line:hover:not([aria-disabled="true"]) {
+  background: var(--hover);
+}
+
+.pill--quiet {
+  padding: 0 12px;
+  background: transparent;
+  color: var(--fg);
+}
+
+.pill--quiet:hover:not([aria-disabled="true"]) {
+  background: var(--hover);
+}
+
+.pill--round {
+  width: 44px;
+  padding: 0;
+}
+
+.pill--round:active:not([aria-disabled="true"]) {
+  transform: scale(0.94);
+}
+
+.pill[aria-disabled="true"],
+.pill:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .pill:active {
+    transform: none;
+    transition-property: background-color, border-color, color;
+  }
 }

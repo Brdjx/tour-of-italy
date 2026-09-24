@@ -14,10 +14,10 @@ export function PageMessage({ title, body, children }: PageMessageProps) {
     <div className="app">
       <div className="status-scrim" aria-hidden="true" />
       <header className="app-header">
-        <p className="text-xl font-semibold tracking-tight text-fg">3 Days in Italy</p>
+        <p className="t-title text-fg">3 Days in Italy</p>
       </header>
       <main className="page-message" data-testid="page-message">
-        <h1 className="text-h2 font-semibold leading-tight text-fg">{title}</h1>
+        <h1 className="t-day text-fg">{title}</h1>
         <p className="mt-3 max-w-prose text-base text-muted">{body}</p>
         <div className="mt-6">{children}</div>
       </main>

@@ -1,6 +1,6 @@
 /*
- * Pickers in the trip form: checkbox chips for interests and bases, removable tokens for picked
- * places, and the place search listbox. All at least 44 px tall.
+ * Pickers in the trip form: square checkbox chips for interests and bases (ink when chosen),
+ * removable pill tokens for picked places, and the place search listbox. All at least 44 px tall.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -9,20 +9,33 @@
     display: inline-flex;
     min-height: 44px;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     padding: 0 14px;
     border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--surface);
     color: var(--fg);
-    font-size: 1rem;
+    font-size: 0.9375rem;
     cursor: pointer;
+    transition:
+      background-color var(--dur-color) ease,
+      border-color var(--dur-color) ease,
+      color var(--dur-color) ease,
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .choice-chip:hover:not([data-checked]):not(:has(input:disabled)) {
+    border-color: var(--fg);
+  }
+
+  .choice-chip:active:not(:has(input:disabled)) {
+    transform: scale(0.97);
   }
 
   .choice-chip[data-checked] {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--accent-fg);
+    border-color: var(--fill);
+    background: var(--fill);
+    color: var(--fill-fg);
   }
 
   .choice-chip:has(input:focus-visible) {
@@ -32,16 +45,18 @@
 
   .choice-chip:has(input:disabled) {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.45;
   }
 
   .choice-count {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .choice-chip[data-checked] .choice-count {
     color: inherit;
+    opacity: 0.75;
   }
 
   .token {
@@ -50,13 +65,18 @@
     max-width: 100%;
     align-items: center;
     gap: 6px;
-    padding: 0 10px 0 14px;
-    border: 1px solid var(--accent);
+    padding: 0 10px 0 16px;
+    border: 1px solid var(--fg);
     border-radius: 999px;
-    background: var(--accent-soft);
+    background: var(--surface);
     color: var(--fg);
     font-size: 0.875rem;
     text-align: left;
+    transition: background-color var(--dur-color) ease;
+  }
+
+  .token:hover {
+    background: var(--hover);
   }
 
   .token:focus-visible {
@@ -66,28 +86,50 @@
 
   .listbox {
     position: absolute;
-    top: calc(100% + 4px);
+    top: calc(100% + 6px);
     left: 0;
     right: 0;
     z-index: 20;
     max-height: 320px;
     overflow-y: auto;
-    padding: 4px 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    padding: 6px 0;
+    border: 1px solid var(--line);
+    border-radius: 0;
     background: var(--surface);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+    box-shadow: var(--shadow-menu);
+    animation: menu-in var(--dur-move) var(--ease-out);
   }
 
   .option {
     min-height: 44px;
-    padding: 8px 12px;
+    padding: 8px 14px;
     cursor: pointer;
   }
 
   .option:hover,
   .option[aria-selected="true"] {
     background: var(--hover);
-    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .option[aria-selected="true"] {
+    box-shadow: inset 2px 0 0 var(--gold);
+  }
+
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .choice-chip,
+    .choice-chip:active {
+      transform: none;
+    }
+
+    .listbox {
+      animation: none;
+    }
   }
 }

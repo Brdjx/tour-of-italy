@@ -66,7 +66,7 @@ export function Toast({ message, serial, undoLabel, onUndo }: ToastProps) {
             setVisible(false);
             onUndo();
           }}
-          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-toast-accent outline-none focus-visible:ring-2 focus-visible:ring-toast-focus"
+          className="toast-undo"
           data-testid="toast-undo"
         >
           <UndoIcon size={18} />

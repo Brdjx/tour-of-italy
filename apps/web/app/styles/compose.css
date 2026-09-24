@@ -1,0 +1,222 @@
+/*
+ * The page before a plan, beyond the form itself: the line diagram of the five bases, drawn
+ * once from the top left to the bottom right as the page opens.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  .base-line {
+    display: block;
+    width: 100%;
+    max-width: 440px;
+    height: auto;
+    margin-top: 28px;
+    overflow: visible;
+  }
+
+  /* On short screens the form comes first; the drawing steps aside. */
+  @media (max-height: 720px) and (max-width: 639px) {
+    .base-line {
+      display: none;
+    }
+  }
+
+  .base-line-track {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    animation: line-draw 900ms var(--ease-out) 120ms both;
+  }
+
+  .base-line-track--branch {
+    animation-duration: 520ms;
+    animation-delay: 500ms;
+  }
+
+  .base-line-dot {
+    fill: var(--page);
+    stroke: var(--fg);
+    stroke-width: 2;
+  }
+
+  .base-line-label {
+    fill: var(--fg);
+    font-size: 13px;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* Each station appears as the line reaches it: the dot springs up, its name fades in. */
+  .base-line-station {
+    animation: station-in var(--dur-fade) var(--ease-content) both;
+    animation-delay: inherit;
+  }
+
+  .base-line-station .base-line-dot {
+    animation: dot-in var(--dur-spring) var(--spring-snappy) both;
+    animation-delay: inherit;
+  }
+
+  @keyframes line-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes station-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes dot-in {
+    from {
+      transform: scale(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-line-track,
+    .base-line-station,
+    .base-line-station .base-line-dot {
+      animation: none;
+    }
+  }
+}
+
+/*
+ * Highlights: real photos of a few places, after the form on phones and tablets, beside it from
+ * 1024 px (the compose column widens, the form keeps its 560 px). The tiles reveal in a
+ * diagonal sweep from the top left: each waits by its row plus its column.
+ */
+@layer components {
+  .highlights {
+    margin-top: 40px;
+    padding-bottom: 24px;
+  }
+
+  .highlights-title {
+    margin-bottom: 14px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .highlights-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 6px;
+  }
+
+  .highlight .place-photo--square {
+    width: 100%;
+  }
+
+  .highlight-skeleton {
+    display: block;
+    aspect-ratio: 1;
+  }
+
+  .highlight-caption {
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+  }
+
+  .highlight-name {
+    color: var(--fg);
+    font-size: 0.9375rem;
+    font-stretch: 112.5%;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  .highlight-city {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  .highlight-caption .photo-credit {
+    margin-top: 4px;
+    font-size: 0.75rem;
+  }
+
+  /* Two columns: step = row + column. */
+  .highlight {
+    --step: 0;
+    animation: tile-reveal 520ms var(--ease-out) both;
+    animation-delay: calc(200ms + var(--step) * 80ms);
+  }
+
+  .highlight:nth-child(2),
+  .highlight:nth-child(3) {
+    --step: 1;
+  }
+  .highlight:nth-child(4),
+  .highlight:nth-child(5) {
+    --step: 2;
+  }
+  .highlight:nth-child(6) {
+    --step: 3;
+  }
+
+  @keyframes tile-reveal {
+    from {
+      opacity: 0;
+      clip-path: inset(0 100% 100% 0);
+    }
+    to {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    /* The compose page widens: the form stays in its 560 px column on the left and the
+       highlights take the right, starting level with the form. */
+    .app[data-view="compose"] {
+      --content-max: 1120px;
+    }
+
+    .app[data-view="compose"] .app-body {
+      display: grid;
+      grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+      align-items: start;
+      column-gap: 64px;
+    }
+
+    .highlights {
+      margin-top: 32px;
+    }
+
+    .highlights-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    /* Three columns: step = row + column. */
+    .highlight:nth-child(2),
+    .highlight:nth-child(4) {
+      --step: 1;
+    }
+    .highlight:nth-child(3),
+    .highlight:nth-child(5) {
+      --step: 2;
+    }
+    .highlight:nth-child(6) {
+      --step: 3;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .highlight {
+      animation: fade-in 150ms ease both;
+    }
+  }
+}

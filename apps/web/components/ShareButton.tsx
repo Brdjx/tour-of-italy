@@ -64,7 +64,7 @@ export function ShareButton({ itinerary, onStatus }: ShareButtonProps) {
             ref={fieldRef}
             readOnly
             value={manual}
-            className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-line bg-surface px-3 text-base text-fg"
+            className="mt-1 block min-h-11 w-full min-w-0 rounded-none border border-line-strong bg-surface px-3 text-base text-fg"
             data-testid="share-link-field"
           />
         </label>

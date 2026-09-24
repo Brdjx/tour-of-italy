@@ -88,13 +88,13 @@ export function AlternativesSheet(props: AlternativesSheetProps) {
         data-testid="alternatives-sheet"
       >
         <div className="flex items-start justify-between gap-3">
-          <h2 id={titleId} className="pt-2 text-xl font-semibold text-fg [overflow-wrap:anywhere]">
+          <h2 id={titleId} className="pt-2 t-title text-fg [overflow-wrap:anywhere]">
             Swap {stopName}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-fg outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus"
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-fg outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus"
             aria-label="Close"
             data-testid="alternatives-close"
           >
@@ -172,7 +172,7 @@ function Option({
       onClick={() => onChoose(place.id)}
       data-testid="alternative-option"
     >
-      <span className="block text-base font-semibold text-fg">{place.name}</span>
+      <span className="block t-tab text-base text-fg">{place.name}</span>
       <span className="block text-sm text-muted">{placeSubtitle(place)}</span>
       <span className="mt-1 block text-sm text-fg">
         <time dateTime={clockDateTime(date, stop.start)} className="tabular">

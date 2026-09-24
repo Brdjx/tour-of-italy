@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useRef } from "react";
+import { type CSSProperties, type KeyboardEvent, useRef } from "react";
 import type { DayView } from "../lib/timetable";
 
 // Day tabs, following the ARIA tabs pattern: one tab stop, arrow keys move between days, Home
@@ -39,11 +39,14 @@ export function DayTabs({ days, active, onSelect }: DayTabsProps) {
     refs.current[next]?.focus();
   };
 
+  // The gold indicator under the chosen day is drawn in CSS from these two numbers.
+  const indicator = { "--days": days.length, "--active": active } as CSSProperties;
   return (
     <div
       role="tablist"
       aria-label="Trip days"
       className="day-tabs"
+      style={indicator}
       data-testid="day-tabs"
       data-multi-base={multiBase ? "true" : undefined}
     >
@@ -66,8 +69,8 @@ export function DayTabs({ days, active, onSelect }: DayTabsProps) {
             onClick={() => onSelect(index)}
             onKeyDown={(event) => move(event, index)}
           >
-            <span className="block text-base font-semibold">Day {index + 1}</span>
-            <span className="block text-sm">
+            <span className="day-tab-name">Day {index + 1}</span>
+            <span className="day-tab-when">
               <span className="day-tab-date">{day.tabLabel}</span>
               <span className="day-tab-city">
                 <span className="day-tab-sep">, </span>

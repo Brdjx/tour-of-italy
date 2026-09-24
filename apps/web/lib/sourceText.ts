@@ -12,7 +12,7 @@ export interface SourceText {
   label: string;
   details: string[];
   offline: boolean; // built in the browser because the server was unreachable
-  marker: SourceMarker; // filled Lagoon dot for AI, open dot for rules, Signal dot for problems
+  marker: SourceMarker; // gold check for AI, ink check for rules, red dot for problems
 }
 
 /** What the page knows about the plan beyond the itinerary itself. */

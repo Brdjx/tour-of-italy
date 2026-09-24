@@ -54,7 +54,7 @@ export function TripPane(props: TripPaneProps) {
             <h2
               ref={props.headingRef}
               tabIndex={-1}
-              className="mt-3 text-xl font-semibold text-fg outline-none"
+              className="mt-4 t-title text-fg outline-none"
               data-testid="form-heading"
             >
               Edit your trip

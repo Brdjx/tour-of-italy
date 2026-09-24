@@ -44,7 +44,7 @@ export function Notice({ message, onDismiss, testId = "notice" }: NoticeProps) {
       <button
         type="button"
         onClick={onDismiss}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-md outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus"
         aria-label="Dismiss note"
       >
         <CloseIcon size={18} />

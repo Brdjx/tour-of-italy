@@ -46,7 +46,7 @@ export function PlanSkeleton({ reason, slow }: PlanSkeletonProps) {
     <div className="plan plan-skeleton" data-testid="planning-state">
       <div className="plan-toolbar">
         <p className="plan-skeleton-status">
-          <span className="skeleton-dot" aria-hidden="true" />
+          <span className="flap-spinner" aria-hidden="true" />
           {status.title}
         </p>
         <Skeleton className="skeleton--button" width={112} />

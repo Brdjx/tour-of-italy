@@ -9,10 +9,12 @@ import type { Chip } from "../lib/chips";
 // button's description so a screen reader hears it on focus. It renders inline under the row of
 // chips (not as a floating popover), so it can never push the page wider than the screen.
 
+// Square chips, Goodpix style: a quiet hairline for notes, the caution fill for warnings, and a
+// danger hairline with danger text for problems (danger never fills).
 const TONE_CLASS: Record<Chip["tone"], string> = {
-  note: "border-line text-muted",
-  warning: "border-warn bg-warn text-warn-fg",
-  error: "border-danger bg-danger-soft text-danger",
+  note: "chip--note",
+  warning: "chip--warning",
+  error: "chip--error",
 };
 
 interface WarningChipProps {
@@ -29,7 +31,7 @@ export function WarningChip({ chip, open, explanationId, onOpenChange }: Warning
   return (
     <button
       type="button"
-      className="group inline-flex min-h-11 items-center rounded-full outline-none"
+      className="chip-button group"
       aria-expanded={open}
       aria-controls={explanationId}
       aria-describedby={explanationId}
@@ -57,9 +59,7 @@ export function WarningChip({ chip, open, explanationId, onOpenChange }: Warning
         }
       }}
     >
-      <span
-        className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-sm leading-tight group-focus-visible:ring-2 group-focus-visible:ring-focus group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-page ${TONE_CLASS[chip.tone]}`}
-      >
+      <span className={`chip ${TONE_CLASS[chip.tone]}`}>
         {chip.tone === "error" ? <span className="sr-only">Problem: </span> : null}
         {chip.label}
       </span>
@@ -74,7 +74,7 @@ export function WarningChips({ chips }: { chips: readonly Chip[] }) {
   useEffect(() => trackPointer(), []);
   if (chips.length === 0) return null;
   return (
-    <div className="mt-1">
+    <div className="chips">
       <ul className="flex flex-wrap gap-x-1.5" aria-label="Notes">
         {chips.map((chip, index) => (
           <li key={chip.key}>
@@ -94,7 +94,7 @@ export function WarningChips({ chips }: { chips: readonly Chip[] }) {
           key={chip.key}
           id={`${baseId}-${index}`}
           hidden={openKey !== chip.key}
-          className="mt-1 max-w-prose border-l-2 border-line pl-3 text-sm text-fg"
+          className="chip-explanation"
           data-testid="chip-explanation"
         >
           {chip.explanation}

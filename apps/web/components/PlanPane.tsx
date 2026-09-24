@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { TripDataState } from "../lib/useTripData";
+import { BaseLine } from "./BaseLine";
 import { DataNotesPanel } from "./DataNotesPanel";
 import { ErrorState } from "./ErrorState";
 import { PlanSkeleton, type SkeletonReason } from "./skeleton/PlanSkeleton";
@@ -52,15 +53,21 @@ export function PlanPane(props: PlanPaneProps) {
   );
 }
 
-/** The title, and before any plan the one line that says what the page does. */
+/**
+ * The title, and before any plan the one line that says what the page does and the line
+ * diagram of the five bases the trip is planned from.
+ */
 export function AppHeader({ tagline }: { tagline: boolean }) {
   return (
     <header className="app-header">
       <h1 className="app-title">3 Days in Italy</h1>
       {tagline ? (
-        <p className="app-tagline" data-testid="app-tagline">
-          {TAGLINE}
-        </p>
+        <>
+          <p className="app-tagline" data-testid="app-tagline">
+            {TAGLINE}
+          </p>
+          <BaseLine />
+        </>
       ) : null}
     </header>
   );

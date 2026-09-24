@@ -20,6 +20,7 @@ import { type TripDataLoader, useTripData } from "../lib/useTripData";
 import { AlternativesPanel } from "./AlternativesPanel";
 import { prefetchMap } from "./DayMap";
 import { ErrorState, Notice } from "./ErrorState";
+import { Highlights } from "./Highlights";
 import { OfflineBanner } from "./OfflineBanner";
 import { AppFooter, AppHeader, type PlanContent, PlanPane } from "./PlanPane";
 import { PlanView } from "./PlanView";
@@ -194,6 +195,7 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
           slow={planning && phase.slow}
           onSubmit={submit}
         />
+        {view === "compose" ? <Highlights ctx={ctx} /> : null}
         {view === "plan" ? (
           <PlanPane
             content={content}

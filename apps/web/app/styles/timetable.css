@@ -1,35 +1,69 @@
 /*
- * The timetable: times in a fixed left gutter, stop names large, travel legs as dotted
- * connectors. Its one motion moment: when a plan arrives, the day's rows draw in top to bottom
- * once, in under 400 ms. Edits only highlight the row they touched. The map is in map.css.
+ * The day as a departure board: times in a fixed left column in the condensed width, stop names
+ * in the title width, hairlines between rows, travel legs as dotted connectors in the time
+ * column. Its motion moment is the arrival: when a plan lands, each row's times flip down into
+ * place like a split-flap board while the rest of the row rises in, in a sweep from the top left
+ * to the bottom right. After an edit only the times that moved flip, and the edited row glows
+ * gold for a moment. Photos, the opened stop and the day tabs are here too; the map is in
+ * map.css.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
 @layer components {
   :root {
-    --gutter: 60px;
+    --gutter: 64px;
   }
 
   @media (min-width: 640px) {
     :root {
-      --gutter: 80px;
+      --gutter: 84px;
     }
   }
 
   .timetable-grid {
     display: grid;
     grid-template-columns: var(--gutter) minmax(0, 1fr);
-    column-gap: 12px;
+    column-gap: 14px;
   }
+
+  /* ----- The day's header ----- */
+
+  .day-header {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--fg);
+  }
+
+  .day-heading {
+    color: var(--fg);
+    outline: none;
+  }
+
+  @media (min-width: 640px) {
+    .day-heading {
+      font-stretch: 150%;
+    }
+  }
+
+  .day-subtitle {
+    margin-top: 6px;
+    color: var(--fg);
+    font-size: 1rem;
+  }
+
+  .day-subtitle > .text-muted {
+    color: var(--muted);
+  }
+
+  /* ----- Rows ----- */
 
   .leg-line {
     min-height: 30px;
-    margin-left: 18px;
-    border-left: 2px dotted var(--line-strong);
+    margin-left: 19px;
+    border-left: 1px dashed var(--line-strong);
   }
 
-  /* Times and durations line up in the gutter like a printed timetable. Only numbers get tabular
-     figures: in this font the feature also widens commas and periods, which reads badly in prose. */
+  /* Times and durations line up like a printed board. Only numbers get tabular figures: in this
+     font the feature also widens commas and periods, which reads badly in prose. */
   .stop-times,
   .tabular {
     font-variant-numeric: tabular-nums;
@@ -40,34 +74,136 @@
   }
 
   .stop-times {
-    padding-top: 3px;
+    display: flex;
+    flex-direction: column;
+    padding-top: 2px;
     color: var(--fg);
-    font-size: 1rem;
-    line-height: 1.3;
+    transform-origin: 50% 0;
+  }
+
+  .stop-start {
+    font-size: 1.3125rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .stop-end {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .stop-line {
+    padding-top: 2px;
+  }
+
+  /* The time column: the times, then the two moves stacked under them. */
+  .stop-gutter {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stop-moves {
+    display: flex;
+    flex-direction: column;
+    margin: 6px 0 0 -13px;
+    padding: 0;
+    border: 0;
   }
 
   .stop-body {
     min-width: 0;
-    padding-bottom: 12px;
+    padding-bottom: 14px;
   }
 
-  /* The train or drive from the previous base, timed in the gutter like a stop. */
+  .stop-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px;
+  }
+
+  .stop-role {
+    margin-bottom: 2px;
+    color: var(--accent);
+  }
+
+  .stop-name {
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+
+  .stop-subtitle {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .stop-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 16px;
+    margin-top: 6px;
+    color: var(--fg);
+    font-size: 0.875rem;
+  }
+
+  /* The why line: commentary leans, and a mark says who wrote it (gold for the AI planner, an
+     open ring for the rules). */
+  .stop-reason {
+    display: flex;
+    max-width: 62ch;
+    gap: 10px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .reason-mark {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    margin-top: 0.45em;
+    border: 1px solid var(--muted);
+    border-radius: 999px;
+  }
+
+  .reason-mark--ai {
+    border-color: var(--gold);
+    background: var(--gold);
+  }
+
+  /* The train or drive from the previous base, timed in the time column like a stop. */
   .transfer-row {
     padding-top: 14px;
   }
 
-  .stop-row--flagged .stop-times {
+  /* A stop the check flags: its times turn danger red and a mark sits before the name. Colour is
+     never the only sign; the chips below say what is wrong. */
+  .stop-row--flagged .stop-times,
+  .stop-row--flagged .stop-end {
     color: var(--danger);
   }
 
-  .stop-row--flagged .stop-body {
-    margin-left: -12px;
-    padding-left: 9px;
-    border-left: 3px solid var(--danger);
+  .stop-row--flagged .stop-name::before {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 8px 0.15em 0;
+    border-radius: 999px;
+    background: var(--danger);
+    content: "";
+    vertical-align: middle;
   }
 
-  .stop-row--changed .stop-body {
-    animation: row-changed 1.6s ease-out;
+  /* The row an edit touched glows gold, then fades over a little over a second. */
+  .stop-row--changed .stop-line {
+    animation: row-changed 1200ms var(--ease-content);
   }
 
   @keyframes row-changed {
@@ -79,31 +215,280 @@
     }
   }
 
+  /* ----- Arrival: the board flips in, top left to bottom right ----- */
+
   .timetable--draw > li {
-    animation: row-draw 260ms ease-out backwards;
-    animation-delay: calc(min(var(--i, 0), 6) * 20ms);
+    --row-delay: calc(min(var(--i, 0), 6) * 42ms);
   }
 
-  @keyframes row-draw {
+  .timetable--draw > li .stop-times {
+    animation: flap var(--dur-arrive) var(--ease-content) both;
+    animation-delay: var(--row-delay);
+  }
+
+  .timetable--draw > li .stop-head,
+  .timetable--draw > li .stop-body > :not(.stop-head) {
+    animation: rise var(--dur-arrive) var(--ease-content) both;
+    animation-delay: calc(var(--row-delay) + 40ms);
+  }
+
+  .timetable--draw > li .stop-body > :not(.stop-head) {
+    animation-delay: calc(var(--row-delay) + 80ms);
+  }
+
+  .timetable--draw > li [data-testid="travel-leg"],
+  .timetable--draw > li .stop-moves {
+    animation: fade var(--dur-fade) ease both;
+    animation-delay: var(--row-delay);
+  }
+
+  /* After an edit, only the times that moved flip. */
+  .stop-times--flip {
+    animation: flap var(--dur-arrive) var(--ease-content);
+  }
+
+  /* A split-flap: the new card drops from the top hinge, a little past flat, and settles. */
+  @keyframes flap {
+    0% {
+      opacity: 0;
+      transform: perspective(240px) rotateX(-88deg);
+    }
+    60% {
+      opacity: 1;
+      transform: perspective(240px) rotateX(6deg);
+    }
+    100% {
+      opacity: 1;
+      transform: perspective(240px) rotateX(0deg);
+    }
+  }
+
+  @keyframes rise {
     from {
       opacity: 0;
-      clip-path: inset(0 0 100% 0);
-    }
-    to {
-      opacity: 1;
-      clip-path: inset(0 0 0 0);
+      transform: translateY(8px);
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .timetable--draw > li,
-    .stop-row--changed .stop-body {
-      animation: none;
+  @keyframes fade {
+    from {
+      opacity: 0;
     }
   }
 
-  /* Day tabs pin under the status bar and span the full screen width on phones. */
+  /* ----- Photos ----- */
+
+  .place-photo {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background: var(--tile);
+  }
+
+  .place-photo--square {
+    width: 72px;
+    aspect-ratio: 1;
+  }
+
+  @media (min-width: 640px) {
+    .place-photo--square {
+      width: 96px;
+    }
+  }
+
+  .place-photo--wide {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+  }
+
+  .place-photo-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity var(--dur-fade) ease;
+  }
+
+  .place-photo--matted .place-photo-img {
+    background: var(--tile);
+  }
+
+  .place-photo[data-state="loaded"] .place-photo-img {
+    opacity: 1;
+  }
+
+  /* A city or general photo sits inset on a warm mat, with a label: never full bleed like a
+     photo of the place itself. */
+  .place-photo--matted {
+    padding: 6px;
+    background: var(--surface-warm);
+  }
+
+  .place-photo-chip {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.75rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .stop-thumb {
+    display: block;
+    flex-shrink: 0;
+    transition: transform var(--dur-press) var(--ease-out);
+  }
+
+  .stop-thumb:active {
+    transform: scale(0.97);
+  }
+
+  .stop-thumb:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .photo-credit {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .photo-credit-note {
+    color: var(--fg);
+  }
+
+  .photo-credit a {
+    color: inherit;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--dur-color) ease;
+  }
+
+  .photo-credit a:hover {
+    text-decoration-color: var(--gold);
+  }
+
+  /* ----- An opened stop ----- */
+
+  .stop-details {
+    max-width: 560px;
+    margin-top: 14px;
+    animation: rise var(--dur-move) var(--ease-content) both;
+  }
+
+  .stop-description {
+    max-width: 62ch;
+    margin-top: 14px;
+    color: var(--fg);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .stop-details-photo + .stop-description {
+    margin-top: 14px;
+  }
+
+  /* ----- Actions: quiet pills, ink on hover ----- */
+
+  .stop-actions {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    margin: 8px 0 0 -12px;
+    padding: 0;
+    border: 0;
+  }
+
+  .stop-action {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 12px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition:
+      background-color var(--dur-color) ease,
+      color var(--dur-color) ease,
+      transform var(--dur-press) var(--ease-out);
+  }
+
+  .stop-action--round {
+    padding: 0;
+  }
+
+  .stop-action:hover:not([aria-disabled="true"]) {
+    background: var(--hover);
+    color: var(--fg);
+  }
+
+  .stop-action:active:not([aria-disabled="true"]) {
+    transform: scale(0.94);
+  }
+
+  .stop-action:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 0;
+  }
+
+  .stop-action[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  .stop-action--details {
+    color: var(--fg);
+  }
+
+  .stop-action-chevron {
+    transition: transform var(--dur-move) var(--ease-out);
+  }
+
+  .stop-action-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* The icons nudge toward what they do, on devices that hover. */
+  @media (hover: hover) {
+    .stop-action svg {
+      transition: transform var(--dur-move) var(--ease-out);
+    }
+
+    [data-testid="move-up"]:hover:not([aria-disabled="true"]) svg {
+      transform: translateY(-1px);
+    }
+
+    [data-testid="move-down"]:hover:not([aria-disabled="true"]) svg {
+      transform: translateY(1px);
+    }
+  }
+
+  /* ----- Day tabs ----- */
+
+  /* Day tabs pin under the status bar and span the full screen width on phones. One gold
+     indicator springs between the days (--days and --active come from DayTabs). */
   .day-tabs {
+    --tabs-pad-left: var(--gutter-x-left);
+    --tabs-pad-right: var(--gutter-x-right);
     position: sticky;
     top: var(--safe-top);
     z-index: 30;
@@ -111,23 +496,49 @@
     /* One equal column per day, whatever TRIP_DAYS is, so the pinned tabs stay one row. */
     grid-auto-columns: minmax(0, 1fr);
     grid-auto-flow: column;
-    margin: 16px calc(-1 * var(--gutter-x-right)) 0 calc(-1 * var(--gutter-x-left));
-    padding: 0 var(--gutter-x-right) 0 var(--gutter-x-left);
+    margin: 18px calc(-1 * var(--gutter-x-right)) 0 calc(-1 * var(--gutter-x-left));
+    padding: 0 var(--tabs-pad-right) 0 var(--tabs-pad-left);
     border-bottom: 1px solid var(--line);
     background: var(--page);
   }
 
+  .day-tabs::after {
+    position: absolute;
+    bottom: -1px;
+    left: var(--tabs-pad-left);
+    width: calc((100% - var(--tabs-pad-left) - var(--tabs-pad-right)) / var(--days, 3));
+    height: 2px;
+    background: var(--gold);
+    content: "";
+    transform: translateX(calc(var(--active, 0) * 100%));
+    transition: transform var(--dur-spring) var(--spring-snappy);
+  }
+
   .day-tab {
     min-width: 0;
-    min-height: 56px;
-    padding: 8px 6px 6px 0;
-    border-bottom: 3px solid transparent;
+    min-height: 60px;
+    padding: 10px 6px 10px 0;
     color: var(--muted);
     text-align: left;
+    transition: color var(--dur-color) ease;
+  }
+
+  .day-tab-name {
+    display: block;
+    font-size: 1rem;
+    font-stretch: 112.5%;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .day-tab-when {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .day-tab[aria-selected="true"] {
-    border-bottom-color: var(--accent);
     color: var(--fg);
   }
 
@@ -164,10 +575,52 @@
 
   @media (min-width: 1024px) {
     .day-tabs {
+      --tabs-pad-left: 0px;
+      --tabs-pad-right: 0px;
       /* Still under the status bar: an iPad in landscape runs the installed app at this width. */
       top: var(--safe-top);
-      margin: 20px 0 0;
-      padding: 0;
+      margin: 22px 0 0;
+    }
+  }
+
+  /* A new day's board fades in from the side it was reached from (DayTabs sets data-from). */
+  .day-panel-enter {
+    animation: day-in var(--dur-move) var(--ease-content) both;
+  }
+
+  @keyframes day-in {
+    from {
+      opacity: 0;
+      transform: translateX(calc(var(--from, 1) * 10px));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .timetable--draw > li .stop-times,
+    .timetable--draw > li .stop-head,
+    .timetable--draw > li .stop-body > :not(.stop-head),
+    .timetable--draw > li [data-testid="travel-leg"],
+    .timetable--draw > li .stop-moves,
+    .stop-times--flip,
+    .stop-details {
+      animation: fade 150ms ease both;
+      animation-delay: 0ms;
+    }
+
+    .stop-row--changed .stop-line {
+      animation-duration: 600ms;
+    }
+
+    .day-tabs::after,
+    .stop-thumb,
+    .stop-action,
+    .stop-action svg,
+    .stop-action-chevron {
+      transition: none;
+    }
+
+    .day-panel-enter {
+      animation: fade 120ms ease both;
     }
   }
 }

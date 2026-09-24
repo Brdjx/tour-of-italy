@@ -1,9 +1,11 @@
 "use client";
 
-import { useId } from "react";
+import { type CSSProperties, useId } from "react";
 
 // A segmented control built from native radio buttons, so arrow keys, form semantics, and
-// screen reader announcements come from the browser. Each segment is at least 44 px tall.
+// screen reader announcements come from the browser. Each segment is at least 44 px tall. The
+// ink thumb behind the chosen segment is drawn in CSS from --n (segments) and --i (the chosen
+// one), so it can slide without any JavaScript animation.
 
 export interface Segment<T extends string> {
   value: T;
@@ -24,10 +26,15 @@ interface SegmentedFieldProps<T extends string> {
 export function SegmentedField<T extends string>(props: SegmentedFieldProps<T>) {
   const { legend, name, segments, value, onChange, hint, testId } = props;
   const hintId = useId();
+  const chosen = Math.max(
+    0,
+    segments.findIndex((segment) => segment.value === value),
+  );
+  const track = { "--n": segments.length, "--i": chosen } as CSSProperties;
   return (
     <fieldset className="field" data-testid={testId} aria-describedby={hint ? hintId : undefined}>
       <legend className="field-label">{legend}</legend>
-      <div className="segmented">
+      <div className="segmented" style={track}>
         {segments.map((segment) => (
           <label key={segment.value} className="segment">
             <input

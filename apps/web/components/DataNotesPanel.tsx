@@ -20,7 +20,7 @@ export function DataNotesPanel({ summary }: { summary: DataSummary }) {
         <ul className="mt-3 space-y-4">
           {summary.items.map((item) => (
             <li key={item.kind} className="max-w-prose">
-              <p className="text-sm font-semibold text-fg">
+              <p className="t-label text-fg">
                 {item.title}{" "}
                 <span className="font-normal text-muted">
                   ({item.count} {item.count === 1 ? "place" : "places"})

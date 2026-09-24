@@ -170,7 +170,11 @@ describe("PlannerApp", () => {
     const { user } = setup(async () => ({ ...aiPlan(), summary: XSS }));
     await planOnce(user);
     expect(screen.getByTestId("plan-summary").textContent).toBe(XSS);
-    expect(document.querySelector("img")).toBeNull();
+    // The only images are our own place photos; the summary's markup never becomes an element.
+    for (const image of document.querySelectorAll("img")) {
+      expect(image.classList.contains("place-photo-img"), image.outerHTML).toBe(true);
+      expect(image.hasAttribute("onerror")).toBe(false);
+    }
   });
 
   it("sends ?mode=deterministic through to the API call", async () => {

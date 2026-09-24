@@ -26,8 +26,9 @@
     min-height: 44px;
   }
 
+  /* A new version: warm paper, so it reads as news rather than a problem. */
   .app-notice--update {
-    box-shadow: inset 4px 0 0 var(--accent);
+    background: var(--surface-warm);
   }
 
   /* The same open dot the source badge uses for a plan built on this device. */
@@ -41,7 +42,7 @@
   }
 
   /* Installed on iOS, the page draws under a status bar whose text is white
-     (black-translucent). Over the light Stone page that text would be unreadable, so the strip
+     (black-translucent). Over the white page that text would be unreadable, so the strip
      behind it takes the --status-bar colour. In a browser tab the strip is 0 px tall. */
   @media (display-mode: standalone) {
     .status-scrim {

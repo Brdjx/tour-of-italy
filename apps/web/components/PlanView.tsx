@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlannerContext } from "@italy/planner";
-import { type Ref, useMemo } from "react";
+import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
 import { type ItineraryState, undoLabel } from "../lib/itineraryReducer";
 import { buildTripView } from "../lib/timetable";
@@ -13,8 +13,10 @@ import { ShareButton } from "./ShareButton";
 import { SourceBadge } from "./SourceBadge";
 
 // The plan: source badge and toolbar (undo, copy link), the AI summary, trip-level notes, day
-// tabs, and the active day's timetable and map (below it on phones and tablets in portrait,
-// beside it from 1024 px). "Edit trip" lives in the trip summary line above the plan.
+// tabs, and the active day's board and map (below it on phones and tablets in portrait, beside it
+// from 1024 px). "Edit trip" lives in the trip summary line above the plan. Switching days slides
+// the new board in from the side it was reached from; the map stays mounted so its camera can
+// move to the new day instead of starting over.
 
 export interface PlanViewProps {
   plan: ItineraryState;
@@ -32,6 +34,11 @@ export interface PlanViewProps {
 
 export function PlanView(props: PlanViewProps) {
   const { plan, ctx, activeDay, animateDay, headingRef } = props;
+  const shownDay = useRef(activeDay);
+  const from = activeDay >= shownDay.current ? 1 : -1;
+  useEffect(() => {
+    shownDay.current = activeDay;
+  }, [activeDay]);
   const itinerary = plan.itinerary;
   const days = useMemo(
     () => (itinerary ? buildTripView(itinerary, ctx, plan.errors) : []),
@@ -70,7 +77,7 @@ export function PlanView(props: PlanViewProps) {
         </div>
       </div>
       {itinerary.summary ? (
-        <p className="mt-2 max-w-prose text-base text-fg" data-testid="plan-summary">
+        <p className="plan-summary" data-testid="plan-summary">
           {itinerary.summary}
         </p>
       ) : null}
@@ -100,17 +107,23 @@ export function PlanView(props: PlanViewProps) {
           role="tabpanel"
           id={DAY_PANEL_ID}
           aria-labelledby={dayTabId(day.index)}
-          className="day-panel pt-4"
+          className="day-panel pt-5"
         >
-          <DayTimetable
-            view={day}
-            animate={animateDay === day.index}
-            changedStop={plan.changed?.day === day.index ? plan.changed.stop : null}
-            headingRef={headingRef}
-            onSwap={(stop) => props.onSwap(day.index, stop)}
-            onRemove={(stop) => props.onRemove(day.index, stop)}
-            onMove={(stop, direction) => props.onMove(day.index, stop, direction)}
-          />
+          <div
+            key={day.index}
+            className={animateDay === day.index ? "day-board" : "day-board day-panel-enter"}
+            style={{ "--from": from } as CSSProperties}
+          >
+            <DayTimetable
+              view={day}
+              animate={animateDay === day.index}
+              changedStop={plan.changed?.day === day.index ? plan.changed.stop : null}
+              headingRef={headingRef}
+              onSwap={(stop) => props.onSwap(day.index, stop)}
+              onRemove={(stop) => props.onRemove(day.index, stop)}
+              onMove={(stop, direction) => props.onMove(day.index, stop, direction)}
+            />
+          </div>
           <DayMap day={day.day} dayNumber={day.index + 1} ctx={ctx} />
         </div>
       ) : null}

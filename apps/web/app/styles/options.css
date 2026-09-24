@@ -7,14 +7,14 @@
 /* In the components layer, so a Tailwind utility on the same element wins. */
 @layer components {
   .more-options {
-    margin-top: 28px;
+    margin-top: 32px;
   }
 
   /* A full-width row between two hairlines: quiet next to "Plan my trip", easy to hit. */
   .more-options-button {
     display: flex;
     width: 100%;
-    min-height: 52px;
+    min-height: 56px;
     align-items: center;
     gap: 10px;
     padding: 0 4px 0 0;
@@ -22,39 +22,48 @@
     border-bottom: 1px solid var(--line);
     color: var(--fg);
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
     text-align: left;
   }
 
-  .more-options-button:hover .more-options-label {
+  .more-options-label {
     text-decoration: underline;
-    text-underline-offset: 3px;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    transition: text-decoration-color var(--dur-color) ease;
+  }
+
+  .more-options-button:hover .more-options-label {
+    text-decoration-color: var(--gold);
   }
 
   .more-options-button:focus-visible {
-    border-radius: 4px;
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
+  /* "2 set": gold paper under ink, the one place gold fills. */
   .count-badge {
     display: inline-flex;
     min-height: 24px;
     align-items: center;
-    padding: 0 9px;
+    padding: 0 10px;
     border-radius: 999px;
-    background: var(--accent-soft);
+    background: var(--gold-soft);
     color: var(--fg);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    animation: badge-in var(--dur-spring) var(--spring-snappy);
   }
 
   .more-options-chevron {
     flex-shrink: 0;
     margin-left: auto;
-    color: var(--muted);
-    transition: transform 150ms ease-out;
+    color: var(--fg);
+    transition: transform var(--dur-move) var(--ease-out);
   }
 
   .more-options-chevron--open {
@@ -62,7 +71,29 @@
   }
 
   .more-options-panel {
-    padding-top: 20px;
+    padding-top: 24px;
+  }
+
+  /* Opening the panel: each field drops 6 px and fades in, 28 ms after the one before, capped
+     at six so a long panel never waits. The panel's height is never animated. */
+  .more-options-panel:not([hidden]) > .option-fields > * {
+    animation: field-in 240ms var(--ease-content) both;
+  }
+
+  .more-options-panel:not([hidden]) > .option-fields > :nth-child(2) {
+    animation-delay: 28ms;
+  }
+  .more-options-panel:not([hidden]) > .option-fields > :nth-child(3) {
+    animation-delay: 56ms;
+  }
+  .more-options-panel:not([hidden]) > .option-fields > :nth-child(4) {
+    animation-delay: 84ms;
+  }
+  .more-options-panel:not([hidden]) > .option-fields > :nth-child(5) {
+    animation-delay: 112ms;
+  }
+  .more-options-panel:not([hidden]) > .option-fields > :nth-child(n + 6) {
+    animation-delay: 140ms;
   }
 
   .clear-options {
@@ -76,27 +107,39 @@
     align-items: center;
     gap: 0 12px;
     margin-top: 12px;
-    padding-left: 12px;
-    border-left: 3px solid var(--danger);
     color: var(--fg);
     font-size: 0.875rem;
   }
 
-  /* Secondary actions inside the form: "Show all interests", "Clear options", "Try again". */
+  .options-error::before {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--danger);
+    content: "";
+  }
+
+  /* Secondary actions inside the form: ink text whose underline turns gold on hover. */
   .text-button {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
-    color: var(--accent);
-    font-size: 1rem;
-    font-weight: 600;
+    color: var(--fg);
+    font-size: 0.9375rem;
+    font-weight: 500;
     text-decoration: underline;
+    text-decoration-color: var(--line-strong);
     text-decoration-thickness: 1px;
-    text-underline-offset: 3px;
+    text-underline-offset: 4px;
+    transition: text-decoration-color var(--dur-color) ease;
+  }
+
+  .text-button:hover {
+    text-decoration-color: var(--gold);
   }
 
   .text-button:focus-visible {
-    border-radius: 4px;
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
@@ -107,9 +150,27 @@
     align-items: center;
   }
 
+  @keyframes field-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  @keyframes badge-in {
+    from {
+      transform: scale(0.9);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .more-options-chevron {
       transition: none;
+    }
+
+    .count-badge,
+    .more-options-panel:not([hidden]) > .option-fields > * {
+      animation: none;
     }
   }
 }

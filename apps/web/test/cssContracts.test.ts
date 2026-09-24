@@ -37,6 +37,15 @@ function luminance(hex: string): number {
   return 0.2126 * f(r as number) + 0.7152 * f(g as number) + 0.0722 * f(b as number);
 }
 
+/** `fore` at `alpha` over `back`, as a hex colour. */
+function blend(fore: string, back: string, alpha: number): string {
+  const channel = (hex: string, at: number) => Number.parseInt(hex.slice(at, at + 2), 16);
+  return `#${[1, 3, 5]
+    .map((at) => Math.round(channel(fore, at) * alpha + channel(back, at) * (1 - alpha)))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
 function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
@@ -145,9 +154,28 @@ describe("layout rules", () => {
     );
   });
 
-  it("uses a softer edit flash in dark mode so text on it stays readable", () => {
-    const darkBlock = globals.slice(globals.indexOf("@media (prefers-color-scheme: dark)"));
-    expect(darkBlock).toMatch(/--changed-bg: color-mix\(in srgb, var\(--warn\) 18%/);
+  it.each([
+    ["light", light, globals.slice(globals.indexOf(":root {"), globals.indexOf("@media"))],
+    [
+      "dark",
+      dark,
+      globals.slice(
+        globals.indexOf("@media (prefers-color-scheme: dark)"),
+        globals.indexOf("@theme"),
+      ),
+    ],
+  ] as const)("keeps text readable on the edit flash in %s mode", (_scheme, t, css) => {
+    // The flash is a token mixed with transparent over the page: blend it, then check the text.
+    const mix = css.match(
+      /--changed-bg: color-mix\(in srgb, var\(--([\w-]+)\) (\d+)%, transparent\)/,
+    );
+    expect(mix, "--changed-bg is a color-mix of a token with transparent").not.toBeNull();
+    const flash = blend(t[mix?.[1] as string] as string, t.page as string, Number(mix?.[2]) / 100);
+    for (const text of ["fg", "muted", "accent"]) {
+      expect(contrast(t[text] as string, flash), `${text} on the flash`).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
     expect(read("styles/timetable.css")).toContain("background: var(--changed-bg)");
   });
 });

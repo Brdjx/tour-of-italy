@@ -129,7 +129,13 @@ describe("DayTimetable", () => {
       ),
     };
     const { container } = renderDay(withReason, dayIndex, context);
-    expect(container.querySelector("img")).toBeNull();
+    // The only images are our own place photos; the markup in the name and reason never
+    // becomes an element.
+    for (const image of container.querySelectorAll("img")) {
+      expect(image.classList.contains("place-photo-img"), image.outerHTML).toBe(true);
+      expect(image.hasAttribute("onerror")).toBe(false);
+      expect(image.getAttribute("src")?.startsWith("/photos/")).toBe(true);
+    }
     expect(screen.getByRole("heading", { level: 3, name: XSS })).toBeTruthy();
     expect((window as { __xss?: number }).__xss).toBeUndefined();
   });
@@ -158,7 +164,8 @@ describe("DayTimetable", () => {
     const name = view.rows[0]?.place?.name ?? "";
     const group = screen.getAllByTestId("stop-actions")[0] as HTMLElement;
     expect(within(group).getByRole("button", { name: `Swap ${name}` })).toBeTruthy();
-    expect(within(group).getByRole("button", { name: `Move ${name} up` })).toBeTruthy();
+    const moves = screen.getAllByTestId("stop-moves")[0] as HTMLElement;
+    expect(within(moves).getByRole("button", { name: `Move ${name} up` })).toBeTruthy();
     await user.tab();
     const focused = document.activeElement;
     expect(focused?.closest("[data-testid='stop-row']")).toBeTruthy();
