@@ -1,0 +1,167 @@
+/*
+ * Page layouts.
+ * Phones and tablets in portrait (below 1024 px): one column. The form is the first screen; once
+ * a plan exists the form folds away behind "Edit trip" (it reopens as a top panel), the day tabs
+ * pin under the status bar, the map follows the timetable, and the data notes come last.
+ * Tablets in landscape and desktops (1024 px and up): two panes, form and data notes on the
+ * left, the plan on the right.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  .app {
+    --form-pane-width: 400px;
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+
+  /* Covers the status bar area in a standalone PWA so pinned content never slides under it. */
+  .status-scrim {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 40;
+    height: var(--safe-top);
+    background: var(--page);
+  }
+
+  .app-header {
+    padding: calc(var(--safe-top) + 12px) var(--gutter-x-right) 12px var(--gutter-x-left);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .form-pane,
+  .plan-pane,
+  .notes-pane {
+    min-width: 0;
+    padding-left: var(--gutter-x-left);
+    padding-right: var(--gutter-x-right);
+  }
+
+  .form-pane {
+    padding-top: 20px;
+    container-type: inline-size;
+  }
+
+  .plan-pane {
+    padding-top: 16px;
+    padding-bottom: 32px;
+    outline: none;
+  }
+
+  .notes-pane {
+    padding-top: 8px;
+    padding-bottom: calc(24px + var(--safe-bottom));
+    border-top: 1px solid var(--line);
+  }
+
+  .empty-plan {
+    display: none;
+  }
+
+  /* The 404 page and the error pages. */
+  .page-message {
+    padding: 40px var(--gutter-x-right) calc(40px + var(--safe-bottom)) var(--gutter-x-left);
+  }
+
+  .plan-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px 12px;
+  }
+
+  .toolbar-button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .toolbar-button:hover {
+    background: var(--hover);
+  }
+
+  .toolbar-button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .trip-note {
+    max-width: 65ch;
+    border-left: 3px solid var(--warn);
+    padding-left: 10px;
+    font-size: 0.875rem;
+    color: var(--fg);
+  }
+
+  .trip-note--error {
+    border-left-color: var(--danger);
+    color: var(--danger);
+  }
+
+  @media (max-width: 1023.98px) {
+    .app[data-has-plan="true"][data-form-open="false"] .form-pane {
+      display: none;
+    }
+
+    .app[data-has-plan="true"][data-form-open="true"] .form-pane {
+      border-bottom: 1px solid var(--line);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .app-body {
+      display: grid;
+      /* The form column always gets its full width here; the toast is placed from it. */
+      grid-template-columns: minmax(340px, var(--form-pane-width)) minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "form plan"
+        "notes plan";
+    }
+
+    .form-pane {
+      grid-area: form;
+      padding: 24px 24px 0 max(24px, var(--safe-left));
+      border-right: 1px solid var(--line);
+    }
+
+    .notes-pane {
+      grid-area: notes;
+      padding: 8px 24px 24px max(24px, var(--safe-left));
+      border-top: 0;
+      border-right: 1px solid var(--line);
+    }
+
+    .plan-pane {
+      grid-area: plan;
+      padding: 24px max(32px, var(--safe-right)) 48px 32px;
+    }
+
+    .plan {
+      max-width: 880px;
+    }
+
+    .empty-plan {
+      display: block;
+      max-width: 36rem;
+      padding-top: 48px;
+    }
+  }
+}

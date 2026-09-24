@@ -1,0 +1,239 @@
+/*
+ * The timetable: times in a fixed left gutter, stop names large, travel legs as dotted
+ * connectors. Its one motion moment: when a plan arrives, the day's rows draw in top to bottom
+ * once, in under 400 ms. Edits only highlight the row they touched.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  :root {
+    --gutter: 60px;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --gutter: 80px;
+    }
+  }
+
+  .timetable-grid {
+    display: grid;
+    grid-template-columns: var(--gutter) minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .leg-line {
+    min-height: 30px;
+    margin-left: 18px;
+    border-left: 2px dotted var(--line-strong);
+  }
+
+  /* Times and durations line up in the gutter like a printed timetable. Only numbers get tabular
+     figures: in this font the feature also widens commas and periods, which reads badly in prose. */
+  .stop-times,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clock-colon {
+    font-variant-numeric: normal;
+  }
+
+  .stop-times {
+    padding-top: 3px;
+    color: var(--fg);
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .stop-body {
+    min-width: 0;
+    padding-bottom: 12px;
+  }
+
+  /* The train or drive from the previous base, timed in the gutter like a stop. */
+  .transfer-row {
+    padding-top: 14px;
+  }
+
+  .stop-row--flagged .stop-times {
+    color: var(--danger);
+  }
+
+  .stop-row--flagged .stop-body {
+    margin-left: -12px;
+    padding-left: 9px;
+    border-left: 3px solid var(--danger);
+  }
+
+  .stop-row--changed .stop-body {
+    animation: row-changed 1.6s ease-out;
+  }
+
+  @keyframes row-changed {
+    from {
+      background: var(--changed-bg);
+    }
+    to {
+      background: transparent;
+    }
+  }
+
+  .timetable--draw > li {
+    animation: row-draw 260ms ease-out backwards;
+    animation-delay: calc(min(var(--i, 0), 6) * 20ms);
+  }
+
+  @keyframes row-draw {
+    from {
+      opacity: 0;
+      clip-path: inset(0 0 100% 0);
+    }
+    to {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .timetable--draw > li,
+    .stop-row--changed .stop-body {
+      animation: none;
+    }
+  }
+
+  /* Day tabs pin under the status bar and span the full screen width on phones. */
+  .day-tabs {
+    position: sticky;
+    top: var(--safe-top);
+    z-index: 30;
+    display: grid;
+    /* One equal column per day, whatever TRIP_DAYS is, so the pinned tabs stay one row. */
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    margin: 16px calc(-1 * var(--gutter-x-right)) 0 calc(-1 * var(--gutter-x-left));
+    padding: 0 var(--gutter-x-right) 0 var(--gutter-x-left);
+    border-bottom: 1px solid var(--line);
+    background: var(--page);
+  }
+
+  .day-tab {
+    min-width: 0;
+    min-height: 56px;
+    padding: 8px 6px 6px 0;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    text-align: left;
+  }
+
+  .day-tab[aria-selected="true"] {
+    border-bottom-color: var(--accent);
+    color: var(--fg);
+  }
+
+  .day-tab:hover {
+    color: var(--fg);
+  }
+
+  .day-tab:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+
+  .day-tab-city {
+    display: none;
+  }
+
+  /* Two bases on a narrow screen: the base replaces the date, so the travel day shows. */
+  @media (max-width: 479.98px) {
+    .day-tabs[data-multi-base="true"] .day-tab-date,
+    .day-tabs[data-multi-base="true"] .day-tab-sep {
+      display: none;
+    }
+
+    .day-tabs[data-multi-base="true"] .day-tab-city {
+      display: inline;
+    }
+  }
+
+  @media (min-width: 480px) {
+    .day-tab-city {
+      display: inline;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .day-tabs {
+      /* Still under the status bar: an iPad in landscape runs the installed app at this width. */
+      top: var(--safe-top);
+      margin: 20px 0 0;
+      padding: 0;
+    }
+  }
+
+  /* Map. isolation keeps Leaflet's own z-index values below the pinned tabs and the sheet. */
+  .map-frame {
+    position: relative;
+    height: 280px;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  @media (min-width: 768px) {
+    .map-frame {
+      height: 360px;
+    }
+  }
+
+  .map-frame .leaflet-container {
+    background: var(--surface);
+    font-family: inherit;
+  }
+
+  .map-placeholder {
+    display: grid;
+    height: 100%;
+    place-items: center;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .map-marker-wrap {
+    border: 0;
+    background: none;
+  }
+
+  .map-marker {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font: 600 14px / 1 var(--font-sans);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  }
+
+  .map-marker--approximate {
+    border: 2px dashed var(--accent);
+    background: var(--surface);
+    color: var(--accent);
+  }
+
+  .route-line {
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-opacity: 0.85;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .map-frame .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+    }
+  }
+}

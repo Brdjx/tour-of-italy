@@ -1,0 +1,177 @@
+/*
+ * The trip form. Every control is at least 44 px tall and every text input uses a 16 px font so
+ * iOS does not zoom on focus. The form lays out in two columns when its pane is wide enough
+ * (an iPad in portrait with the form open), one column otherwise.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  .trip-form-fields {
+    display: grid;
+    gap: 22px;
+  }
+
+  @container (min-width: 640px) {
+    .trip-form-fields {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      column-gap: 28px;
+    }
+
+    .trip-form-wide {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .field {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 6px;
+    padding: 0;
+    color: var(--fg);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .field-hint {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .field-error {
+    margin-top: 6px;
+    color: var(--danger);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .text-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--fg);
+    font: inherit;
+    font-size: 16px;
+  }
+
+  .text-input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  .text-input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  .text-input[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
+
+  .text-input:disabled,
+  .text-input[aria-disabled="true"] {
+    opacity: 0.6;
+  }
+
+  /* iOS draws date inputs centered and ignores width without these. The vertical padding
+     centers the value: WebKit puts it at the top of a date input's min-height box. */
+  input[type="date"].text-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-block: 11px;
+    text-align: left;
+  }
+
+  input[type="date"].text-input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
+  .segmented {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  .segment {
+    display: inline-flex;
+    min-height: 44px;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    border-left: 1px solid var(--line);
+    color: var(--fg);
+    font-size: 1rem;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .segment:first-child {
+    border-left: 0;
+  }
+
+  .segment:has(input:checked) {
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+  }
+
+  .segment:has(input:focus-visible) {
+    box-shadow:
+      inset 0 0 0 2px var(--surface),
+      inset 0 0 0 4px var(--focus);
+  }
+
+  /* The submit button stays in reach at the bottom of the screen while the form scrolls. */
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    margin-top: 24px;
+    padding: 12px 0 max(12px, var(--safe-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--page);
+  }
+
+  .primary-button {
+    display: inline-flex;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .primary-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .primary-button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .primary-button[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.75;
+  }
+}
