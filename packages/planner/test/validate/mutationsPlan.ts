@@ -147,4 +147,13 @@ export const PLAN_MUTATIONS: Mutation[] = [
     code: "NOT_A_MEAL_PLACE",
     placeId: "place_060",
   },
+  {
+    name: "claim a trip back to the base that the travel model does not give",
+    build: tripRome,
+    corrupt: (p) => {
+      dayOf(p, 2).returnTravelMin = 999;
+    },
+    code: "WRONG_TRAVEL",
+    day: 2,
+  },
 ];

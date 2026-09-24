@@ -157,7 +157,7 @@ describe("normalizeHours policy", () => {
 
   it.each([
     ["Piazza del Popolo at Dawn", { open: 360, close: 600 }],
-    ["Early Morning in Cannaregio", { open: 360, close: 600 }],
+    ["Early Morning in Cannaregio", { open: 360, close: 660 }],
     ["Navigli Canals at Aperitivo Hour", { open: 1050, close: 1260 }],
     ["Piazza Maggiore at Night", { open: 1200, close: 1440 }],
   ])("reads the time of day from the name %j when hours are empty", (name, window) => {

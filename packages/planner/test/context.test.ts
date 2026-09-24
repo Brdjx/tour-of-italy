@@ -58,7 +58,7 @@ describe("buildPlannerContext", () => {
 });
 
 describe("context lookups", () => {
-  it("lists a base's places in id order, day trips included", () => {
+  it("never loses a day trip or reorders a base's places", () => {
     const florence = placesOfAnchor(realContext(), "florence");
     expect(florence).toHaveLength(22);
     expect(florence.map((p) => p.id)).toContain("place_038");

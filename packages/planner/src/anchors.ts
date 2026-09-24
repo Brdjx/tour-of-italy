@@ -2,7 +2,7 @@ import { DAY_TRIP_MAX_KM, MIN_PLACES_FOR_BASE } from "./config";
 import { haversineKm, type LatLng, median } from "./normalize/geo";
 import { UNKNOWN_CITY } from "./normalize/locations";
 import { travelMinutes } from "./travel";
-import type { Anchor, Place } from "./types";
+import type { Anchor, Place, TripRequest } from "./types";
 
 // Bases ("anchors"). A city with at least MIN_PLACES_FOR_BASE places is a base. Every other place
 // joins its nearest base within DAY_TRIP_MAX_KM as a day trip; a place farther than that from
@@ -71,6 +71,17 @@ export function buildAnchors(places: readonly AnchorSource[]): Anchor[] {
 export function transferMinutes(from: Anchor, to: Anchor): number {
   if (from.id === to.id) return 0;
   return travelMinutes(from.centroid, to.centroid);
+}
+
+/**
+ * Where a day at this base starts and ends: the base's centroid. The scheduler, the validator,
+ * the look-ahead, scoring, and swaps all take a day's first leg and its trip back from here.
+ */
+// Decision: one function for the day's start point, and it takes the request although it does
+// not read it yet. A "start from a hotel" extension adds the hotel to the request and changes
+// only this body; every caller already passes the request.
+export function dayOrigin(anchor: Anchor, _request: TripRequest): LatLng {
+  return anchor.centroid;
 }
 
 // ---------- Helpers ----------

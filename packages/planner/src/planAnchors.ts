@@ -1,4 +1,4 @@
-import { compareText } from "./anchors";
+import { compareText, dayOrigin } from "./anchors";
 import { MAX_ANCHORS_PER_TRIP, PACE } from "./config";
 import { isCandidate } from "./constraints";
 import { type PlannerContext, placesOfAnchor } from "./context";
@@ -10,6 +10,13 @@ import type { Anchor, TripRequest } from "./types";
 // Which bases a trip can use, as ordered lists of one base id per day ("arrangements"). The
 // planner builds a full trip for each arrangement in a tier and keeps the best; it only moves to
 // the next tier when no arrangement in the current one can fill every day.
+
+/** One base id per trip day, in day order: ["rome", "rome", "florence"]. */
+export type Arrangement = string[];
+/** Arrangements the planner compares with each other; the best full trip among them wins. */
+export type Tier = Arrangement[];
+/** Tiers that keep the same number of days at the traveler's chosen bases, tried in order. */
+export type TierGroup = Tier[];
 
 /** Must-include ids the planner will try to place: known places, not also excluded. */
 export function wantedMustIncludes(request: TripRequest, ctx: PlannerContext): string[] {
@@ -65,7 +72,7 @@ function anchorStrength(
     for (const date of dates) {
       const hours = hoursOn(place, date);
       if (hours !== "unknown" && hours.length === 0) continue; // closed that day
-      const score = scorePlace(place, request, { date, from: anchor.centroid });
+      const score = scorePlace(place, request, { date, from: dayOrigin(anchor, request) });
       if (bestScore === null || score > bestScore) bestScore = score;
     }
     if (bestScore !== null) scores.push(bestScore);
@@ -83,8 +90,8 @@ function anchorStrength(
  */
 // Decision: single-base trips come first, so on an exact score tie the planner prefers fewer
 // transfers.
-export function arrangementsOf(anchorIds: readonly string[], days: number): string[][] {
-  const result: string[][] = anchorIds.map((id) => Array<string>(days).fill(id));
+export function arrangementsOf(anchorIds: readonly string[], days: number): Tier {
+  const result: Tier = anchorIds.map((id) => Array<string>(days).fill(id));
   if (MAX_ANCHORS_PER_TRIP < 2) return result;
   for (let i = 0; i < anchorIds.length; i++) {
     for (let j = i + 1; j < anchorIds.length; j++) {
@@ -97,8 +104,8 @@ export function arrangementsOf(anchorIds: readonly string[], days: number): stri
 }
 
 /** first^k second^(days-k) for k = days-1 down to 1: most days at the first base first. */
-function splits(first: string, second: string, days: number): string[][] {
-  const result: string[][] = [];
+function splits(first: string, second: string, days: number): Tier {
+  const result: Tier = [];
   for (let k = days - 1; k >= 1; k--) {
     result.push([...Array<string>(k).fill(first), ...Array<string>(days - k).fill(second)]);
   }
@@ -107,24 +114,30 @@ function splits(first: string, second: string, days: number): string[][] {
 
 /**
  * Tiers of arrangements grouped by how many days they keep at the traveler's chosen bases, most
- * first: every day (the chosen order, then any order), then one day fewer, and so on. Empty when
- * the traveler chose no bases. chooseTrip tries each group with fewer visits a day before it
- * gives up a chosen day.
+ * first: every day (the chosen order, then any other order), then one day fewer, and so on.
+ * Empty when the traveler chose no bases. chooseTrip tries each group with fewer visits a day
+ * before it gives up a chosen day.
  */
 export function chosenTierGroups(
   request: TripRequest,
   ctx: PlannerContext,
   dates: string[],
-): string[][][][] {
+): TierGroup[] {
   const chosen = chosenAnchorIds(request, ctx);
   if (chosen.length === 0) return [];
   const days = dates.length;
   const [first, second] = chosen as [string, string | undefined];
+  // Decision: with fewer days than chosen bases (a 1-day trip, two bases), every chosen base
+  // alone is in the first tier, so the one holding the must-includes wins on score instead of
+  // the first-listed base winning by position.
   const inOrder =
-    second === undefined || days < 2
+    second === undefined
       ? [Array<string>(days).fill(first)]
-      : splits(first, second, days);
-  const groups: string[][][][] = [[inOrder, arrangementsOf(chosen, days)]];
+      : days < 2
+        ? chosen.map((id) => Array<string>(days).fill(id))
+        : splits(first, second, days);
+  const anyOrder = without(arrangementsOf(chosen, days), inOrder);
+  const groups: TierGroup[] = [anyOrder.length > 0 ? [inOrder, anyOrder] : [inOrder]];
   const everything = arrangementsOf(rankAnchors(request, ctx, dates), days);
   for (let kept = days - 1; kept >= 1; kept--) {
     const tier = everything.filter(
@@ -135,33 +148,26 @@ export function chosenTierGroups(
   return groups;
 }
 
-/** Automatic tiers: the ANCHOR_SHORTLIST best-ranked bases, then every base. */
-export function automaticTiers(
-  request: TripRequest,
-  ctx: PlannerContext,
-  dates: string[],
-): string[][][] {
+/**
+ * Automatic tiers: the ANCHOR_SHORTLIST best-ranked bases plus every base holding a must-include,
+ * then the arrangements left over.
+ */
+// Decision: every base with a must-include is on the shortlist, however many there are. With
+// must-includes in four bases, a fourth base left off the list made the planner stay in one base
+// while the validator saw room for that base's place (a false MUST_INCLUDE_MISSING).
+export function automaticTiers(request: TripRequest, ctx: PlannerContext, dates: string[]): Tier[] {
   const ranked = rankAnchors(request, ctx, dates);
-  return [
-    arrangementsOf(ranked.slice(0, ANCHOR_SHORTLIST), dates.length),
-    arrangementsOf(ranked, dates.length),
-  ];
+  const holding = new Set(
+    wantedMustIncludes(request, ctx).map((id) => ctx.anchorIdByPlaceId.get(id)),
+  );
+  const listed = ranked.filter((id, rank) => rank < ANCHOR_SHORTLIST || holding.has(id));
+  const shortlist = arrangementsOf(listed, dates.length);
+  const rest = without(arrangementsOf(ranked, dates.length), shortlist);
+  return rest.length > 0 ? [shortlist, rest] : [shortlist];
 }
 
-/**
- * The tiers of arrangements to try, in order.
- * Chosen bases: every chosen base in the given order (each split), then any arrangement of the
- * chosen bases, then arrangements that keep chosen bases on as many days as possible, then the
- * automatic tiers. Automatic: the ANCHOR_SHORTLIST best-ranked bases, then every base.
- */
-// Decision: a traveler's base choice is honored whenever it can fill every day, with fewer
-// visits a day if need be (chooseTrip in tripBuilder.ts). If it cannot even then (exclusions,
-// closures, and budget leave a day with nothing), the plan keeps the chosen base on as many days
-// as possible rather than dropping it; the day headers show the bases.
-export function arrangementTiers(
-  request: TripRequest,
-  ctx: PlannerContext,
-  dates: string[],
-): string[][][] {
-  return [...chosenTierGroups(request, ctx, dates).flat(), ...automaticTiers(request, ctx, dates)];
+/** The arrangements of `tier` that are not in `seen`, in order. */
+function without(tier: Tier, seen: Tier): Tier {
+  const keys = new Set(seen.map((arrangement) => arrangement.join(" ")));
+  return tier.filter((arrangement) => !keys.has(arrangement.join(" ")));
 }

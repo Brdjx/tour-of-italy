@@ -443,7 +443,7 @@ place_074 [historic_site] St. Mark's Basilica
   tags iconic, historic, art, cultural, tourist-heavy; booking yes; book ahead yes
   chips: Book ahead
 place_075 [experience] Early Morning in Cannaregio
-  hours derived (name_hint "Early Morning" 06:00-10:00): Mon-Sun 06:00-10:00
+  hours derived (name_hint "Early Morning" 06:00-11:00): Mon-Sun 06:00-11:00
   visit 90 listed; price 1; rating 4.7; meals none
   where Venice, Cannaregio (45.44540, 12.32890) listed; linked none
   tags local-favorite, quiet, morning, photogenic, hidden-gem; booking no; book ahead no

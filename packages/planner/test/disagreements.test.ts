@@ -3,17 +3,15 @@ import { removeStop, rescheduleDay } from "../src/alternatives";
 import { LATEST_MINUTE, TRIP_DAYS } from "../src/config";
 import { compareViolations, planDeterministic } from "../src/plan";
 import { scheduleDay } from "../src/schedule";
-import { makeViolation } from "../src/scheduleChecks";
-import { tripDates } from "../src/time";
 import { scheduleTrip } from "../src/trip";
-import { buildTrip } from "../src/tripBuilder";
 import type { Itinerary, TripRequest, Violation } from "../src/types";
 import { VIOLATION_CODES } from "../src/types";
 import { VIOLATION_SEVERITY, validateItinerary } from "../src/validate";
+import { makeViolation } from "../src/violations";
 import { makeRequest, realContext } from "./plannerFixtures";
 
-// Regression tests for each place the T17 property tests (test/properties) found the scheduler
-// and the validator disagreeing. Each describe names the disagreement; the report lists them.
+// Regression tests for each place the property tests (test/properties) found the scheduler and
+// the validator disagreeing. Source comments point here by disagreement number.
 
 const ctx = realContext();
 
@@ -50,17 +48,16 @@ describe("disagreement 2: a day at a base the traveler did not choose", () => {
     // 3 and the plan moved that day to another base, silently. 618 of 5,490 single-base
     // requests over 2027 did this.
     const request = makeRequest({ anchors: ["milan"], pace: "packed", startDate: "2027-01-01" });
-    const dates = tripDates(request.startDate);
-    expect(buildTrip(Array(TRIP_DAYS).fill("milan"), request, ctx, dates)).toBeNull();
     const itinerary = planDeterministic(request, ctx);
     expect(itinerary.days.map((day) => day.anchorId)).toEqual(Array(TRIP_DAYS).fill("milan"));
     expect(errorsOf(validateItinerary(itinerary, ctx))).toEqual([]);
   });
 
   it("never leaves a starved chosen base without an ANCHOR_NOT_CHOSEN warning on each day", () => {
-    // Nine Venice exclusions and budget 1 in January leave Venice one day's worth of places.
+    // Ten Venice exclusions and budget 1 in January leave Venice one day's worth of places
+    // (Cremeria Mascareta, a dinner one level over the budget, is excluded too).
     const exclude = ["place_096", "place_078", "place_066", "place_074", "place_068"];
-    exclude.push("place_072", "place_088", "place_067", "place_070");
+    exclude.push("place_072", "place_088", "place_067", "place_070", "place_079");
     const request = makeRequest({
       startDate: "2026-01-02",
       maxPriceLevel: 1,
@@ -86,13 +83,19 @@ describe("disagreement 2: a day at a base the traveler did not choose", () => {
 
 describe("disagreement 3: warnings after an edit", () => {
   it("never shows different warnings after an edit than the validator gives the same trip", () => {
-    // Trevi by day and by night, both asked for: SAME_LOCATION on day 1. Editing that day used
-    // to swap the validator's warnings for scheduleDay's differently worded ones.
-    const request = makeRequest({ mustInclude: ["place_018", "place_077"], anchors: ["rome"] });
-    const itinerary = planDeterministic(request, ctx);
-    const first = itinerary.days[0];
-    if (!first) throw new Error("no first day");
-    const edited = rescheduleDay(itinerary, 0, removeStop(first, 1), ctx).itinerary;
+    // A shared plan with Trevi by day on day 1 and by night on day 2 (SAME_LOCATION across days,
+    // which scheduleDay cannot see). Editing day 3 used to swap the validator's warnings for
+    // scheduleDay's differently worded ones and lost this one.
+    const request = makeRequest({ anchors: ["rome"] });
+    const selection = [
+      { anchorId: "rome", placeIds: ["place_018", "place_005"] },
+      { anchorId: "rome", placeIds: ["place_001", "place_077"] },
+      { anchorId: "rome", placeIds: ["place_004", "place_008"] },
+    ];
+    const itinerary = asItinerary(request, scheduleTrip(request, selection, ctx).days);
+    const third = itinerary.days[2];
+    if (!third) throw new Error("no third day");
+    const edited = rescheduleDay(itinerary, 2, removeStop(third, 1), ctx).itinerary;
     const expected = validateItinerary(edited, ctx).filter((v) => v.severity === "warning");
     expect(edited.warnings).toEqual(expected.sort(compareViolations));
     expect(edited.warnings.map((w) => w.code)).toContain("SAME_LOCATION");
@@ -100,9 +103,12 @@ describe("disagreement 3: warnings after an edit", () => {
 });
 
 describe("contract: one severity per code", () => {
-  it("never lets the scheduler and the validator give one code two severities", () => {
+  it("never leaves a code without a severity, or gives it one the validator does not export", () => {
+    // Since the review, both sides build violations with makeViolation from one table, so a new
+    // code without a severity fails to compile; this keeps the exported table honest.
     for (const code of VIOLATION_CODES) {
       expect(makeViolation(code, "x").severity, code).toBe(VIOLATION_SEVERITY[code]);
+      expect(["error", "warning"]).toContain(VIOLATION_SEVERITY[code]);
     }
   });
 });

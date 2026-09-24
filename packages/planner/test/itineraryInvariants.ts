@@ -1,5 +1,11 @@
 import { transferMinutes } from "../src/anchors";
-import { MAX_ANCHORS_PER_TRIP, PACE, TRAVEL, TRIP_DAYS } from "../src/config";
+import {
+  DINNER_RETURN_GRACE_MIN,
+  MAX_ANCHORS_PER_TRIP,
+  PACE,
+  TRAVEL,
+  TRIP_DAYS,
+} from "../src/config";
 import {
   dayWindow,
   mealWindowAllows,
@@ -15,6 +21,7 @@ import type { Anchor, DayPlan, Itinerary, Place } from "../src/types";
 
 // Every hard rule a plan must satisfy, recomputed from the public helpers (time, travel,
 // constraints) and never from the scheduler's own code, so a scheduler bug cannot hide itself.
+// The trip back to the base at the end of each day counts, and the planner must state it.
 // Returns plain-language problems; tests assert the list is empty, so a failure names the rule.
 
 /** Every broken hard rule in the itinerary, as readable strings. Empty means valid. */
@@ -69,10 +76,7 @@ function dayProblems(
     }
     if (used.some((other) => other.id === place.id)) problems.push(at(s, `duplicate ${place.id}`));
     const twin = used.find((other) => sharesLocation(other, place));
-    const bothAsked = twin && request.mustInclude.includes(twin.id);
-    if (twin && !(bothAsked && request.mustInclude.includes(place.id))) {
-      problems.push(at(s, `shares a spot with ${twin.id}`));
-    }
+    if (twin) problems.push(at(s, `shares a spot with ${twin.id}`));
     if (request.exclude.includes(place.id)) problems.push(at(s, `excluded ${place.id}`));
     if (ctx.anchorIdByPlaceId.get(place.id) !== anchor.id) problems.push(at(s, "outside base"));
     if (stop.end - stop.start !== place.durationMin) problems.push(at(s, "wrong visit length"));
@@ -94,6 +98,13 @@ function dayProblems(
     free = stop.end;
   });
   if (visits > PACE[request.pace].maxVisits) problems.push(`day ${index}: ${visits} visits`);
+  const lastPlace = ctx.placesById.get(day.stops.at(-1)?.placeId ?? "");
+  const back = lastPlace ? travelMinutes(lastPlace, anchor.centroid) : 0;
+  if (day.returnTravelMin !== back) problems.push(`day ${index}: trip back ${day.returnTravelMin}`);
+  const grace = day.stops.at(-1)?.role === "dinner" ? DINNER_RETURN_GRACE_MIN : 0; // walk home
+  if (free + back > window.end + grace) {
+    problems.push(`day ${index}: back at the base after the day ends`);
+  }
   return problems;
 }
 

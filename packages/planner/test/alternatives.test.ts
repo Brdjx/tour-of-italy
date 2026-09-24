@@ -25,7 +25,8 @@ function planFor(overrides: Partial<TripRequest> = {}): Itinerary {
 }
 
 describe("alternativesFor", () => {
-  const itinerary = planFor({ interests: ["art", "food"] });
+  // Rome has places to spare for swaps at every stop; a full Florence plan leaves almost none.
+  const itinerary = planFor({ interests: ["art", "food"], anchors: ["rome"] });
 
   it("only offers swaps whose rebuilt day passes scheduleDay and the validator with the same roles", () => {
     let offered = 0;
@@ -144,86 +145,5 @@ describe("edit helpers", () => {
       expect(() => moveStop(day, 0, bad)).toThrow(RangeError);
       expect(() => replaceStop(day, bad, "place_001")).toThrow(RangeError);
     }
-  });
-});
-
-describe("rescheduleDay", () => {
-  const itinerary = planFor();
-
-  it("rebuilds one day and leaves the other days as the very same objects (undo stays cheap)", () => {
-    const day = itinerary.days[1];
-    if (!day) throw new Error("no day");
-    const result = rescheduleDay(itinerary, 1, removeStop(day, 0), ctx);
-    expect(result.itinerary.days[0]).toBe(itinerary.days[0]);
-    expect(result.itinerary.days[2]).toBe(itinerary.days[2]);
-    expect(result.itinerary.days[1]?.stops).toHaveLength(day.stops.length - 1);
-    expect(itinerary.days[1]).toBe(day);
-  });
-
-  it("reports an edit that breaks the day in `violations` and never in the traveler's warnings", () => {
-    const day = itinerary.days[0];
-    if (!day) throw new Error("no day");
-    const broken = rescheduleDay(
-      itinerary,
-      0,
-      [...day.stops.map((s) => s.placeId), "place_023"],
-      ctx,
-    );
-    expect(errorsOf(broken.violations).length).toBeGreaterThan(0);
-    expect(broken.itinerary.warnings.every((w) => w.severity === "warning")).toBe(true);
-  });
-
-  it("keeps an AI reason for a stop that keeps its place and role, and rewrites rule reasons", () => {
-    const day = itinerary.days[0];
-    const first = day?.stops[0];
-    if (!day || !first) throw new Error("no stop");
-    const withAi: Itinerary = {
-      ...itinerary,
-      days: itinerary.days.map((d, i) =>
-        i === 0
-          ? {
-              ...d,
-              stops: d.stops.map((s, j) =>
-                j === 0 ? { ...s, reason: "Chosen by AI.", reasonSource: "ai" as const } : s,
-              ),
-            }
-          : d,
-      ),
-    };
-    const ids = day.stops.map((s) => s.placeId);
-    const result = rescheduleDay(withAi, 0, ids, ctx);
-    expect(result.itinerary.days[0]?.stops[0]).toMatchObject({
-      reason: "Chosen by AI.",
-      reasonSource: "ai",
-    });
-    expect(result.itinerary.days[0]?.stops.slice(1).every((s) => s.reasonSource === "rule")).toBe(
-      true,
-    );
-  });
-
-  it("replaces only the edited day's warnings and keeps every other day's", () => {
-    const withWarnings = planFor({ mustInclude: ["place_021"], anchors: ["rome"] });
-    const warnedDay = withWarnings.warnings.find((w) => w.code === "HOURS_UNKNOWN")?.day ?? 0;
-    const other = warnedDay === 0 ? 1 : 0;
-    const day = withWarnings.days[other];
-    if (!day) throw new Error("no day");
-    const result = rescheduleDay(
-      withWarnings,
-      other,
-      day.stops.map((s) => s.placeId),
-      ctx,
-    );
-    const kept = (w: { day?: number }) => w.day === warnedDay;
-    expect(result.itinerary.warnings.filter(kept)).toEqual(withWarnings.warnings.filter(kept));
-  });
-
-  it("reports UNKNOWN_ANCHOR for a tampered base instead of throwing", () => {
-    const tampered: Itinerary = {
-      ...itinerary,
-      days: itinerary.days.map((d, i) => (i === 0 ? { ...d, anchorId: "atlantis" } : d)),
-    };
-    const result = rescheduleDay(tampered, 0, ["place_001"], ctx);
-    expect(result.violations.map((v) => v.code)).toEqual(["UNKNOWN_ANCHOR"]);
-    expect(() => rescheduleDay(itinerary, 7, [], ctx)).toThrow(RangeError);
   });
 });

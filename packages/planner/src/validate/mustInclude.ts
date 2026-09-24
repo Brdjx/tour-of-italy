@@ -1,20 +1,19 @@
-import { transferMinutes } from "../anchors";
-import { MAX_ANCHORS_PER_TRIP, PACE, TRAVEL } from "../config";
-import {
-  type DayWindow,
-  dayWindow,
-  earliestMealStart,
-  earliestOpenStart,
-  isExcluded,
-  sharesLocation,
-} from "../constraints";
+import { dayOrigin } from "../anchors";
+import { isExcluded, sharesLocation } from "../constraints";
 import { anchorOfPlace, type PlannerContext } from "../context";
 import { openStatusOn } from "../time";
-import { travelMinutes } from "../travel";
-import type { Anchor, DateRule, Itinerary, Pace, Place, Stop, Violation } from "../types";
-import { countVisits, type DayFacts, hasValidTimes } from "./days";
+import type { DateRule, Itinerary, Pace, Place, Violation } from "../types";
+import { makeViolation } from "../violations";
+import type { DayFacts } from "./days";
+import {
+  type Candidate,
+  candidates,
+  FIT_RANK,
+  type Fit,
+  fitOnDay,
+  fitsEmptyDayAt,
+} from "./mustIncludeFit";
 import { dateText, dayText, listText, noteText } from "./text";
-import { violation } from "./violations";
 
 // Must-include checks. A requested place missing from the plan is an error only when it is
 // placeable; otherwise it is a warning that says why. The rule is deliberately conservative: a
@@ -23,18 +22,6 @@ import { violation } from "./violations";
 
 /** The verdict for one missing must-include place. */
 export type Placeability = { placeable: true; day: number } | { placeable: false; reason: string };
-
-/** A day the place could go on: a real day at its base, or a day that could move there. */
-interface Candidate {
-  day: DayFacts;
-  anchor: Anchor; // the place's base
-  window: DayWindow; // the day window, after the transfer this day would need
-  fixed: { stop: Stop; place: Place }[]; // must-include stops already on the day, by start
-}
-
-/** How a place fares on one candidate day, from worst to best. */
-type Fit = "closed" | "outside_hours" | "no_room" | "fits";
-const FIT_RANK: Record<Fit, number> = { closed: 0, outside_hours: 1, no_room: 2, fits: 3 };
 
 /** MUST_INCLUDE_MISSING or MUST_INCLUDE_UNPLACEABLE for every requested place not in the plan. */
 export function checkMustIncludes(
@@ -51,10 +38,10 @@ export function checkMustIncludes(
     const verdict = placeability(id, itinerary, days, ctx);
     if (verdict.placeable) {
       const detail = `You asked for ${name}, and it fits on ${dayText(verdict.day)}, but it is not in the plan.`;
-      out.push(violation("MUST_INCLUDE_MISSING", detail, { day: verdict.day, placeId: id }));
+      out.push(makeViolation("MUST_INCLUDE_MISSING", detail, { day: verdict.day, placeId: id }));
     } else {
       const detail = `${name} could not be included: ${verdict.reason}.`;
-      out.push(violation("MUST_INCLUDE_UNPLACEABLE", detail, { placeId: id }));
+      out.push(makeViolation("MUST_INCLUDE_UNPLACEABLE", detail, { placeId: id }));
     }
   }
   return out;
@@ -64,18 +51,25 @@ export function checkMustIncludes(
  * The placeability rule. A missing must-include place P is placeable when ALL of these hold:
  * 1. P is a known place and the traveler did not also exclude it.
  * 2. P does not share a spot with another must-include place that is already in the plan.
- * 3. There is a candidate day. If some day is based at P's base, the candidates are those days.
+ * 3. P is open on some trip date, and on some trip date it fits an empty day at its own base.
+ * 4. There is a candidate day. If some day is based at P's base, the candidates are those days.
  *    Otherwise P's base must be allowed (anchors "auto", or listed in request.anchors), the plan
- *    must use fewer than MAX_ANCHORS_PER_TRIP bases, and the candidates are the days holding no
- *    must-include stop, each imagined moved to P's base with the transfer from the day before.
- * 4. On some candidate day, P fits: its date is open (season, date, and weekday rules applied;
+ *    must use fewer than MAX_ANCHORS_PER_TRIP bases, and the candidates are the first and the last
+ *    day when they hold no must-include stop, each imagined moved to P's base with the transfer
+ *    from the day before.
+ * 5. On some candidate day, P fits: its date is open (season, date, and weekday rules applied;
  *    unknown hours count as open) and a whole visit fits one open range inside the day window,
- *    starting no earlier than the window start plus travel from the base centroid; AND it fits
- *    between the must-include stops already on that day (travel plus buffer both sides; other
- *    stops are ignored because a plan may drop them); AND, when those stops already fill the
- *    pace's visit cap, P can go in as a lunch or dinner it serves, inside that meal's window.
- * When P is not placeable, the reason is the best outcome over the candidate days.
+ *    starting no earlier than the window start plus travel from the day's start point and ending
+ *    in time to travel back there; AND it fits between the must-include stops already on that
+ *    day (travel plus buffer both sides; other stops are ignored because a plan may drop them);
+ *    AND P can take a role there: a visit while the day has a visit slot left; a meal place as a
+ *    lunch or dinner it serves that no fixed stop takes, inside that meal's window, or, once
+ *    every meal it serves is taken, as a visit after the last of them (gapRoles).
+ * When P is not placeable, the reason is the first rule that fails, and for rule 5 the best
+ * outcome over the candidate days.
  */
+// Decision: rule 3 comes before the bases (rule 4). A place closed on every trip date used to be
+// explained as "its base is not in this trip", which invites a change that cannot help.
 export function placeability(
   id: string,
   itinerary: Itinerary,
@@ -96,6 +90,8 @@ export function placeability(
       reason: `it is at the same spot as ${twin.name}, already in your plan`,
     };
   }
+  const neverFits = tripDateReason(place, days, request.pace, dayOrigin(anchor, request));
+  if (neverFits) return { placeable: false, reason: neverFits };
   const picked = candidates(anchor, itinerary, days, ctx);
   if (typeof picked === "string") return { placeable: false, reason: picked };
   let best: { fit: Fit; day: number; rule?: DateRule } = { fit: "closed", day: -1 };
@@ -106,59 +102,32 @@ export function placeability(
       best = { ...result, day: candidate.day.index };
     }
   }
-  return { placeable: false, reason: failureReason(best, picked, itinerary.request.pace) };
+  return { placeable: false, reason: failureReason(best, picked, request.pace) };
 }
 
-/** Candidate days (rule 3), or the reason there are none. */
-function candidates(
-  anchor: Anchor,
-  itinerary: Itinerary,
+/**
+ * Rule 3: the reason when the place is closed on every trip date, or fits no trip date even on
+ * an empty day at its own base; null when some date could work. Days without a real date are
+ * skipped (they have their own WRONG_DATE error).
+ */
+function tripDateReason(
+  place: Place,
   days: readonly DayFacts[],
-  ctx: PlannerContext,
-): Candidate[] | string {
-  const request = itinerary.request;
-  const atBase = days.filter((day) => day.anchor?.id === anchor.id);
-  if (atBase.length > 0) {
-    return atBase.map((day) => ({
-      day,
-      anchor,
-      window: day.window,
-      fixed: fixedStops(day, request.mustInclude, ctx),
-    }));
+  pace: Pace,
+  origin: { lat: number; lng: number },
+): string | null {
+  const dates = days.flatMap((day) => (day.date === null ? [] : [day.date]));
+  if (dates.length === 0) return null;
+  const statuses = dates.map((date) => openStatusOn(place, date));
+  if (statuses.every((status) => status.state === "closed")) {
+    const first = statuses[0];
+    const rule = first?.state === "closed" ? first.rule : undefined;
+    return `it is closed on every day of this trip${noteText(rule?.source)}`;
   }
-  if (request.anchors !== "auto" && !request.anchors.includes(anchor.id)) {
-    return `its base, ${anchor.name}, is not one of the bases you chose`;
+  if (!dates.some((date) => fitsEmptyDayAt(place, date, pace, origin))) {
+    return `its opening hours do not fit a ${pace} day on any day of this trip`;
   }
-  const bases = new Set(days.map((day) => day.plan.anchorId));
-  if (bases.size >= MAX_ANCHORS_PER_TRIP) {
-    return `its base, ${anchor.name}, is not in this trip, which already has ${bases.size} bases`;
-  }
-  // Decision: a day can move to the new base only if it holds no must-include stop. The move
-  // also changes the next day's transfer; that is ignored here. It matters only when the next
-  // day holds must-include stops the longer transfer would push out, which the planner property
-  // tests would surface.
-  const movable: Candidate[] = [];
-  for (const day of days) {
-    if (day.plan.stops.some((stop) => request.mustInclude.includes(stop.placeId))) continue;
-    const from = day.index === 0 ? null : days[day.index - 1]?.anchor;
-    if (from === undefined) continue; // the day before has an unknown base: transfer unknown
-    const window = dayWindow(day.pace, from === null ? 0 : transferMinutes(from, anchor));
-    movable.push({ day, anchor, window, fixed: [] });
-  }
-  if (movable.length > 0) return movable;
-  return `no day of this trip is free to move to ${anchor.name}`;
-}
-
-/** Must-include stops on a day with valid times and known places, in start order. */
-function fixedStops(day: DayFacts, mustInclude: readonly string[], ctx: PlannerContext) {
-  const fixed: { stop: Stop; place: Place }[] = [];
-  for (const stop of day.plan.stops) {
-    const place = ctx.placesById.get(stop.placeId);
-    if (place && mustInclude.includes(stop.placeId) && hasValidTimes(stop)) {
-      fixed.push({ stop, place });
-    }
-  }
-  return fixed.sort((a, b) => a.stop.start - b.stop.start);
+  return null;
 }
 
 /** Known must-include places that are in the plan. */
@@ -173,60 +142,7 @@ function scheduledMustIncludes(itinerary: Itinerary, ctx: PlannerContext): Place
   return found;
 }
 
-/** Rule 4 on one candidate day. */
-function fitOnDay(place: Place, candidate: Candidate): { fit: Fit; rule?: DateRule } {
-  const date = candidate.day.date;
-  if (date === null) return { fit: "closed" };
-  const status = openStatusOn(place, date);
-  if (status.state === "closed") {
-    return status.rule ? { fit: "closed", rule: status.rule } : { fit: "closed" };
-  }
-  const firstLeg = travelMinutes(candidate.anchor.centroid, place);
-  const alone = { notBefore: candidate.window.start + firstLeg, latestEnd: candidate.window.end };
-  if (!fitsGap(place, date, alone, false)) return { fit: "outside_hours" };
-  // Decision: only must-include stops are fixed. Any other stop could be dropped to make room,
-  // so a plan that fills the day with other places and leaves out a must-include still fails.
-  const full =
-    countVisits(candidate.fixed.map((f) => f.stop)) >= PACE[candidate.day.pace].maxVisits;
-  const fits = gaps(place, candidate, firstLeg).some((gap) => fitsGap(place, date, gap, full));
-  return { fit: fits ? "fits" : "no_room" };
-}
-
-interface Gap {
-  notBefore: number; // earliest start, after travel and buffer from the stop before
-  latestEnd: number; // latest end, leaving travel and buffer to the stop after
-}
-
-/** The free gaps around the fixed stops, from the day start to the day end. */
-function gaps(place: Place, candidate: Candidate, firstLeg: number): Gap[] {
-  const result: Gap[] = [];
-  let notBefore = candidate.window.start + firstLeg;
-  for (const { stop, place: other } of candidate.fixed) {
-    const travel = travelMinutes(place, other);
-    result.push({ notBefore, latestEnd: stop.start - travel - TRAVEL.bufferMin });
-    notBefore = stop.end + travel + TRAVEL.bufferMin;
-  }
-  result.push({ notBefore, latestEnd: candidate.window.end });
-  return result;
-}
-
-/**
- * True when a visit fits the gap. When the day's must-include visits already fill the pace's cap,
- * the place fits only as a lunch or dinner it serves, starting inside that meal's window.
- */
-function fitsGap(place: Place, date: string, gap: Gap, asMealOnly: boolean): boolean {
-  const duration = place.durationMin;
-  if (!asMealOnly) {
-    const start = earliestOpenStart(place, date, gap.notBefore, duration);
-    return start !== null && start + duration <= gap.latestEnd;
-  }
-  return place.meals.some((meal) => {
-    const start = earliestMealStart(place, date, gap.notBefore, meal, duration);
-    return start !== null && start + duration <= gap.latestEnd;
-  });
-}
-
-/** The traveler-facing reason for the best failed outcome. */
+/** The traveler-facing reason for the best failed outcome on the candidate days. */
 function failureReason(
   best: { fit: Fit; rule?: DateRule },
   picked: readonly Candidate[],

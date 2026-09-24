@@ -1,31 +1,29 @@
 import { describe, expect, it } from "vitest";
+import { TRIP_DAYS } from "../../src/config";
 import { validateItinerary } from "../../src/validate";
 import { countVisits } from "../../src/validate/days";
 import { ctx, dayOf, errorCodes, key, miniTrip, stopOf, withCode } from "./fixtures";
-import { stop, tripRome } from "./trips";
+import { extraDay, paddingMealDetails, paddingWarnings } from "./tripLength";
+import { itinerary, stop, tripRome } from "./trips";
 
 // One test per trip- and day-level code, each on a small hand-made trip with real place ids.
 // Each starts from the mini trip (no errors) and makes one change, then asserts the exact list of
 // errors, so a check that fires for the wrong reason, or drags in noise, fails too.
 
 describe("trip shape", () => {
-  it("rejects a 2-day plan for a 3-day trip (WRONG_DAY_COUNT)", () => {
+  it("rejects a plan one day short of the trip (WRONG_DAY_COUNT)", () => {
     const plan = miniTrip();
     plan.days.pop();
+    const short = TRIP_DAYS - 1;
     expect(errorCodes(plan)).toEqual(["WRONG_DAY_COUNT"]);
     expect(withCode(plan, "WRONG_DAY_COUNT")[0]?.detail).toBe(
-      "This plan has 2 days, but a trip has 3.",
+      `This plan has ${short} ${short === 1 ? "day" : "days"}, but a trip has ${TRIP_DAYS}.`,
     );
   });
 
-  it("rejects a 4-day plan and a plan with no days (WRONG_DAY_COUNT)", () => {
+  it("rejects a plan one day too long, and a plan with no days (WRONG_DAY_COUNT)", () => {
     const plan = miniTrip();
-    plan.days.push({
-      date: "2026-10-23",
-      anchorId: "florence",
-      transferMin: 0,
-      stops: [stop("place_084", 720, 750, 5, "visit")], // Ponte Vecchio
-    });
+    plan.days.push(extraDay(plan.request, plan.days));
     expect(errorCodes(plan)).toEqual(["WRONG_DAY_COUNT"]);
     plan.days = [];
     expect(errorCodes(plan)).toEqual(["WRONG_DAY_COUNT"]);
@@ -46,9 +44,11 @@ describe("trip shape", () => {
 
   it("rejects a base id that does not exist (UNKNOWN_ANCHOR)", () => {
     const plan = miniTrip();
-    dayOf(plan, 2).anchorId = "atlantis";
+    // Every Florence day (the last base) moves to a base that does not exist.
+    const moved = plan.days.filter((day) => day.anchorId === "florence");
+    for (const day of moved) day.anchorId = "atlantis";
     const found = withCode(plan, "UNKNOWN_ANCHOR");
-    expect(errorCodes(plan)).toEqual(["UNKNOWN_ANCHOR"]);
+    expect(errorCodes(plan)).toEqual(moved.map(() => "UNKNOWN_ANCHOR"));
     expect(found[0]).toMatchObject({ severity: "error", day: 2 });
     expect(found[0]?.detail).not.toContain("atlantis"); // never echo unknown input back
   });
@@ -72,7 +72,7 @@ describe("day checks", () => {
 
   it("rejects every day when the trip start date itself is not real (WRONG_DATE)", () => {
     const plan = miniTrip({ startDate: "2026-13-01" });
-    expect(errorCodes(plan)).toEqual(["WRONG_DATE", "WRONG_DATE", "WRONG_DATE"]);
+    expect(errorCodes(plan)).toEqual(Array(TRIP_DAYS).fill("WRONG_DATE"));
   });
 
   it("rejects a day with no stops (EMPTY_DAY)", () => {
@@ -116,11 +116,14 @@ describe("day checks", () => {
   });
 
   it("warns about a transfer over 3 hours but lets the plan through (LONG_TRANSFER)", () => {
-    const plan = miniTrip();
-    const day = dayOf(plan, 2);
-    day.anchorId = "venice";
-    day.transferMin = 185;
-    day.stops = [stop("place_066", 760, 820, 5, "visit")];
+    const mini = miniTrip();
+    const venice = {
+      date: dayOf(mini, 2).date,
+      anchorId: "venice",
+      transferMin: 185,
+      stops: [stop("place_066", 760, 820, 5, "visit")], // Rialto Bridge
+    };
+    const plan = itinerary(mini.request, [dayOf(mini, 0), dayOf(mini, 1), venice]);
     expect(errorCodes(plan)).toEqual([]);
     expect(withCode(plan, "LONG_TRANSFER")).toEqual([
       {
@@ -156,11 +159,17 @@ describe("day checks", () => {
     const plan = miniTrip();
     dayOf(plan, 1).stops = [];
     const meals = validateItinerary(plan, ctx()).filter((v) => v.code === "MEAL_MISSING");
-    expect(meals.map(key)).toEqual(["MEAL_MISSING 0 -", "MEAL_MISSING 2 -", "MEAL_MISSING 2 -"]);
+    expect(meals.map(key)).toEqual([
+      "MEAL_MISSING 0 -",
+      "MEAL_MISSING 2 -",
+      "MEAL_MISSING 2 -",
+      ...paddingWarnings(),
+    ]);
     expect(meals.map((v) => v.detail)).toEqual([
       "Day 1 has no dinner stop.",
       "Day 3 has no lunch stop.",
       "Day 3 has no dinner stop.",
+      ...paddingMealDetails(),
     ]);
     expect(meals.every((v) => v.severity === "warning")).toBe(true);
   });

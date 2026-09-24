@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ViolationSchema } from "../../src/schemas";
 import { type Itinerary, PACES, VIOLATION_CODES } from "../../src/types";
 import { VIOLATION_SEVERITY, validateItinerary } from "../../src/validate";
-import { violation } from "../../src/validate/violations";
+import { makeViolation } from "../../src/violations";
 import { FC_SETTINGS } from "../plannerFixtures";
 import { ctx, miniTrip } from "./fixtures";
 
@@ -101,7 +101,7 @@ describe("validator robustness", () => {
   });
 
   it("cuts a detail longer than the schema allows instead of breaking the API response", () => {
-    const long = violation("EMPTY_DAY", "a".repeat(600), { placeId: "p".repeat(90) });
+    const long = makeViolation("EMPTY_DAY", "a".repeat(600), { placeId: "p".repeat(90) });
     expect(long.detail).toHaveLength(500);
     expect(long.detail.endsWith("...")).toBe(true);
     expect(ViolationSchema.safeParse(long).success).toBe(true);

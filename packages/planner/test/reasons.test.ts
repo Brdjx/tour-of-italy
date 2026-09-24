@@ -55,6 +55,13 @@ describe("ruleReason wording", () => {
     );
   });
 
+  it("never says 'Dinner at a shop' for Eataly, whose type is shop: the meal reads 'Dinner in Ostiense'", () => {
+    const eataly = realPlace("place_099");
+    expect(eataly.type).toBe("shop");
+    expect(ruleReason(eataly, none, "dinner")).toMatch(/^Dinner in Ostiense\./);
+    expect(ruleReason(eataly, none, "lunch")).not.toContain("at a shop");
+  });
+
   it.each([
     [4.75, "Rated 4.8 out of 5."],
     [5, "Rated 5 out of 5."],

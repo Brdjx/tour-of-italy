@@ -20,11 +20,13 @@ const PLANNER_CORE_FUNCTIONS = [
   "anchorSlug",
   "buildAnchors",
   "transferMinutes",
+  "dayOrigin",
   "compareText",
   // context.ts
   "buildPlannerContext",
   "placesOfAnchor",
   "anchorOfPlace",
+  "twinIds",
   // constraints.ts
   "isOpenDuring",
   "earliestOpenStart",
@@ -41,6 +43,8 @@ const PLANNER_CORE_FUNCTIONS = [
   "isExcluded",
   "sharesLocation",
   "isCandidate",
+  "isOuting",
+  "coversMeal",
   // score.ts
   "interestShare",
   "scoreParts",
@@ -49,9 +53,11 @@ const PLANNER_CORE_FUNCTIONS = [
   "rankPlaces",
   // reasons.ts
   "ruleReason",
-  // schedule.ts and validate.ts
+  "withMealsCovered",
+  // schedule.ts, plan.ts, and validate.ts
   "scheduleDay",
   "planDeterministic",
+  "planWarnings",
   "validateItinerary",
 ] as const;
 
@@ -66,8 +72,12 @@ describe("planner entry point", () => {
     },
   );
 
-  it("exports the shared constants the scheduler reads", () => {
+  it("never drops the shared constants the scheduler reads", () => {
     expect(planner.SAME_SPOT_LABEL).toBe("Same spot, no travel");
     expect(planner.DEFAULT_RATING).toBe(3.5);
+    expect(planner.OUTING_MIN_MINUTES).toBe(240);
+    expect(planner.MAX_TRAVEL_MINUTES).toBe(1440);
+    expect(planner.ID_MAX_CHARS).toBe(64);
+    expect(planner.DETAIL_MAX_CHARS).toBe(500);
   });
 });

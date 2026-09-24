@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { transferMinutes } from "../src/anchors";
 import * as planner from "../src/index";
-import { chooseWarnings, cleanSelection, compareViolations } from "../src/plan";
+import { chooseWarnings, cleanSelection, compareViolations, planWarnings } from "../src/plan";
 import { scheduleDay } from "../src/schedule";
-import { makeViolation } from "../src/scheduleChecks";
 import { attachReasons, scheduleTrip, withoutErrorStops } from "../src/trip";
-import type { DayPlan } from "../src/types";
+import type { DayPlan, Itinerary } from "../src/types";
+import { validateItinerary } from "../src/validate";
+import { makeViolation } from "../src/violations";
 import { makeRequest, realContext } from "./plannerFixtures";
 
 // scheduleTrip turns ids per day into a timed trip: it is the last step of the planner and the
@@ -159,7 +160,26 @@ describe("warning selection and order", () => {
   const own = [makeViolation("HOURS_UNKNOWN", "own", { day: 0, placeId: "place_021" })];
   const must = [makeViolation("MUST_INCLUDE_UNPLACEABLE", "why", { placeId: "place_064" })];
 
-  it("uses scheduleDay's warnings until the validator reports anything", () => {
+  it("never shows the traveler a warning list other than the validator's, errors left out", () => {
+    const request = makeRequest({ startDate: "2026-10-20", mustInclude: ["place_064"] });
+    const trip = scheduleTrip(request, [{ anchorId: "rome", placeIds: ["place_021"] }], ctx);
+    const meta = { attempts: 0, latencyMs: 0, generatedAt: "1970-01-01T00:00:00.000Z" };
+    const itinerary: Itinerary = {
+      request,
+      days: trip.days,
+      source: "deterministic",
+      warnings: [],
+      meta,
+    };
+    const fromValidator = validateItinerary(itinerary, ctx);
+    const shown = planWarnings(itinerary, ctx);
+    expect(fromValidator.some((v) => v.severity === "error")).toBe(true); // one day, not three
+    expect(shown).toEqual(
+      fromValidator.filter((v) => v.severity === "warning").sort(compareViolations),
+    );
+  });
+
+  it("keeps the deprecated chooseWarnings working for callers of the old API", () => {
     expect(chooseWarnings(own, must, []).map((v) => v.detail)).toEqual(["why", "own"]);
   });
 
@@ -203,6 +223,7 @@ describe("package entry point", () => {
     "startCursor",
     "advanceCursor",
     "chooseWarnings",
+    "planWarnings",
     "compareViolations",
     "withoutErrorStops",
     "NoFeasiblePlanError",
@@ -210,7 +231,7 @@ describe("package entry point", () => {
     expect(typeof exported.get(name)).toBe("function");
   });
 
-  it("exports the scheduler tunables the web app displays", () => {
+  it("never drops the scheduler tunables the web app displays", () => {
     expect(planner.MAX_IDLE_MIN).toBe(30);
     expect(planner.MEAL_WAIT_MAX_MIN).toBe(60);
     expect(planner.ANCHOR_SHORTLIST).toBe(3);

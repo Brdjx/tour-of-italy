@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Itinerary } from "../../src/types";
 import { mustIncludePlaceability, validateItinerary } from "../../src/validate";
-import { ctx, dayOf, key, miniTrip, withCode } from "./fixtures";
+import { ctx, dayOf, key, miniTrip, redate, withCode } from "./fixtures";
 import { tripRome, tripTuscany } from "./trips";
 
 // Failure vector F1 (drop a must-include) and the fallback guarantee: a missing must-include is
@@ -98,17 +98,14 @@ describe("MUST_INCLUDE_UNPLACEABLE (warning with the reason)", () => {
     expect(verdict(plan, "place_018").placeable).toBe(true);
   });
 
-  it("explains a place closed for the season on every day at its base", () => {
-    const plan = miniTrip({ startDate: "2026-11-03", mustInclude: ["place_035"] });
-    ["2026-11-03", "2026-11-04", "2026-11-05"].forEach((date, i) => {
-      dayOf(plan, i).date = date;
-    });
+  it("says a place closed for the season on every trip date is closed, never blaming the bases", () => {
+    const plan = redate(miniTrip({ startDate: "2026-11-03", mustInclude: ["place_035"] }));
     expect(withCode(plan, "MUST_INCLUDE_UNPLACEABLE")[0]).toEqual({
       code: "MUST_INCLUDE_UNPLACEABLE",
       severity: "warning",
       placeId: "place_035",
       detail:
-        "Chianti Day Trip by Bike could not be included: it is closed on Thu 5 Nov 2026 (Open April-October only).",
+        "Chianti Day Trip by Bike could not be included: it is closed on every day of this trip (Open April-October only).",
     });
   });
 
@@ -116,7 +113,7 @@ describe("MUST_INCLUDE_UNPLACEABLE (warning with the reason)", () => {
     const plan = miniTrip({ pace: "relaxed", mustInclude: ["place_023"] }); // Popolo at Dawn
     expect(verdict(plan, "place_023")).toEqual({
       placeable: false,
-      reason: "its opening hours on Tue 20 Oct 2026 and Wed 21 Oct 2026 do not fit a relaxed day",
+      reason: "its opening hours do not fit a relaxed day on any day of this trip",
     });
   });
 
@@ -132,7 +129,8 @@ describe("MUST_INCLUDE_UNPLACEABLE (warning with the reason)", () => {
 
   it("explains a place when every day already holds other must-sees, so no day can move", () => {
     const plan = tripRome();
-    plan.request.mustInclude = ["place_007", "place_010", "place_002", "place_026"];
+    const firstStops = plan.days.map((day) => day.stops[0]?.placeId ?? "");
+    plan.request.mustInclude = [...firstStops, "place_026"];
     expect(verdict(plan, "place_026")).toEqual({
       placeable: false,
       reason: "no day of this trip is free to move to Florence",

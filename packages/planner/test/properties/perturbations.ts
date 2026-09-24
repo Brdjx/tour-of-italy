@@ -73,6 +73,10 @@ export const EDITS: Record<string, Apply> = {
     const day = plan.days[edit.day % plan.days.length];
     if (day) day.transferMin = Math.max(0, day.transferMin + edit.delta);
   },
+  claimReturn: (plan, edit) => {
+    const day = plan.days[edit.day % plan.days.length];
+    if (day) day.returnTravelMin = Math.max(0, (day.returnTravelMin ?? 0) + edit.delta);
+  },
   claimTravel: (plan, edit) => {
     const at = target(plan, edit);
     if (at) at.stop.travelFromPrevMin = Math.max(0, at.stop.travelFromPrevMin + edit.delta);

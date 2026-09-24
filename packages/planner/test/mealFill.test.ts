@@ -1,0 +1,171 @@
+import { describe, expect, it } from "vitest";
+import { PACE, TRAVEL } from "../src/config";
+import { servesMeal, withinBudget } from "../src/constraints";
+import { fillMissingMeals } from "../src/mealFill";
+import { planDeterministic } from "../src/plan";
+import { MEAL_WAIT_MAX_MIN } from "../src/planPolicy";
+import { PoolCache } from "../src/pools";
+import { scheduleDay } from "../src/schedule";
+import { tripDates } from "../src/time";
+import type { TripDraft } from "../src/tripBuilder";
+import type { TripRequest } from "../src/types";
+import { makeRequest, realContext } from "./plannerFixtures";
+
+// The meal fill (mealFill.ts) is the last pass before timing: it seats a missing lunch or dinner
+// at an unused meal place when that changes nothing else. The failures it prevents: a day with
+// no dinner while a restaurant of the base stays unused, and the failures it must never cause:
+// a stop removed, reordered, or given another role, a meal over the budget when one within it
+// fits, and lunch back in the base city between two stops of a day trip out of town.
+
+const ctx = realContext();
+
+function fill(request: TripRequest, draft: TripDraft): TripDraft {
+  const dates = tripDates(request.startDate);
+  return fillMissingMeals(draft, request, ctx, dates, new PoolCache(request, ctx));
+}
+
+function timedDay(request: TripRequest, draft: TripDraft, index: number) {
+  const anchor = ctx.anchorById.get(draft.anchorIds[index] ?? "");
+  if (!anchor) throw new Error("unknown base");
+  const date = tripDates(request.startDate)[index] ?? "";
+  return scheduleDay(draft.days[index] ?? [], date, anchor, request, ctx, 0);
+}
+
+const ROME = ["rome", "rome", "rome"];
+
+describe("fillMissingMeals", () => {
+  it("never leaves a day without dinner while an unused restaurant could seat it (Rome, Sunday)", () => {
+    // Review finding: day 2 of this trip ended at 20:10 with lunch only, because day 3 took the
+    // dinner place day 2 was counting on; Osteria Fernanda (open Sundays) stayed unused.
+    const request = makeRequest({ startDate: "2027-01-02", anchors: ["rome"] });
+    const itinerary = planDeterministic(request, ctx);
+    for (const day of itinerary.days) {
+      expect(
+        day.stops.some((stop) => stop.role === "dinner"),
+        day.date,
+      ).toBe(true);
+    }
+  });
+
+  it("never removes, reorders, or changes the role of a stop while adding the meals", () => {
+    const request = makeRequest({ startDate: "2026-10-20", anchors: ["rome"] });
+    const draft = {
+      anchorIds: ROME,
+      days: [["place_005", "place_007"], ["place_001"], ["place_018", "place_004"]],
+      score: 0,
+    };
+    const filled = fill(request, draft);
+    filled.days.forEach((ids, index) => {
+      const kept = ids.filter((id) => draft.days[index]?.includes(id));
+      expect(kept).toEqual(draft.days[index]);
+      const before = timedDay(request, draft, index).stops;
+      const after = timedDay(request, filled, index).stops;
+      for (const stop of before) {
+        expect(after.find((s) => s.placeId === stop.placeId)?.role).toBe(stop.role);
+      }
+      const roles = after.map((stop) => stop.role);
+      expect(roles).toContain("lunch");
+      expect(roles).toContain("dinner");
+    });
+    const all = filled.days.flat();
+    expect(new Set(all).size).toBe(all.length); // no meal place twice in the trip
+  });
+
+  it("never seats a meal over the budget while a meal place within it could take that meal", () => {
+    const request = makeRequest({ startDate: "2026-10-20", anchors: ["rome"], maxPriceLevel: 2 });
+    const draft = {
+      anchorIds: ROME,
+      days: [["place_005"], ["place_001"], ["place_018"]],
+      score: 0,
+    };
+    const filled = fill(request, draft);
+    const inTrip = new Set(filled.days.flat());
+    const pool = new PoolCache(request, ctx).strict("rome");
+    filled.days.forEach((ids, index) => {
+      timedDay(request, filled, index).stops.forEach((stop, at) => {
+        const place = ctx.placesById.get(stop.placeId);
+        if (!place || stop.role === "visit" || withinBudget(place, 2)) return;
+        // Over budget only when no unused meal place within it could take the same seat (six
+        // meals, five meal places within budget, and an all-day food hall reached at 16:00 is
+        // a visit, not dinner).
+        for (const other of pool) {
+          if (!withinBudget(other, 2) || !servesMeal(other, stop.role) || inTrip.has(other.id)) {
+            continue;
+          }
+          const swapped = { ...filled, days: filled.days.map((d) => [...d]) };
+          swapped.days[index] = ids.map((id, n) => (n === at ? other.id : id));
+          const seat = timedDay(request, swapped, index);
+          const clean = !seat.violations.some((v) => v.severity === "error");
+          expect(clean && seat.stops[at]?.role === stop.role, `${other.id} for ${place.id}`).toBe(
+            false,
+          );
+        }
+      });
+    });
+    expect(filled.days.flat().length).toBeGreaterThan(draft.days.flat().length);
+  });
+
+  it("never brings the traveler back to the base city for lunch in the middle of a day trip", () => {
+    // Modena (Acetaia Giusti) then Maranello (Ferrari Museum): lunch in Bologna between them
+    // would mean leaving town twice.
+    const request = makeRequest({ startDate: "2026-10-20", anchors: ["bologna"] });
+    const away = ["place_083", "place_045"];
+    const draft = {
+      anchorIds: ["bologna", "bologna", "bologna"],
+      days: [away, ["place_048"], ["place_051"]],
+      score: 0,
+    };
+    const day = fill(request, draft).days[0] ?? [];
+    const from = day.indexOf("place_083");
+    expect(day.indexOf("place_045")).toBe(from + 1);
+  });
+
+  it.each([
+    ["2026-06-19", "balanced", ["lively"]],
+    ["2026-01-17", "packed", ["food"]],
+  ] as const)(
+    "never makes lunch the first stop of a Bologna day after a morning of waiting (%s, %s)",
+    (startDate, pace, interests) => {
+      // Review finding: the fill tried positions from the start of the day, so lunch at Via
+      // Drapperie at 12:00 opened the day and every morning sight moved to the afternoon.
+      const request = makeRequest({
+        startDate,
+        pace,
+        interests: [...interests],
+        anchors: ["bologna"],
+      });
+      for (const day of planDeterministic(request, ctx).days) {
+        const first = day.stops[0];
+        if (!first) continue;
+        const wait =
+          first.start - (PACE[pace].dayStart + day.transferMin + first.travelFromPrevMin);
+        expect(wait, `${day.date} first stop ${first.placeId}`).toBeLessThanOrEqual(
+          MEAL_WAIT_MAX_MIN,
+        );
+      }
+    },
+  );
+
+  it("never lets a stop by night excuse a long wait the fill adds to the day (Bologna, packed)", () => {
+    // Piazza Maggiore by night at 20:00 follows hours of rest; that wait is the evening, and it
+    // must not let lunch open the day at 12:00 after the traveler waited since 08:30.
+    const request = makeRequest({ startDate: "2026-01-16", pace: "packed", anchors: ["bologna"] });
+    for (const day of planDeterministic(request, ctx).days) {
+      let free = PACE.packed.dayStart + day.transferMin;
+      day.stops.forEach((stop, index) => {
+        const arrive = free + stop.travelFromPrevMin + (index === 0 ? 0 : TRAVEL.bufferMin);
+        if (stop.role !== "dinner" && stop.start < 18 * 60) {
+          expect(stop.start - arrive, `${day.date} ${stop.placeId}`).toBeLessThanOrEqual(60);
+        }
+        free = stop.end;
+      });
+    }
+  });
+
+  it("never touches a day that already has an error", () => {
+    const request = makeRequest({ startDate: "2026-10-19", anchors: ["rome"] }); // a Monday
+    const closed = ["place_007"]; // Borghese Gallery is closed on Mondays
+    const draft = { anchorIds: ROME, days: [closed, ["place_001"], ["place_018"]], score: 0 };
+    expect(fill(request, draft).days[0]).toEqual(closed);
+  });
+});

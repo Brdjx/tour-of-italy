@@ -94,16 +94,15 @@ describe("planDeterministic over any valid trip request", () => {
   );
 
   it(
-    "never schedules the same place twice, or two places at one spot unless both were asked for",
+    "never schedules the same place twice, or two places at one spot, even both asked for",
     () => {
-      forEveryPlan((itinerary, request) => {
+      forEveryPlan((itinerary) => {
         const stops = itinerary.days.flatMap((day) => day.stops.map((stop) => stop.placeId));
         expect(new Set(stops).size).toBe(stops.length);
         const places = stops.map((id) => ctx.placesById.get(id));
         places.forEach((a, i) => {
           for (const b of places.slice(i + 1)) {
-            if (!a || !b || !sharesLocation(a, b)) continue;
-            expect([a.id, b.id].every((id) => request.mustInclude.includes(id))).toBe(true);
+            if (a && b) expect(sharesLocation(a, b), `${a.id} and ${b.id}`).toBe(false);
           }
         });
       });

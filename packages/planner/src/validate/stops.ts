@@ -1,12 +1,12 @@
-import { MEALS, TRAVEL } from "../config";
+import { MAX_TRAVEL_MINUTES, MEALS, TRAVEL } from "../config";
 import { mealWindowAllows } from "../constraints";
 import type { PlannerContext } from "../context";
 import { formatDuration, type LatLng, travelMinutes } from "../travel";
 import type { Meal, Place, Stop, TripRequest, Violation } from "../types";
-import { type DayFacts, hasValidTimes, isMinuteCount, MAX_TRAVEL_MINUTES } from "./days";
+import { makeViolation, type ViolationTarget } from "../violations";
+import { type DayFacts, hasValidTimes, isMinuteCount } from "./days";
 import { checkMembership, checkPlace, type TripState } from "./stopPlace";
 import { clockText, spanText } from "./text";
-import { type ViolationTarget, violation } from "./violations";
 
 // Checks on the stops of one day, in visiting order. Timing is recomputed from each stop's own
 // start and end and the travel model; nothing the plan claims about travel is taken on trust.
@@ -33,11 +33,11 @@ export function checkStops(
     const timed = hasValidTimes(stop);
     if (!place) {
       out.push(
-        violation("UNKNOWN_PLACE", `Stop ${stopIndex + 1} is not a place in our data.`, target),
+        makeViolation("UNKNOWN_PLACE", `Stop ${stopIndex + 1} is not a place in our data.`, target),
       );
     }
     out.push(...checkMembership(stop, place, request, trip, target));
-    if (!timed) out.push(violation("INVALID_TIME", invalidTimeText(stop, name), target));
+    if (!timed) out.push(makeViolation("INVALID_TIME", invalidTimeText(stop, name), target));
     if (place) out.push(...checkPlace(stop, place, day, request, ctx, timed, target));
     if (timed) out.push(...checkMealWindow(stop, name, target));
     out.push(...checkTravelClaim(stop, stopIndex, day, ctx, place, target));
@@ -64,7 +64,7 @@ function checkMealWindow(stop: Stop, name: string, target: ViolationTarget): Vio
   if (mealWindowAllows(meal, stop.start)) return [];
   const { earliestStart, latestStart } = MEALS[meal];
   const detail = `${capitalize(meal)} at ${name} starts at ${clockText(stop.start)}, but ${meal} must start between ${clockText(earliestStart)} and ${clockText(latestStart)}.`;
-  return [violation("MEAL_OUTSIDE_WINDOW", detail, target)];
+  return [makeViolation("MEAL_OUTSIDE_WINDOW", detail, target)];
 }
 
 /**
@@ -82,7 +82,7 @@ function checkTravelClaim(
   const name = place?.name ?? "This stop";
   if (!isMinuteCount(stop.travelFromPrevMin, MAX_TRAVEL_MINUTES)) {
     const detail = `${name} has a travel time that is not a valid number of minutes.`;
-    return [violation("WRONG_TRAVEL", detail, target)];
+    return [makeViolation("WRONG_TRAVEL", detail, target)];
   }
   const from = travelOrigin(stopIndex, day, ctx);
   if (!from || !place) return [];
@@ -91,7 +91,7 @@ function checkTravelClaim(
   const actual =
     minutes === 0 ? "they are on the same spot" : `it is ${formatDuration(minutes)} away`;
   const detail = `${name} lists ${stop.travelFromPrevMin} min of travel from ${from.name}, but ${actual}.`;
-  return [violation("WRONG_TRAVEL", detail, target)];
+  return [makeViolation("WRONG_TRAVEL", detail, target)];
 }
 
 /** Where the traveler comes from before a stop: the previous stop, or the base for the first. */
@@ -101,7 +101,9 @@ function travelOrigin(
   ctx: PlannerContext,
 ): { point: LatLng; name: string } | null {
   if (stopIndex === 0) {
-    return day.anchor ? { point: day.anchor.centroid, name: `the ${day.anchor.name} base` } : null;
+    return day.anchor && day.origin
+      ? { point: day.origin, name: `the ${day.anchor.name} base` }
+      : null;
   }
   const previous = ctx.placesById.get(day.plan.stops[stopIndex - 1]?.placeId ?? "");
   return previous ? { point: previous, name: previous.name } : null;
@@ -129,16 +131,16 @@ function checkWindow(
         : "";
     const windowText = start <= end ? spanText(start, end) : "no time at all";
     const detail = `${name} runs ${spanText(stop.start, stop.end)}, outside this ${day.pace} day, which runs ${windowText}${after}.`;
-    return [violation("OUTSIDE_DAY_WINDOW", detail, target)];
+    return [makeViolation("OUTSIDE_DAY_WINDOW", detail, target)];
   }
-  if (stopIndex !== 0 || !place || !day.anchor) return [];
+  if (stopIndex !== 0 || !place || !day.anchor || !day.origin) return [];
   // Decision: the day starts at the base (plan 7.7: the clock starts at the base centroid), so
   // the first stop is reached from there and a day trip cannot begin at the day's first minute.
-  const firstLeg = travelMinutes(day.anchor.centroid, place);
+  const firstLeg = travelMinutes(day.origin, place);
   const earliest = start + firstLeg;
   if (stop.start >= earliest) return [];
   const detail = `${name} starts at ${clockText(stop.start)}, but the day starts at ${clockText(start)} at the ${day.anchor.name} base, ${formatDuration(firstLeg)} away, so ${clockText(earliest)} is the earliest start.`;
-  return [violation("OUTSIDE_DAY_WINDOW", detail, target)];
+  return [makeViolation("OUTSIDE_DAY_WINDOW", detail, target)];
 }
 
 /** The next stop cannot start before the previous one ends plus travel plus the buffer. */
@@ -156,7 +158,7 @@ function checkOverlap(
   const before = previous.place?.name ?? "the stop before";
   const away = travel > 0 ? `, ${formatDuration(travel)} away,` : "";
   const detail = `${name} starts at ${clockText(current.stop.start)}, but ${before} ends at ${clockText(previous.stop.end)}${away} plus ${TRAVEL.bufferMin} min to spare, so ${clockText(earliest)} is the earliest start.`;
-  return [violation("OVERLAP", detail, target)];
+  return [makeViolation("OVERLAP", detail, target)];
 }
 
 function capitalize(text: string): string {

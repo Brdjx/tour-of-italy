@@ -52,7 +52,9 @@ export const FREE_TEXT_HOURS: DerivedWindowRule[] = [
  * free-text hours always win over the name.
  */
 // Decision: without this, "Trevi Fountain by Night" would be treated as an open public square and
-// could be scheduled at 10:00.
+// could be scheduled at 10:00. "Early morning" runs to 11:00 and "at dawn" to 10:00: a 90-minute
+// early walk through Cannaregio, before the day-trippers arrive around 11:00, could otherwise
+// never be planned at all (a packed day starts at 08:30 and the walk is 20 minutes away).
 export const NAME_TIME_HINTS: DerivedWindowRule[] = [
   {
     pattern: /\b(by|at)\s+night\b/i,
@@ -60,8 +62,13 @@ export const NAME_TIME_HINTS: DerivedWindowRule[] = [
     label: "night",
   },
   {
-    pattern: /\bat\s+dawn\b|\bearly\s+morning\b/i,
+    pattern: /\bat\s+dawn\b/i,
     window: { open: at(6), close: at(10) },
+    label: "dawn",
+  },
+  {
+    pattern: /\bearly\s+morning\b/i,
+    window: { open: at(6), close: at(11) },
     label: "early morning",
   },
   {

@@ -104,7 +104,7 @@ describe("bases on the real data", () => {
 });
 
 describe("transferMinutes", () => {
-  it("costs nothing when the base does not change", () => {
+  it("never charges a transfer when the base does not change", () => {
     expect(transferMinutes(anchor("rome"), anchor("rome"))).toBe(0);
   });
 

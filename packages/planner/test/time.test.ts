@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { TRIP_DAYS } from "../src/config";
 import {
   addDays,
   formatClock,
@@ -149,9 +150,10 @@ describe("calendar dates", () => {
     expect(() => addDays("2026-10-01", 0.5)).toThrow(RangeError);
   });
 
-  it("lists consecutive trip dates across the year boundary", () => {
-    expect(tripDates("2026-12-30")).toEqual(["2026-12-30", "2026-12-31", "2027-01-01"]);
-    expect(tripDates("2026-03-28").map(weekdayOf)).toEqual([6, 0, 1]);
+  it("never skips or repeats a date when a trip crosses New Year", () => {
+    expect(tripDates("2026-12-30", 3)).toEqual(["2026-12-30", "2026-12-31", "2027-01-01"]);
+    expect(tripDates("2026-03-28", 3).map(weekdayOf)).toEqual([6, 0, 1]);
+    expect(tripDates("2026-12-30")).toHaveLength(TRIP_DAYS);
   });
 });
 

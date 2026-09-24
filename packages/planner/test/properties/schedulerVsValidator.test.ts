@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { beforeAll, describe, expect, it } from "vitest";
+import { TRIP_DAYS } from "../../src/config";
 import { placesOfAnchor } from "../../src/context";
 import { type DaySelection, scheduleTrip } from "../../src/trip";
 import type { Itinerary, Violation } from "../../src/types";
@@ -23,8 +24,8 @@ const dayPicks = fc.array(fc.nat({ max: 60 }), { maxLength: 9 });
 const anySelection = fc.record({
   request: anyTripRequest,
   bases: fc.uniqueArray(fc.constantFrom(...anchorIds), { minLength: 1, maxLength: 2 }),
-  pattern: fc.array(fc.nat({ max: 1 }), { minLength: 3, maxLength: 3 }),
-  picks: fc.array(dayPicks, { minLength: 3, maxLength: 3 }),
+  pattern: fc.array(fc.nat({ max: 1 }), { minLength: TRIP_DAYS, maxLength: TRIP_DAYS }),
+  picks: fc.array(dayPicks, { minLength: TRIP_DAYS, maxLength: TRIP_DAYS }),
 });
 
 type AnySelection = typeof anySelection extends fc.Arbitrary<infer T> ? T : never;

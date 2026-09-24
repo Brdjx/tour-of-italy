@@ -1,30 +1,19 @@
-import { transferMinutes } from "../anchors";
-import { LATEST_MINUTE, LONG_TRANSFER_MIN, PACE } from "../config";
+import { dayOrigin, transferMinutes } from "../anchors";
+import { LATEST_MINUTE, LONG_TRANSFER_MIN, MAX_TRAVEL_MINUTES } from "../config";
 import { type DayWindow, dayWindow } from "../constraints";
 import type { PlannerContext } from "../context";
 import { addDays, isValidIsoDate } from "../time";
-import { formatDuration, travelLeg } from "../travel";
-import type {
-  Anchor,
-  DayPlan,
-  Itinerary,
-  Meal,
-  Pace,
-  Stop,
-  TripRequest,
-  Violation,
-} from "../types";
+import { formatDuration, type LatLng, travelLeg } from "../travel";
+import type { Anchor, DayPlan, Itinerary, Pace, Stop, TripRequest, Violation } from "../types";
+import { makeViolation } from "../violations";
 import { dateText, dayText, dayTitle, listText } from "./text";
-import { violation } from "./violations";
 
-// Day-level facts and checks. The validator never trusts a day's own claims: the transfer is
-// recomputed from the two bases, and the day window is built from that recomputed transfer.
+// Day-level facts and the checks on a day's header. The validator never trusts a day's own
+// claims: the transfer is recomputed from the two bases, and the day window is built from that
+// recomputed transfer. The checks after a day's stops are in dayTotals.ts.
 
 /** Latest minute a stop time may take (06:00 the next morning), shared with the scheduler. */
 export { LATEST_MINUTE };
-
-/** Longest transfer or leg a plan may claim, matching the API schema. */
-export const MAX_TRAVEL_MINUTES = 1440;
 
 /** What the validator knows about one day, computed once and shared by every check. */
 export interface DayFacts {
@@ -37,6 +26,7 @@ export interface DayFacts {
   transferMin: number; // the transfer the day really needs (see realTransfer)
   transferKnown: boolean; // true when transferMin was recomputed rather than taken on trust
   window: DayWindow; // when stops may happen, after the transfer
+  origin: LatLng | undefined; // where the day starts and ends (dayOrigin); unknown base: undefined
 }
 
 /** True for a whole number of minutes from 0 to max. */
@@ -74,6 +64,7 @@ export function buildDayFacts(itinerary: Itinerary, ctx: PlannerContext): DayFac
       transferMin: transfer.minutes,
       transferKnown: transfer.known,
       window: dayWindow(pace, transfer.minutes),
+      origin: anchor ? dayOrigin(anchor, itinerary.request) : undefined,
     });
     previousAnchor = anchor;
   });
@@ -106,10 +97,10 @@ export function checkDayHeader(
   const out: Violation[] = [];
   const target = { day: day.index };
   const dateProblem = wrongDate(day, request);
-  if (dateProblem) out.push(violation("WRONG_DATE", dateProblem, target));
+  if (dateProblem) out.push(makeViolation("WRONG_DATE", dateProblem, target));
   if (!day.anchor) {
     out.push(
-      violation(
+      makeViolation(
         "UNKNOWN_ANCHOR",
         `${dayTitle(day.index)} uses a base that is not in our data.`,
         target,
@@ -117,7 +108,7 @@ export function checkDayHeader(
     );
   }
   const transferProblem = wrongTransfer(day);
-  if (transferProblem) out.push(violation("WRONG_TRAVEL", transferProblem, target));
+  if (transferProblem) out.push(makeViolation("WRONG_TRAVEL", transferProblem, target));
   if (
     day.transferKnown &&
     day.transferMin > LONG_TRANSFER_MIN &&
@@ -126,13 +117,13 @@ export function checkDayHeader(
   ) {
     const leg = travelLeg(day.previousAnchor.centroid, day.anchor.centroid);
     const detail = `${dayTitle(day.index)} starts with ${leg.label} from ${day.previousAnchor.name} to ${day.anchor.name}, so there is less time to visit.`;
-    out.push(violation("LONG_TRANSFER", detail, target));
+    out.push(makeViolation("LONG_TRANSFER", detail, target));
   }
   if (day.plan.stops.length === 0) {
-    out.push(violation("EMPTY_DAY", `${dayTitle(day.index)} has no stops.`, target));
+    out.push(makeViolation("EMPTY_DAY", `${dayTitle(day.index)} has no stops.`, target));
   }
   const notChosen = notChosenText(day, request, ctx);
-  if (notChosen) out.push(violation("ANCHOR_NOT_CHOSEN", notChosen, target));
+  if (notChosen) out.push(makeViolation("ANCHOR_NOT_CHOSEN", notChosen, target));
   return out;
 }
 
@@ -141,10 +132,11 @@ export function checkDayHeader(
  * rules-only planner leaves a chosen base only when it cannot hold a stop on every day even with
  * fewer visits a day, and that fallback plan must still reach the traveler, with this note.
  */
-// Decision: found by the T17 property tests. The planner treated chosen bases as a preference
-// while this validator's must-include reasons treated them as binding, and a day at a base the
-// traveler never chose passed with no explanation. The text states the fact only: the validator
-// cannot know why a plan (the planner's or the model's) left the chosen bases.
+// Decision: found by the property tests (disagreement 2 in test/disagreements.test.ts). The
+// planner treated chosen bases as a preference while this validator's must-include reasons
+// treated them as binding, and a day at a base the traveler never chose passed with no
+// explanation. The text states the fact only: the validator cannot know why a plan (the
+// planner's or the model's) left the chosen bases.
 function notChosenText(day: DayFacts, request: TripRequest, ctx: PlannerContext): string | null {
   if (request.anchors === "auto" || !day.anchor) return null;
   if (request.anchors.includes(day.anchor.id)) return null;
@@ -198,25 +190,4 @@ export function countVisits(stops: readonly Pick<Stop, "role">[]): number {
     else meals.add(stop.role);
   }
   return visits;
-}
-
-/** Checks on the day as a whole, after its stops: the visit cap and the two meals. */
-export function checkDayTotals(day: DayFacts): Violation[] {
-  const stops = day.plan.stops;
-  if (stops.length === 0) return []; // EMPTY_DAY already says it all
-  const out: Violation[] = [];
-  const target = { day: day.index };
-  const title = dayTitle(day.index);
-  const visits = countVisits(stops);
-  const max = PACE[day.pace].maxVisits;
-  if (visits > max) {
-    const detail = `${title} has ${visits} visits, but a ${day.pace} day has at most ${max}.`;
-    out.push(violation("TOO_MANY_VISITS", detail, target));
-  }
-  const meals: Meal[] = ["lunch", "dinner"];
-  for (const meal of meals) {
-    if (stops.some((stop) => stop.role === meal)) continue;
-    out.push(violation("MEAL_MISSING", `${title} has no ${meal} stop.`, target));
-  }
-  return out;
 }

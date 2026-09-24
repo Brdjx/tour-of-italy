@@ -170,7 +170,7 @@ describe("place filters", () => {
     expect(isSuggestable(makePlace({ rating }), makeRequest())).toBe(expected);
   });
 
-  it("recognizes an excluded place", () => {
+  it("never misses a place the traveler excluded", () => {
     expect(isExcluded(realPlace("place_001"), makeRequest({ exclude: ["place_001"] }))).toBe(true);
     expect(isExcluded(realPlace("place_001"), makeRequest())).toBe(false);
   });

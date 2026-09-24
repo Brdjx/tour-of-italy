@@ -196,6 +196,7 @@ export interface DayPlan {
   anchorId: string; // the base this day visits
   transferMin: number; // travel from the previous day's base, 0 when unchanged or on day 1
   stops: Stop[]; // in visiting order
+  returnTravelMin?: number; // travel from the last stop back to the base, 0 for an empty day
 }
 
 export type PlanSource = (typeof PLAN_SOURCES)[number];

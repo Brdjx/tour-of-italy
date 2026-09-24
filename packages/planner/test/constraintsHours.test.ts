@@ -79,9 +79,15 @@ describe("isOpenDuring on real places", () => {
     expect(isOpenDuring(realPlace("place_077"), TUESDAY, start, end)).toBe(answer);
   });
 
-  it("holds a derived early-morning window (Cannaregio 06:00 to 10:00) against a late start", () => {
+  it("holds a derived early-morning window (Cannaregio 06:00 to 11:00) against a late start", () => {
     expect(isOpenDuring(realPlace("place_075"), TUESDAY, 510, 600)).toBe("yes");
-    expect(isOpenDuring(realPlace("place_075"), TUESDAY, 570, 660)).toBe("no");
+    expect(isOpenDuring(realPlace("place_075"), TUESDAY, 570, 660)).toBe("yes");
+    expect(isOpenDuring(realPlace("place_075"), TUESDAY, 600, 690)).toBe("no");
+  });
+
+  it("holds a derived dawn window (Piazza del Popolo 06:00 to 10:00) against a late start", () => {
+    expect(isOpenDuring(realPlace("place_023"), TUESDAY, 540, 570)).toBe("yes");
+    expect(isOpenDuring(realPlace("place_023"), TUESDAY, 580, 610)).toBe("no");
   });
 
   it("closes an open-access square (Piazza Navona) at 23:00", () => {

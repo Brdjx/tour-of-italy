@@ -1,4 +1,4 @@
-import { MEALS, MIN_SUGGEST_RATING, PACE } from "./config";
+import { MEAL_COVER_MIN, MEALS, MIN_SUGGEST_RATING, OUTING_MIN_MINUTES, PACE } from "./config";
 import type { PlannerContext } from "./context";
 import { type HoursSource, hoursOn } from "./time";
 import type { Meal, Pace, Place, PriceLevel, TimeRange, TripRequest } from "./types";
@@ -145,14 +145,48 @@ export function withinBudget(
   return place.priceLevel <= maxPriceLevel;
 }
 
-/** True when the place can be a lunch or dinner stop (restaurants and the reviewed allowlist). */
+/**
+ * True when the place can be a lunch or dinner stop (restaurants and the reviewed allowlist).
+ * With servesMeal below, this is the single meal gate: the scheduler, the look-ahead, the
+ * validator, and swaps ask these two functions and never read the fields themselves.
+ */
+// Decision: a dietary filter (vegetarian) starts here. The data has no dietary field, so it needs
+// a reviewed table like EXTRA_MEAL_PLACES; the planner then drops unsuitable meal places from its
+// candidates (isCandidate) and both checkers warn about one the traveler added by hand.
 export function isMealPlace(place: Pick<Place, "mealCapable">): boolean {
   return place.mealCapable;
 }
 
-/** True when the place serves this meal on at least one day its hours allow. */
+/**
+ * True when the place serves this meal on at least one day its hours allow. `meals` is empty
+ * exactly when the place is not a meal place (the normalizer guarantees it).
+ */
 export function servesMeal(place: Pick<Place, "meals">, meal: Meal): boolean {
   return place.meals.includes(meal);
+}
+
+/**
+ * True for an outing: a visit of OUTING_MIN_MINUTES or more that is not a meal place (a day trip,
+ * a long bike ride, the Vatican Museums).
+ */
+export function isOuting(place: Pick<Place, "mealCapable" | "durationMin">): boolean {
+  return !isMealPlace(place) && place.durationMin >= OUTING_MIN_MINUTES;
+}
+
+/**
+ * True when an outing timed [start, end] is under way for at least MEAL_COVER_MIN minutes of the
+ * meal's start window, so the traveler eats during it (lunch in Siena) and the day needs no
+ * separate stop for that meal.
+ */
+export function coversMeal(
+  place: Pick<Place, "mealCapable" | "durationMin">,
+  start: number,
+  end: number,
+  meal: Meal,
+): boolean {
+  const window = MEALS[meal];
+  const overlap = Math.min(end, window.latestStart) - Math.max(start, window.earliestStart);
+  return isOuting(place) && overlap >= MEAL_COVER_MIN;
 }
 
 /**

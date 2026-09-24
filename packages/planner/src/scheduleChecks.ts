@@ -1,6 +1,7 @@
 import { LATEST_MINUTE, LONG_TRANSFER_MIN, MIN_SUGGEST_RATING, PACE } from "./config";
 import {
   belongsToAnchor,
+  coversMeal,
   dayWindow,
   isExcluded,
   sharesLocation,
@@ -8,53 +9,13 @@ import {
 } from "./constraints";
 import type { PlannerContext } from "./context";
 import { formatClock, hoursOn, openStatusOn, WEEKDAY_SHORT, weekdayOf } from "./time";
-import { formatDuration } from "./travel";
+import { formatDuration, latestReturn } from "./travel";
 import type { Anchor, Meal, Place, Stop, TripRequest, Violation, ViolationCode } from "./types";
+import { makeViolation, type ViolationTarget } from "./violations";
 
 // The problems scheduleDay reports while timing a day. Each check reads the stop the scheduler
 // just timed; the independent validator (validate.ts) recomputes its own answers from scratch.
-
-/** Codes that are warnings. Every other code is an error that must never reach the traveler. */
-const WARNING_CODES: ReadonlySet<ViolationCode> = new Set<ViolationCode>([
-  "MUST_INCLUDE_UNPLACEABLE",
-  "HOURS_UNKNOWN",
-  "OVER_BUDGET",
-  "MEAL_MISSING",
-  "LONG_TRANSFER",
-  "SAME_LOCATION",
-  "LOW_RATING",
-  "ANCHOR_NOT_CHOSEN",
-]);
-
-/** Where a violation points: a day, a stop in it, and a place. All optional. */
-export interface ViolationTarget {
-  day?: number | undefined;
-  stopIndex?: number | undefined;
-  placeId?: string | undefined;
-}
-
-/** A violation with its severity from the code, keys in a fixed order for stable JSON. */
-export function makeViolation(
-  code: ViolationCode,
-  detail: string,
-  target: ViolationTarget = {},
-): Violation {
-  return {
-    code,
-    severity: WARNING_CODES.has(code) ? "warning" : "error",
-    ...(target.day === undefined ? {} : { day: target.day }),
-    ...(target.stopIndex === undefined ? {} : { stopIndex: target.stopIndex }),
-    // Decision: cut ids to the schema's 64 characters. An unknown id comes from the model or a
-    // shared link and must not make the violation itself fail the response schema.
-    ...(target.placeId === undefined ? {} : { placeId: target.placeId.slice(0, 64) }),
-    detail,
-  };
-}
-
-/** True for a violation that must never reach the traveler. */
-export function isError(violation: Violation): boolean {
-  return violation.severity === "error";
-}
+// Both build violations with makeViolation (violations.ts), so a code has one severity.
 
 /** Everything the stop checks need to know about the stop just timed. */
 export interface StopCheck {
@@ -85,8 +46,8 @@ export function stopViolations(check: StopCheck): Violation[] {
   }
   // Decision: a stop an overfull day pushes past LATEST_MINUTE is INVALID_TIME, with no hours or
   // window check, exactly as the validator reports it. Before, this side said "closed" and
-  // "outside the window" with times wrapped onto the next morning's clock (property tests,
-  // disagreement 1 in the T17 report).
+  // "outside the window" with times wrapped onto the next morning's clock (see disagreement 1 in
+  // test/disagreements.test.ts).
   if (stop.end > LATEST_MINUTE) {
     add("INVALID_TIME", `${place.name} would run past 06:00 the next morning, outside this day.`);
   } else {
@@ -145,17 +106,23 @@ function closedDetail(place: Place, date: string, stop: Stop): Pick<Violation, "
   return { code: "CLOSED_AT_TIME", detail };
 }
 
+/** A timed day as dayViolations sees it: stops and their places, in the same order. */
+export interface TimedDay {
+  stops: readonly Stop[];
+  places: readonly Place[]; // places[i] is the place of stops[i]
+  request: TripRequest;
+  transferMin: number;
+  returnMin: number; // travel from the last stop back to the day's start point
+  day: number | undefined; // day index for the violations
+  anchor: Anchor;
+}
+
 /**
- * Problems with the day as a whole: no stops, too many visits, missing meals, a long transfer,
- * and a base the traveler did not choose.
+ * Problems with the day as a whole: no stops, too many visits, no time to get back to the base,
+ * missing meals, a long transfer, and a base the traveler did not choose.
  */
-export function dayViolations(
-  stops: readonly Stop[],
-  request: TripRequest,
-  transferMin: number,
-  day: number | undefined,
-  anchor?: Anchor,
-): Violation[] {
+export function dayViolations(timed: TimedDay): Violation[] {
+  const { stops, request, day, anchor } = timed;
   const found: Violation[] = [];
   if (stops.length === 0) {
     found.push(makeViolation("EMPTY_DAY", "This day has no stops.", { day }));
@@ -170,22 +137,51 @@ export function dayViolations(
       found.push(makeViolation("TOO_MANY_VISITS", detail, { day, stopIndex }));
     }
   });
+  found.push(...returnViolations(timed));
   // Decision: an empty day reports only EMPTY_DAY; "no lunch" on a day with no stops is noise.
   if (stops.length > 0) {
     for (const meal of ["lunch", "dinner"] as const satisfies readonly Meal[]) {
-      if (stops.some((stop) => stop.role === meal)) continue;
+      if (hasMeal(timed, meal)) continue;
       found.push(makeViolation("MEAL_MISSING", `No ${meal} stop on this day.`, { day }));
     }
   }
-  if (transferMin > LONG_TRANSFER_MIN) {
-    const detail = `The day starts with a ${formatDuration(transferMin)} transfer from the previous base.`;
+  if (timed.transferMin > LONG_TRANSFER_MIN) {
+    const detail = `The day starts with a ${formatDuration(timed.transferMin)} transfer from the previous base.`;
     found.push(makeViolation("LONG_TRANSFER", detail, { day }));
   }
-  // Decision: reported here as well as by the validator, so rescheduleDay (which refreshes a
-  // day's warnings from this list after an edit) keeps the note instead of dropping it.
-  if (anchor && request.anchors !== "auto" && !request.anchors.includes(anchor.id)) {
+  if (request.anchors !== "auto" && !request.anchors.includes(anchor.id)) {
     const detail = `This day is based in ${anchor.name}, which is not one of the bases you chose.`;
     found.push(makeViolation("ANCHOR_NOT_CHOSEN", detail, { day }));
   }
   return found;
+}
+
+/** A stop in that meal's role, or an outing under way through the whole meal window. */
+function hasMeal(timed: TimedDay, meal: Meal): boolean {
+  return timed.stops.some((stop, index) => {
+    const place = timed.places[index];
+    return (
+      stop.role === meal || (place !== undefined && coversMeal(place, stop.start, stop.end, meal))
+    );
+  });
+}
+
+/**
+ * The last stop must leave time to get back to the base before the day window closes (a little
+ * later after a dinner: latestReturn). Reported only for a last stop that itself fits the window;
+ * otherwise that stop already has its error.
+ */
+function returnViolations(timed: TimedDay): Violation[] {
+  const last = timed.stops.at(-1);
+  const place = timed.places.at(-1);
+  if (!last || !place || last.end > LATEST_MINUTE) return [];
+  const window = dayWindow(timed.request.pace, timed.transferMin);
+  if (last.start < window.start || last.end > window.end) return [];
+  const deadline = latestReturn(window.end, last.role);
+  if (last.end + timed.returnMin <= deadline) return [];
+  const back = formatClock(last.end + timed.returnMin);
+  const after = last.role === "dinner" ? ", the latest return after dinner" : "";
+  const detail = `${place.name} ends at ${formatClock(last.end)}, and the trip back to ${timed.anchor.name} takes ${formatDuration(timed.returnMin)}, so the day would end at ${back}, after ${formatClock(deadline)}${after}.`;
+  const target = { day: timed.day, stopIndex: timed.stops.length - 1, placeId: place.id };
+  return [makeViolation("OUTSIDE_DAY_WINDOW", detail, target)];
 }

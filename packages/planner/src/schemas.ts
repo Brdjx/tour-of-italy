@@ -1,13 +1,17 @@
 import { z } from "zod";
 import {
+  DETAIL_MAX_CHARS,
+  ID_MAX_CHARS,
   MAX_ANCHORS_PER_TRIP,
+  MAX_TRAVEL_MINUTES,
   REASON_MAX_CHARS,
   REQUEST_LIMITS,
   SUMMARY_MAX_CHARS,
   TRIP_DAYS,
 } from "./config";
 import { IdSchema, MinutesSchema, PriceLevelSchema } from "./dataSchemas";
-import { parseIsoDate } from "./time";
+import { addDays, parseIsoDate } from "./time";
+import type { Assert, Both, Extends } from "./typeChecks";
 import {
   FALLBACK_REASONS,
   type Itinerary,
@@ -92,7 +96,20 @@ export const TripRequestSchema = z
         context.addIssue({ code: "custom", path: ["mustInclude", index], message });
       }
     });
+    // Decision: the whole trip must fit the accepted years, not only its first day. A trip that
+    // starts on 2100-12-31 would have days in 2101 that the response schema below rejects.
+    if (!lastDayInRange(request.startDate)) {
+      const message = `The trip must end by ${REQUEST_LIMITS.maxYear}-12-31`;
+      context.addIssue({ code: "custom", path: ["startDate"], message });
+    }
   });
+
+/** True when the trip's last day is still inside REQUEST_LIMITS.maxYear (or the date is bad). */
+function lastDayInRange(startDate: string): boolean {
+  if (parseIsoDate(startDate) === null) return true; // IsoDateSchema already reports it
+  const last = parseIsoDate(addDays(startDate, TRIP_DAYS - 1));
+  return last !== null && last.year <= REQUEST_LIMITS.maxYear;
+}
 
 /** Values a request may refer to. Built from the normalized data. */
 export interface KnownValues {
@@ -128,7 +145,7 @@ export const StopSchema = z
     placeId: IdSchema,
     start: MinutesSchema,
     end: MinutesSchema,
-    travelFromPrevMin: z.number().int().min(0).max(1440),
+    travelFromPrevMin: z.number().int().min(0).max(MAX_TRAVEL_MINUTES),
     role: z.enum(["visit", "lunch", "dinner"]),
     reason: z.string().max(REASON_MAX_CHARS).optional(),
     reasonSource: z.enum(["ai", "rule"]).optional(),
@@ -141,8 +158,9 @@ export const StopSchema = z
 export const DayPlanSchema = z.strictObject({
   date: IsoDateSchema,
   anchorId: IdSchema,
-  transferMin: z.number().int().min(0).max(1440),
+  transferMin: z.number().int().min(0).max(MAX_TRAVEL_MINUTES),
   stops: z.array(StopSchema).max(20),
+  returnTravelMin: z.number().int().min(0).max(MAX_TRAVEL_MINUTES).optional(),
 });
 
 export const ViolationSchema = z.strictObject({
@@ -150,8 +168,8 @@ export const ViolationSchema = z.strictObject({
   severity: z.enum(["error", "warning"]),
   day: z.number().int().min(0).max(30).optional(),
   stopIndex: z.number().int().min(0).max(30).optional(),
-  placeId: z.string().max(64).optional(),
-  detail: z.string().max(500),
+  placeId: z.string().max(ID_MAX_CHARS).optional(),
+  detail: z.string().max(DETAIL_MAX_CHARS),
 });
 
 export const ItineraryMetaSchema = z.strictObject({
@@ -174,10 +192,6 @@ export const ItinerarySchema = z.strictObject({
 });
 
 // ---------- Compile-time agreement between schemas and types ----------
-
-type Assert<T extends true> = T;
-type Extends<A, B> = [A] extends [B] ? true : false;
-type Both<A, B> = Extends<A, B> extends true ? Extends<B, A> : false;
 
 export type SchemaTypeChecks = [
   Assert<Both<z.output<typeof TripRequestSchema>, TripRequest>>,

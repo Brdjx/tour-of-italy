@@ -104,7 +104,7 @@ describe("room around fixed must-see stops", () => {
     const plan = miniTrip({ mustInclude: ["place_023"] }); // 06:00 to 10:00, 15 min from the base
     expect(mustIncludePlaceability(plan, ctx(), "place_023")).toEqual({
       placeable: false,
-      reason: "its opening hours on Tue 20 Oct 2026 and Wed 21 Oct 2026 do not fit a balanced day",
+      reason: "its opening hours do not fit a balanced day on any day of this trip",
     });
   });
 
