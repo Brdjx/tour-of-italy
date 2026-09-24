@@ -31,6 +31,7 @@ export interface ItineraryState {
   origin: PlanOrigin;
   cause: FallbackCause | null; // why the browser built it, when it did
   errors: Violation[]; // error-level violations of the current plan; empty for a clean plan
+  checked: boolean; // `errors` came from this browser's validator (false until places load)
   history: HistoryEntry[]; // most recent last, at most HISTORY_LIMIT
   planId: number; // increases with every new plan (drives the one draw-in animation)
   changed: { day: number; stop: number } | null; // the row the last edit touched
@@ -49,6 +50,7 @@ export type ItineraryAction =
   | { type: "remove"; day: number; stop: number }
   | { type: "move"; day: number; stop: number; direction: "up" | "down" }
   | { type: "undo" }
+  | { type: "check" }
   | { type: "clear" };
 
 /** Undo steps kept. Small on purpose: each entry holds a whole itinerary. */
@@ -66,6 +68,7 @@ export function initialItineraryState(): ItineraryState {
     origin: "api",
     cause: null,
     errors: [],
+    checked: false,
     history: [],
     planId: 0,
     changed: null,
@@ -86,6 +89,7 @@ export function itineraryReducer(
         origin: action.origin,
         cause: action.cause ?? null,
         errors: ctx ? validationErrors(action.itinerary, ctx) : [],
+        checked: ctx !== null,
         history: [],
         planId: state.planId + 1,
         changed: null,
@@ -93,6 +97,8 @@ export function itineraryReducer(
       };
     case "undo":
       return undo(state);
+    case "check":
+      return check(state, ctx);
     case "clear":
       return { ...initialItineraryState(), planId: state.planId };
     default:
@@ -178,6 +184,17 @@ function apply(
     changed: result.changed,
     message: `${result.text}${problem}`,
   };
+}
+
+/**
+ * Validates a plan that arrived before the places did (planning works from the first paint).
+ * Decision: it flags what breaks a rule instead of replacing the plan, and says nothing new:
+ * "Your plan is ready" was already announced when the plan arrived.
+ */
+function check(state: ItineraryState, ctx: PlannerContext | null): ItineraryState {
+  if (!ctx || !state.itinerary || state.checked) return state;
+  const errors = validationErrors(state.itinerary, ctx);
+  return { ...state, errors, checked: true, message: null };
 }
 
 function undo(state: ItineraryState): ItineraryState {

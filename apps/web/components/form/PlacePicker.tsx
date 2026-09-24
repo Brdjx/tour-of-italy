@@ -14,6 +14,7 @@ export const MAX_MATCHES = 8;
 
 interface PlacePickerProps {
   label: string;
+  listName?: string; // how remove buttons name the list: "Remove Colosseum from {listName}"
   hint: string;
   places: readonly PlaceOption[];
   selected: readonly string[];
@@ -52,6 +53,7 @@ export function matchPlaces(
 
 export function PlacePicker(props: PlacePickerProps) {
   const { label, hint, places, selected, blocked, max, onChange, error, testId } = props;
+  const listName = props.listName ?? label.toLowerCase();
   const id = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -105,7 +107,7 @@ export function PlacePicker(props: PlacePickerProps) {
                   type="button"
                   className="token"
                   onClick={() => onChange(selected.filter((value) => value !== placeId))}
-                  aria-label={`Remove ${name} from ${label.toLowerCase()}`}
+                  aria-label={`Remove ${name} from ${listName}`}
                 >
                   <span>{name}</span>
                   <CloseIcon size={16} />

@@ -1,8 +1,8 @@
 /*
  * App-level notices from the installable app layer: the offline strip and the new-version
- * prompt. Both sit in the page flow between the header and the panes, full width, inside the
- * landscape safe areas, so they never cover the plan, the sheet, the toast, or the sticky
- * "Plan my trip" button.
+ * prompt. Both sit in the page flow between the header and the content, full width, with their
+ * text in the page's centred column and inside the landscape safe areas, so they never cover
+ * the plan, the sheet, the toast, or the sticky "Plan my trip" button.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -13,7 +13,8 @@
     align-items: center;
     gap: 4px 12px;
     margin: 0;
-    padding: 6px var(--gutter-x-right) 6px var(--gutter-x-left);
+    padding: 6px max(var(--gutter-x-right), calc((100% - var(--content-max)) / 2)) 6px
+      max(var(--gutter-x-left), calc((100% - var(--content-max)) / 2));
     border-bottom: 1px solid var(--line);
     background: var(--surface);
     color: var(--fg);
@@ -45,13 +46,6 @@
   @media (display-mode: standalone) {
     .status-scrim {
       background: var(--status-bar);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .app-notice {
-      padding-left: max(24px, var(--safe-left));
-      padding-right: max(32px, var(--safe-right));
     }
   }
 }

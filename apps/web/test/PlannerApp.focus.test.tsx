@@ -131,12 +131,12 @@ describe("the form reopened over a plan", () => {
       "Your current plan stays until you plan again.",
     );
     await user.click(screen.getByTestId("back-to-plan"));
-    expect(screen.queryByTestId("form-return")).toBeNull();
+    expect(screen.getByTestId("form-return").closest("[hidden]")).not.toBeNull();
     expect(document.activeElement).toBe(screen.getByTestId("edit-trip-button"));
     expect(rows().length).toBeGreaterThan(0);
   });
 
-  it("shows progress next to the plan button while planning", async () => {
+  it("shows progress next to the plan button when the form is opened while planning", async () => {
     let finish: (plan: Itinerary) => void = () => {};
     const user = userEvent.setup();
     render(
@@ -146,7 +146,10 @@ describe("the form reopened over a plan", () => {
       />,
     );
     await user.click(await screen.findByTestId("plan-button"));
-    expect(screen.getByTestId("form-planning").textContent).toContain("Choosing places");
+    await user.click(screen.getByTestId("edit-trip-button"));
+    const progress = screen.getByTestId("form-planning");
+    expect(progress.closest("[hidden]")).toBeNull();
+    expect(progress.textContent).toContain("Choosing places");
     finish(aiPlan());
     await waitFor(() => expect(screen.queryByTestId("form-planning")).toBeNull());
   });

@@ -1,0 +1,98 @@
+/*
+ * The day's map: below the timetable on phones and tablets in portrait, beside it from 1024 px.
+ * Its frame has a fixed height, so the skeleton shown while Leaflet loads keeps its place.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  /* The map follows the timetable on phones and tablets in portrait. From 1024 px it sits
+     beside the timetable and stays in view under the pinned day tabs while the day scrolls. */
+  .day-map {
+    margin-top: 24px;
+  }
+
+  @media (min-width: 1024px) {
+    .day-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+      column-gap: 40px;
+      align-items: start;
+    }
+
+    .day-panel > .day-map {
+      position: sticky;
+      top: calc(var(--safe-top) + 80px);
+      margin-top: 0;
+    }
+
+    .day-panel .map-frame {
+      height: clamp(320px, calc(100dvh - 200px), 560px);
+    }
+  }
+
+  /* Map. isolation keeps Leaflet's own z-index values below the pinned tabs and the sheet. */
+  .map-frame {
+    position: relative;
+    height: 280px;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  @media (min-width: 768px) {
+    .map-frame {
+      height: 360px;
+    }
+  }
+
+  .map-frame .leaflet-container {
+    background: var(--surface);
+    font-family: inherit;
+  }
+
+  .map-placeholder {
+    display: grid;
+    height: 100%;
+    place-items: center;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .map-marker-wrap {
+    border: 0;
+    background: none;
+  }
+
+  .map-marker {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font: 600 14px / 1 var(--font-sans);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  }
+
+  .map-marker--approximate {
+    border: 2px dashed var(--accent);
+    background: var(--surface);
+    color: var(--accent);
+  }
+
+  .route-line {
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-opacity: 0.85;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .map-frame .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+    }
+  }
+}

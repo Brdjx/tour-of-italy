@@ -1,18 +1,26 @@
 "use client";
 
 import type { PlannerContext, TripRequest } from "@italy/planner";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { describeApiError, isApiError, isRequestProblem } from "./apiError";
 import type { ItineraryAction } from "./itineraryReducer";
 import { type PlanDeps, type PlanOutcome, requestPlan } from "./planRequest";
 
-// The plan request as page state: idle, planning, or failed with a message. A newer request
-// cancels the one in flight; a failure keeps the previous plan on screen.
+// The plan request as page state: idle, planning (with the request, for the trip summary), or
+// failed with a message. A newer request cancels the one in flight; a failure keeps the
+// previous plan. A request still running after SLOW_PLAN_MS says so, honestly.
 
 export type PlanPhase =
   | { kind: "idle" }
-  | { kind: "planning" }
+  | { kind: "planning"; request: TripRequest; slow: boolean }
   | { kind: "error"; message: string; retry: boolean };
+
+/** When a plan that is still on its way gets the "Still working" line. */
+// Decision: 8 s. The AI path usually answers in 3 to 6 s; past 8 s the traveler starts to
+// wonder, and the server falls back to rules at its own deadline, which the line promises.
+export const SLOW_PLAN_MS = 8000;
+export const SLOW_PLAN_TEXT =
+  "Still working. If the AI planner takes too long, the plan is built with rules.";
 
 interface PlanTripOptions {
   ctx: PlannerContext | null;
@@ -33,23 +41,39 @@ export function usePlanTrip({ ctx, post, dispatch, announce, onPlanned }: PlanTr
   const [phase, setPhase] = useState<PlanPhase>({ kind: "idle" });
   const controller = useRef<AbortController | null>(null);
   const lastRequest = useRef<TripRequest | null>(null);
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Decision: the places are read when the answer arrives, not when the button was pressed.
+  // "Plan my trip" works before they load, and they almost always arrive while the plan is on
+  // its way, so the browser can still check the plan (and fall back to planning here).
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+
+  useEffect(() => () => clearTimeout(slowTimer.current), []);
 
   const planTrip = async (request: TripRequest) => {
     controller.current?.abort();
+    clearTimeout(slowTimer.current);
     const current = new AbortController();
     controller.current = current;
     lastRequest.current = request;
-    setPhase({ kind: "planning" });
+    setPhase({ kind: "planning", request, slow: false });
     announce("Planning your trip.");
+    slowTimer.current = setTimeout(() => {
+      setPhase((now) => (now.kind === "planning" ? { ...now, slow: true } : now));
+      announce(SLOW_PLAN_TEXT);
+    }, SLOW_PLAN_MS);
     const deterministic =
       new URLSearchParams(window.location.search).get("mode") === "deterministic";
+    const deps: PlanDeps = {
+      get ctx() {
+        return ctxRef.current;
+      },
+      post,
+    };
     try {
-      const outcome = await requestPlan(
-        request,
-        { ctx, post },
-        { signal: current.signal, deterministic },
-      );
+      const outcome = await requestPlan(request, deps, { signal: current.signal, deterministic });
       if (current.signal.aborted) return;
+      clearTimeout(slowTimer.current);
       dispatch({
         type: "plan",
         itinerary: outcome.itinerary,
@@ -61,6 +85,7 @@ export function usePlanTrip({ ctx, post, dispatch, announce, onPlanned }: PlanTr
       onPlanned();
     } catch (error) {
       if (current.signal.aborted || (isApiError(error) && error.kind === "aborted")) return;
+      clearTimeout(slowTimer.current);
       // Decision: no "Try again" for a request the API refused; sending it again cannot help,
       // and the message already says which field to check.
       setPhase({

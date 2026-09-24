@@ -113,7 +113,7 @@ describe("PlannerApp last plan", () => {
     // The value is removed once the places load and it is checked; only then is "no plan" final.
     await waitFor(() => expect(window.localStorage.getItem(LAST_PLAN_KEY)).toBeNull());
     expect(screen.queryByTestId("stop-row")).toBeNull();
-    expect(screen.getByTestId("empty-plan")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("planner-app").dataset.view).toBe("compose"));
   });
 
   it("starts empty when the saved trip is already over", async () => {
@@ -123,7 +123,7 @@ describe("PlannerApp last plan", () => {
     // The value is removed once the places load and it is checked; only then is "no plan" final.
     await waitFor(() => expect(window.localStorage.getItem(LAST_PLAN_KEY)).toBeNull());
     expect(screen.queryByTestId("stop-row")).toBeNull();
-    expect(screen.getByTestId("empty-plan")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("planner-app").dataset.view).toBe("compose"));
   });
 
   it("says so when the saved plan now breaks a rule, and marks the stop", async () => {

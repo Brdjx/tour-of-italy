@@ -1,6 +1,7 @@
 /*
- * Things that sit over or beside the plan: error and note banners, the planning placeholder,
- * the swap sheet (a bottom sheet on phones, a side sheet from 768 px), and the toast.
+ * Things that sit over or beside the plan: error and note banners, the swap sheet (a bottom
+ * sheet on phones, a side sheet from 768 px), and the toast. The toast is centred on every
+ * screen; it only shows while the form (and its sticky "Plan my trip" bar) is folded away.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -40,16 +41,6 @@
   .banner-button:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
-  }
-
-  .planning-rules {
-    margin-top: 24px;
-  }
-
-  .planning-rules li {
-    height: 56px;
-    border-top: 1px solid var(--line);
-    background: linear-gradient(var(--line), var(--line)) 76px 14px / 40% 12px no-repeat;
   }
 
   /* Swap sheet: bottom sheet on phones, side sheet from 768 px. */
@@ -94,15 +85,6 @@
     border-radius: 10px;
     background: var(--toast-bg);
     color: var(--toast-fg);
-  }
-
-  /* Two panes from 1024 px: the toast centres over the plan pane, so it never covers the
-     sticky "Plan my trip" button at the bottom of the form pane (layout.css). */
-  @media (min-width: 1024px) {
-    .toast {
-      left: calc(var(--form-pane-width) + 32px);
-      right: max(32px, var(--safe-right));
-    }
   }
 
   @media (min-width: 768px) {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Schibsted_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
+import { expectPlanScript } from "../lib/expectPlanScript";
 import "./globals.css";
 
 // Decision: one family, self-hosted by next/font at build time, so the page makes no request to
@@ -49,7 +50,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={schibsted.variable}>
+    // suppressHydrationWarning: the head script below may add data-expect-plan before React runs.
+    <html lang="en" className={schibsted.variable} suppressHydrationWarning>
+      <head>
+        {/* Decision: an inline script (the CSP allows them) so a returning traveler or a shared
+            link never paints the empty form first; see lib/expectPlanScript.ts. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant built from our own code, no input. */}
+        <script dangerouslySetInnerHTML={{ __html: expectPlanScript() }} />
+      </head>
       <body>{children}</body>
     </html>
   );

@@ -85,6 +85,18 @@ function paceOptions(): PaceOption[] {
   });
 }
 
+/**
+ * The parts of the form that need nothing from the API (trip length, paces, limits), so the
+ * start date, the pace and "Plan my trip" work before the places arrive.
+ */
+export type PrimaryOptions = Pick<TripOptions, "tripDays" | "paces" | "limits">;
+
+export const PRIMARY_OPTIONS: PrimaryOptions = {
+  tripDays: TRIP_DAYS,
+  paces: paceOptions(),
+  limits: LIMITS,
+};
+
 /** Places for the pickers, sorted by name so the list reads like an index. */
 function placeOptions(ctx: PlannerContext): PlaceOption[] {
   const options = ctx.places.map((place) => ({
@@ -111,17 +123,15 @@ export function interestsFromPlaces(ctx: PlannerContext): InterestOption[] {
 
 function baseOptions(ctx: PlannerContext): TripOptions {
   return {
-    tripDays: TRIP_DAYS,
+    ...PRIMARY_OPTIONS,
     anchors: ctx.anchors.map((anchor) => ({
       id: anchor.id,
       name: anchor.name,
       placeCount: anchor.placeIds.length,
     })),
     interests: interestsFromPlaces(ctx),
-    paces: paceOptions(),
     priceLevels: [1, 2, 3, 4],
     places: placeOptions(ctx),
-    limits: LIMITS,
   };
 }
 

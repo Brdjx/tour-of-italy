@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DayMap,
   MAP_UNAVAILABLE,
   MapBoundary,
   MapUnavailable,
@@ -63,6 +64,20 @@ describe("DayMap fallbacks", () => {
     stop();
     expect(cancel).toHaveBeenCalledWith(7);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("DayMap while its code loads", () => {
+  it("fills the map's own frame with a skeleton, so nothing moves when the map draws", () => {
+    const plan = fixturePlan();
+    render(<DayMap day={must(plan.days[0])} dayNumber={1} ctx={ctx} />);
+    const skeleton = screen.getByTestId("map-skeleton");
+    expect(skeleton.classList.contains("skeleton--fill")).toBe(true);
+    // Inside the fixed-height frame, which is hidden from screen readers (the list is the map's
+    // text equivalent), and never a "Loading map" line that reads as page content.
+    const frame = skeleton.closest(".map-frame");
+    expect(frame?.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.queryByText("Loading map")).toBeNull();
   });
 });
 

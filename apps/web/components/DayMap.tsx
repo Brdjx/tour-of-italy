@@ -4,9 +4,11 @@ import type { DayPlan, PlannerContext } from "@italy/planner";
 import dynamic from "next/dynamic";
 import { Component, type ReactNode, useMemo } from "react";
 import { type MapPoint, mapPoints } from "../lib/mapPoints";
+import { Skeleton } from "./skeleton/Skeleton";
 
-// The day's map, below the timetable. Leaflet needs `window`, so it is loaded only in the
-// browser; the static export ships a placeholder in its place. The map is optional: if its code
+// The day's map, below the timetable (beside it from 1024 px). Leaflet needs `window`, so it is
+// loaded only in the browser; until its code arrives a skeleton fills the frame, which keeps the
+// map's size, so nothing moves when the map draws. The map is optional: if its code
 // cannot be fetched (a dropped request, offline before the worker cached it) or Leaflet throws,
 // the frame says so and the rest of the page carries on. The map is hidden from screen readers
 // because the timetable above lists the same stops in the same order.
@@ -37,7 +39,7 @@ export function withMapFallback(load: () => Promise<MapModule>): Promise<MapModu
 
 const DayMapInner = dynamic(() => withMapFallback(loadInner), {
   ssr: false,
-  loading: () => <div className="map-placeholder">Loading map</div>,
+  loading: () => <Skeleton className="skeleton--fill" testId="map-skeleton" />,
 });
 
 /** Catches anything Leaflet throws while drawing, so a map problem stays inside the frame. */
@@ -81,7 +83,7 @@ export function DayMap({ day, dayNumber, ctx }: DayMapProps) {
   const points = useMemo(() => mapPoints(day, ctx), [day, ctx]);
   const approximate = points.some((point) => point.approximate);
   return (
-    <figure className="mt-6" data-testid="day-map">
+    <figure className="day-map" data-testid="day-map">
       <p className="sr-only">
         Map of day {dayNumber}. It shows the stops listed above, numbered in visiting order.
       </p>

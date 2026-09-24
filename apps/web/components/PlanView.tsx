@@ -8,22 +8,21 @@ import { buildTripView } from "../lib/timetable";
 import { DayMap } from "./DayMap";
 import { DAY_PANEL_ID, DayTabs, dayTabId } from "./DayTabs";
 import { DayTimetable } from "./DayTimetable";
-import { EditIcon, UndoIcon } from "./icons";
+import { UndoIcon } from "./icons";
 import { ShareButton } from "./ShareButton";
 import { SourceBadge } from "./SourceBadge";
 
-// The plan: source badge and toolbar (undo, copy link, edit trip), the AI summary, trip-level
-// notes, day tabs, and the active day's timetable and map.
+// The plan: source badge and toolbar (undo, copy link), the AI summary, trip-level notes, day
+// tabs, and the active day's timetable and map (below it on phones and tablets in portrait,
+// beside it from 1024 px). "Edit trip" lives in the trip summary line above the plan.
 
 export interface PlanViewProps {
   plan: ItineraryState;
   ctx: PlannerContext;
   activeDay: number;
   animateDay: number;
-  formOpen: boolean;
   headingRef: Ref<HTMLHeadingElement>;
   onSelectDay: (day: number) => void;
-  onToggleForm: () => void;
   onUndo: () => void;
   onSwap: (day: number, stop: number) => void;
   onRemove: (day: number, stop: number) => void;
@@ -32,7 +31,7 @@ export interface PlanViewProps {
 }
 
 export function PlanView(props: PlanViewProps) {
-  const { plan, ctx, activeDay, animateDay, formOpen, headingRef } = props;
+  const { plan, ctx, activeDay, animateDay, headingRef } = props;
   const itinerary = plan.itinerary;
   const days = useMemo(
     () => (itinerary ? buildTripView(itinerary, ctx, plan.errors) : []),
@@ -68,17 +67,6 @@ export function PlanView(props: PlanViewProps) {
             </button>
           ) : null}
           <ShareButton itinerary={itinerary} onStatus={props.onStatus} />
-          <button
-            type="button"
-            className="toolbar-button lg:hidden"
-            aria-expanded={formOpen}
-            aria-controls="trip-form-pane"
-            onClick={props.onToggleForm}
-            data-testid="edit-trip-button"
-          >
-            <EditIcon size={18} />
-            Edit trip
-          </button>
         </div>
       </div>
       {itinerary.summary ? (
@@ -112,7 +100,7 @@ export function PlanView(props: PlanViewProps) {
           role="tabpanel"
           id={DAY_PANEL_ID}
           aria-labelledby={dayTabId(day.index)}
-          className="pt-4"
+          className="day-panel pt-4"
         >
           <DayTimetable
             view={day}

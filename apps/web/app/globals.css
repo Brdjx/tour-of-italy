@@ -1,10 +1,13 @@
 @import "tailwindcss";
 @import "./styles/layout.css";
 @import "./styles/form.css";
+@import "./styles/options.css";
 @import "./styles/pickers.css";
 @import "./styles/overlays.css";
 @import "./styles/timetable.css";
+@import "./styles/map.css";
 @import "./styles/pwa.css";
+@import "./styles/skeleton.css";
 
 /*
  * Design tokens. The palette is a railway timetable: Ink text on a cool Stone page, Lagoon for
@@ -36,6 +39,8 @@
   /* The status bar strip in the installed iOS app. black-translucent draws white status text,
      so light mode paints the strip Ink; dark mode keeps the page colour. */
   --status-bar: #18222f;
+  /* Loading placeholders: Rule on the page. Dark mode follows through --line. */
+  --skeleton: var(--line);
 
   /* Safe areas for notches, the Dynamic Island, and the home indicator (viewport-fit=cover). */
   --safe-top: env(safe-area-inset-top, 0px);

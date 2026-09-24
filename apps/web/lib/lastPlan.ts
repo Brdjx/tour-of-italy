@@ -103,6 +103,18 @@ export function readLastPlan(store: KeyValueStore, ctx: PlannerContext, now: Dat
   return result;
 }
 
+/**
+ * True when something is saved under the plan key, before it can be checked (that needs the
+ * places). The page uses it only to show the plan's skeleton instead of the form while it waits.
+ */
+export function hasStoredPlan(store: KeyValueStore | null): boolean {
+  try {
+    return store?.getItem(LAST_PLAN_KEY) != null;
+  } catch {
+    return false;
+  }
+}
+
 export function forget(store: KeyValueStore): void {
   try {
     store.removeItem(LAST_PLAN_KEY);

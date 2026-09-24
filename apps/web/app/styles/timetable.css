@@ -1,7 +1,7 @@
 /*
  * The timetable: times in a fixed left gutter, stop names large, travel legs as dotted
  * connectors. Its one motion moment: when a plan arrives, the day's rows draw in top to bottom
- * once, in under 400 ms. Edits only highlight the row they touched.
+ * once, in under 400 ms. Edits only highlight the row they touched. The map is in map.css.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -168,72 +168,6 @@
       top: var(--safe-top);
       margin: 20px 0 0;
       padding: 0;
-    }
-  }
-
-  /* Map. isolation keeps Leaflet's own z-index values below the pinned tabs and the sheet. */
-  .map-frame {
-    position: relative;
-    height: 280px;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--surface);
-  }
-
-  @media (min-width: 768px) {
-    .map-frame {
-      height: 360px;
-    }
-  }
-
-  .map-frame .leaflet-container {
-    background: var(--surface);
-    font-family: inherit;
-  }
-
-  .map-placeholder {
-    display: grid;
-    height: 100%;
-    place-items: center;
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
-
-  .map-marker-wrap {
-    border: 0;
-    background: none;
-  }
-
-  .map-marker {
-    display: grid;
-    width: 30px;
-    height: 30px;
-    place-items: center;
-    border: 2px solid var(--surface);
-    border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-fg);
-    font: 600 14px / 1 var(--font-sans);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
-  }
-
-  .map-marker--approximate {
-    border: 2px dashed var(--accent);
-    background: var(--surface);
-    color: var(--accent);
-  }
-
-  .route-line {
-    stroke: var(--accent);
-    stroke-width: 3;
-    stroke-opacity: 0.85;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .map-frame .leaflet-tile-pane {
-      filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
     }
   }
 }

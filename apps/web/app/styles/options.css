@@ -1,0 +1,115 @@
+/*
+ * "More options": the disclosure row with its count badge, the inline panel, the short line
+ * shown when the options could not load, and the text buttons inside the form ("Show all
+ * interests", "Clear options", "Try again").
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  .more-options {
+    margin-top: 28px;
+  }
+
+  /* A full-width row between two hairlines: quiet next to "Plan my trip", easy to hit. */
+  .more-options-button {
+    display: flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 4px 0 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    color: var(--fg);
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .more-options-button:hover .more-options-label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .more-options-button:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .count-badge {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--fg);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .more-options-chevron {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--muted);
+    transition: transform 150ms ease-out;
+  }
+
+  .more-options-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  .more-options-panel {
+    padding-top: 20px;
+  }
+
+  .clear-options {
+    margin-top: 12px;
+  }
+
+  /* The data behind the options did not load: a short line with Try again, never a banner. */
+  .options-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 12px;
+    margin-top: 12px;
+    padding-left: 12px;
+    border-left: 3px solid var(--danger);
+    color: var(--fg);
+    font-size: 0.875rem;
+  }
+
+  /* Secondary actions inside the form: "Show all interests", "Clear options", "Try again". */
+  .text-button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .text-button:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .text-button-slot {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .more-options-chevron {
+      transition: none;
+    }
+  }
+}

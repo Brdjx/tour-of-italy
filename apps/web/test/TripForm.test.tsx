@@ -8,7 +8,8 @@ import { defaultFormValues, type TripFormValues } from "../lib/tripForm";
 import { tripData, XSS } from "./fixtures";
 
 // The form is the only way in. It must never send a request the API would refuse, must point
-// at the field to fix, and must be usable by keyboard alone.
+// at the field to fix, and must be usable by keyboard alone. Everything but the date and the
+// pace sits behind "More options" (see TripForm.options.test.tsx for the fold itself).
 
 afterEach(cleanup);
 
@@ -28,6 +29,11 @@ function renderForm(values: Partial<TripFormValues> = {}, planning = false) {
   return { onSubmit, user: userEvent.setup() };
 }
 
+/** Opens "More options", where every field but the date and the pace lives. */
+async function openOptions(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId("more-options-button"));
+}
+
 describe("TripForm", () => {
   it("plans with the defaults in one tap and sends a schema-valid request", async () => {
     const { onSubmit, user } = renderForm();
@@ -45,6 +51,7 @@ describe("TripForm", () => {
 
   it("counts note characters and stops at 500", async () => {
     const { user } = renderForm();
+    await openOptions(user);
     const notes = screen.getByLabelText("Anything else? Used by the AI planner.");
     await user.type(notes, "Slow mornings");
     expect(screen.getByTestId("notes-counter").textContent).toBe("13 of 500 characters");
@@ -56,6 +63,7 @@ describe("TripForm", () => {
 
   it("keeps markup in notes as plain text and sends it as typed", async () => {
     const { onSubmit, user } = renderForm();
+    await openOptions(user);
     const notes = screen.getByLabelText("Anything else? Used by the AI planner.");
     fireEvent.change(notes, { target: { value: XSS } });
     await user.click(screen.getByTestId("plan-button"));
@@ -75,6 +83,7 @@ describe("TripForm", () => {
 
   it("asks for a base when choosing bases and focuses the base choices", async () => {
     const { onSubmit, user } = renderForm();
+    await openOptions(user);
     await user.click(screen.getByLabelText("Choose bases"));
     await user.click(screen.getByTestId("plan-button"));
     expect(onSubmit).not.toHaveBeenCalled();
@@ -98,6 +107,8 @@ describe("TripForm", () => {
 
   it("caps interests at 8 and disables the rest", async () => {
     const { onSubmit, user } = renderForm();
+    await openOptions(user);
+    await user.click(screen.getByTestId("show-all-interests"));
     const field = screen.getByTestId("interests-field");
     const boxes = within(field).getAllByRole("checkbox") as HTMLInputElement[];
     for (const box of boxes.slice(0, 8)) await user.click(box);
@@ -109,6 +120,7 @@ describe("TripForm", () => {
 
   it("picks a must-see place with the keyboard only", async () => {
     const { onSubmit, user } = renderForm();
+    await openOptions(user);
     const field = screen.getByTestId("must-see-field");
     const input = within(field).getByRole("combobox");
     await user.click(input);
@@ -127,6 +139,7 @@ describe("TripForm", () => {
 
   it("keeps focus in the picker when the last allowed place is picked", async () => {
     const { user } = renderForm();
+    await openOptions(user);
     const field = screen.getByTestId("must-see-field");
     const input = within(field).getByRole("combobox") as HTMLInputElement;
     await user.click(input);
@@ -145,8 +158,9 @@ describe("TripForm", () => {
     expect(input.value).toBe("");
   });
 
-  it("scrolls a focused field out from under the sticky Plan my trip bar", () => {
-    renderForm();
+  it("scrolls a focused field out from under the sticky Plan my trip bar", async () => {
+    const { user } = renderForm();
+    await openOptions(user);
     const scrollBy = vi.fn();
     window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
     const bar = document.querySelector(".form-actions") as HTMLElement;
@@ -164,6 +178,7 @@ describe("TripForm", () => {
 
   it("closes the list on Escape, then clears the text on a second Escape", async () => {
     const { user } = renderForm();
+    await openOptions(user);
     const input = within(screen.getByTestId("skip-field")).getByRole(
       "combobox",
     ) as HTMLInputElement;
@@ -201,6 +216,7 @@ describe("TripForm", () => {
     expect(screen.getByTestId("pace-field").textContent).toContain(
       "Up to 7 visits a day, plus lunch and dinner, 08:30 to 23:30",
     );
+    await openOptions(user);
     await user.click(screen.getByRole("radio", { name: "Up to price level 2, moderate" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ pace: "packed", maxPriceLevel: 2 });

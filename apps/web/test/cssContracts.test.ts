@@ -74,6 +74,45 @@ describe("design tokens", () => {
   });
 });
 
+/** The declarations of the first rule whose selector ends with `selector`. */
+function block(css: string, selector: string): string {
+  const start = css.indexOf(selector);
+  if (start < 0) throw new Error(`No rule for ${selector}`);
+  return css.slice(start, css.indexOf("}", start));
+}
+
+describe("loading skeletons", () => {
+  const skeleton = read("styles/skeleton.css");
+
+  it("draws skeletons in the Rule token, so they follow the scheme and never look like content", () => {
+    expect(globals).toMatch(/--skeleton: var\(--line\);/);
+    expect(block(skeleton, ".skeleton {")).toContain("background: var(--skeleton)");
+  });
+
+  it("pulses gently, each cycle under 1.5 s", () => {
+    const durations = [...skeleton.matchAll(/animation: skeleton-pulse ([\d.]+)s/g)].map((m) =>
+      Number(m[1]),
+    );
+    expect(durations.length).toBeGreaterThan(0);
+    for (const seconds of durations) expect(seconds).toBeLessThan(1.5);
+  });
+
+  it("stops every skeleton animation for a traveler who asked for reduced motion", () => {
+    const reduced = skeleton.slice(skeleton.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.skeleton,\s*\.skeleton-dot\s*{\s*animation: none;/);
+    // Every class that animates is listed in that block.
+    const animated = [...skeleton.matchAll(/\.([\w-]+)\s*{[^}]*animation: skeleton-pulse/g)];
+    for (const match of animated) expect(reduced).toContain(`.${match[1]}`);
+  });
+
+  it("reserves the real sizes: chips and buttons 44 px, fields 48 px, the map its frame", () => {
+    expect(block(skeleton, ".skeleton--chip {")).toContain("height: 44px");
+    expect(block(skeleton, ".skeleton--button {")).toContain("height: 44px");
+    expect(block(skeleton, ".skeleton--field {")).toContain("height: 48px");
+    expect(block(skeleton, ".skeleton--fill {")).toContain("height: 100%");
+  });
+});
+
 describe("layout rules", () => {
   it("keeps focused controls clear of the pinned day tabs, the sticky form bar and the toast", () => {
     const html = globals.slice(globals.indexOf("html {"));
@@ -81,11 +120,29 @@ describe("layout rules", () => {
     expect(html).toMatch(/scroll-padding-bottom: calc\(var\(--safe-bottom\) \+ \d+px\)/);
   });
 
-  it("centres the toast over the plan pane from 1024 px, off the form's Plan button", () => {
-    const overlays = read("styles/overlays.css");
-    const wide = overlays.slice(overlays.indexOf("@media (min-width: 1024px)"));
-    expect(wide).toMatch(/\.toast\s*{\s*left: calc\(var\(--form-pane-width\) \+ \d+px\)/);
-    expect(read("styles/layout.css")).toContain("minmax(340px, var(--form-pane-width))");
+  it("keeps the toast inside the screen and centred on every screen size", () => {
+    // It only shows while the form is folded (PlannerApp.fold.test), so it never needs to dodge
+    // the sticky Plan my trip bar; a leftover offset for the old side pane would push it off.
+    const toast = block(read("styles/overlays.css"), ".toast {");
+    expect(toast).toMatch(/left: var\(--gutter-x-left\)/);
+    expect(toast).toMatch(/right: var\(--gutter-x-right\)/);
+    expect(toast).toContain("margin-inline: auto");
+    expect(read("styles/overlays.css")).not.toContain("--form-pane-width");
+  });
+
+  it("keeps the header, the content and the footer in one centred column inside the safe areas", () => {
+    const layout = read("styles/layout.css");
+    const column = block(layout, ".app-footer {");
+    expect(column).toContain("max(var(--gutter-x-left), calc((100% - var(--content-max)) / 2))");
+    expect(column).toContain("max(var(--gutter-x-right), calc((100% - var(--content-max)) / 2))");
+    expect(layout).toMatch(/\.app {\s*--content-max: 560px/);
+  });
+
+  it("paints an empty page, never the form, while a shared or saved plan is expected", () => {
+    const skeleton = read("styles/skeleton.css");
+    expect(skeleton).toMatch(
+      /html\[data-expect-plan\] \.app\[data-view="compose"\] \.app-body,[^{]*{\s*display: none;/,
+    );
   });
 
   it("uses a softer edit flash in dark mode so text on it stays readable", () => {

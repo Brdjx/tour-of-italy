@@ -38,13 +38,14 @@ async function planOnce(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("PlannerApp", () => {
-  it("shows the form after loading and the empty state before any plan", async () => {
+  it("shows the form from the first render and the data notes once the places load", async () => {
     setup(async () => aiPlan());
-    expect(screen.getByTestId("loading-places")).toBeTruthy();
-    expect(await screen.findByTestId("trip-form")).toBeTruthy();
-    expect(screen.getByText("Pick your dates and interests to build a 3-day plan.")).toBeTruthy();
-    expect(screen.getByTestId("empty-plan")).toBeTruthy();
-    expect(screen.getByTestId("data-notes")).toBeTruthy();
+    expect(screen.getByTestId("trip-form")).toBeTruthy();
+    expect(screen.getByTestId("plan-button")).toBeTruthy();
+    expect(screen.getByTestId("data-notes-skeleton")).toBeTruthy();
+    expect(await screen.findByTestId("data-notes")).toBeTruthy();
+    expect(screen.queryByTestId("data-notes-skeleton")).toBeNull();
+    expect(screen.queryByTestId("plan-view")).toBeNull();
   });
 
   it("plans a trip and shows three day tabs, the timetable, and who planned it", async () => {
@@ -95,7 +96,7 @@ describe("PlannerApp", () => {
     expect(screen.queryByTestId("error-state")).toBeNull();
   });
 
-  it("shows the error state with a retry when the places cannot load", async () => {
+  it("says the options could not load, keeps Plan my trip, and loads them on Try again", async () => {
     let calls = 0;
     const loader = async () => {
       calls += 1;
@@ -103,10 +104,12 @@ describe("PlannerApp", () => {
       return tripData();
     };
     const { user } = setup(async () => aiPlan(), loader);
-    const error = await screen.findByTestId("error-state");
-    expect(error.textContent).toContain("The planner is unavailable. Try again in a moment.");
-    await user.click(within(error).getByTestId("retry-button"));
-    expect(await screen.findByTestId("trip-form")).toBeTruthy();
+    const error = await screen.findByTestId("options-error");
+    expect(error.textContent).toContain("Interests and places could not load.");
+    expect(screen.getByTestId("plan-button").textContent).toBe("Plan my trip");
+    await user.click(within(error).getByTestId("options-retry"));
+    expect(await screen.findByTestId("data-notes")).toBeTruthy();
+    expect(screen.queryByTestId("options-error")).toBeNull();
   });
 
   it("opens a shared link, notes it, and removes it from the address bar", async () => {
