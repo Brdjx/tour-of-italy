@@ -5,6 +5,13 @@ primary_target: "app/page.tsx"
 related_targets: []
 ---
 
+---
+version: 1
+slug: "app-page-tsx"
+primary_target: "app/page.tsx"
+related_targets: []
+---
+
 # Planner (the one page)
 
 Mode: Operate. A traveler composes a trip, then reads, edits and carries a three-day plan.
@@ -26,3 +33,11 @@ FIRST VIEWPORT: Before a plan: the title in display width, one muted line, start
 FORM: The departure board (Solari split-flap boards in Italian stations), first on my ordered list and the owner's choice as Impeccable's pick; seed key 5a04eeae. Signature interaction: split-flap arrival, rows flipping into place in a top-left to bottom-right sweep, and only changed times flipping after an edit; reduced motion crossfades.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+## Next phase (owner feedback, 2026-09-24)
+
+- No top navbar in the plan view: the space goes to the plan. The trip summary, Edit trip, Copy link and the planned with or without AI line share one compact row.
+- Edit trip opens a full-screen overlay over a softly blurred page, with its own entrance and exit motion.
+- About this data opens a full-screen overlay with far more detailed data.
+- Richer colourways within the design language.
+- A detailed per-day skeleton for the itinerary on desktop, tablet and phone.

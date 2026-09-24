@@ -30,7 +30,7 @@ Plans you can trust. The model proposes and code decides: Claude only picks and 
 ## Capabilities and Constraints
 
 - Data: `data/italy.json`, 103 places in five bases (Rome, Florence, Milan, Venice, Bologna) with day trips. The source file is never edited; a normalizer logs 112 issues of 23 kinds.
-- Static Next.js export plus one API function, on one origin. A strict content security policy: fonts and images come from the site itself; the only third-party requests are OpenStreetMap map tiles.
+- Static Next.js export plus one API function, on one origin. A strict content security policy: fonts, photos and the map's tiles all come from the site itself, so the page makes no third-party requests.
 - Dependencies come from an approved list; anything else is asked for first.
 - Travel times come from a straight-line distance model, not a routing service.
 - Terms in use: base, day trip, stop, pace (relaxed, balanced, packed), "Plan my trip", "Edit trip", "More options", "About this data", and the source badge labels ("Planned with AI, checked against hours and distance", "Planned without AI").

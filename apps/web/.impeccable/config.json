@@ -1,3 +1,15 @@
 {
-  "buildPath": "code"
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "var(--dur-spring)",
+        "createdAt": "2026-09-24T21:32:28.099Z",
+        "reason": "Design decision: the spring tokens are linear() curves with at most 0.6% overshoot (--spring-smooth has none), iOS-style springs for the owner's request for Apple-level micro-animation, not bounce or elastic easing"
+      }
+    ]
+  }
 }

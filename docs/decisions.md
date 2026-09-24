@@ -79,7 +79,7 @@ Revisit if: the project moves to an AWS account of its own, or a pinned resource
 ### 10. Same-origin /api for the browser, plus a public API host
 
 Context: the web app needs the API, and other clients (the post-deploy smoke test, curl and scripts, future tool clients) want plain paths. The evals run the production pipeline in-process, so they need no network and no WAF allowance.
-Decision: the site distribution serves the bucket at `/*` and the HTTP API at `/api/*`, so the browser calls its own origin: no CORS in production, and `connect-src` is this origin plus the map tiles. A second distribution at `api.italy-planner.brdjx.com` has origin path `/api`, the same WAF, headers policy and origin secret, and sends no CORS headers (`infra/terraform/platform/cloudfront.tf`, `cloudfront-api.tf`).
+Decision: the site distribution serves the bucket at `/*` and the HTTP API at `/api/*`, so the browser calls its own origin: no CORS in production, and `connect-src` is this origin only (the map tiles are served from the site too). A second distribution at `api.italy-planner.brdjx.com` has origin path `/api`, the same WAF, headers policy and origin secret, and sends no CORS headers (`infra/terraform/platform/cloudfront.tf`, `cloudfront-api.tf`).
 Alternatives: the browser calls the API host (preflights on every plan, a second host in the CSP); site paths only for scripts.
 Why: one WAF path covers every browser call, and the public host opens no way around the WAF or the origin check.
 Revisit if: a browser client on another origin needs the API (it would need CORS).
@@ -169,7 +169,8 @@ Revisit if: a failure reaches production that no vector covers; add the vector, 
 - **Share links carry ids only and never notes**, capped at 8 KB, and repair instead of failing: unknown or excluded ids are dropped, flagged stops are left out until the validator is clean, and every outcome shows a note.
 - **The last plan is stored whole and read as hostile input**: discarded when over 100,000 characters, invalid, older than 90 days, past, or naming unknown places.
 - **The source badge never claims more than the page knows**, including "Shared plan" for links.
-- **The map is a visual aid** and the timetable its text equivalent; a failed map chunk shows a notice.
+- **The map is a visual aid** and the timetable its text equivalent; a failed map chunk, a missing worker or no WebGL shows a notice.
+- **A self-hosted vector map, not Google Maps** (the owner's choice). MapLibre GL draws a Protomaps extract of only the areas the trip uses (about 140 MB, three zoom bands: `scripts/map-tiles/`), styled in the page's palette with a real dark mode. The file is uploaded once to the site bucket under `tiles/` and deploys never delete it; the page makes no third-party request, needs no key and tracks no one. MapLibre's worker and glyphs are precached so an offline plan still draws its route and stops; the tiles are not. Changing day glides the camera, or jumps under reduced motion.
 - **The service worker is hand-written** (`apps/web/public/sw.js`) and tests run that exact file in a sandbox. `POST /api/plan` and all other API calls except `GET /api/meta` and `/api/places` bypass it.
 - **Cache names come from a content hash**, and the shell's hash is checked at install.
 - **Updates wait for a tap** ("A new version is available"); first installs are silent.
@@ -177,6 +178,8 @@ Revisit if: a failure reaches production that no vector covers; add the vector, 
 - **Zod runs jitless**, so the CSP needs no `unsafe-eval`.
 - **One column on every screen.** Before a plan the page is the date, the pace, More options and Plan my trip; once a plan is on screen or on its way the form folds into a one-line trip summary with Edit trip, on phones and desktops alike. This replaces the build plan's two-pane desktop sketch: the plan gets the full width and the form stops competing with it (`apps/web/app/styles/layout.css`).
 - **TikTok Sans with every axis, self-hosted**, the face the Goodpix reference uses; width marks rank. A local Arial face with TikTok Sans's measurements stands in while it loads, because next/font has no metrics for this family (`apps/web/app/layout.tsx`, `globals.css`).
+- **The departure board, in the Goodpix language** (the owner's reference). Ink is the only fill and gold only draws, containers and photos are square and anything pressed is a pill, hairlines instead of boxes, and TikTok Sans's width marks rank while weight marks state. Each day reads as a departure board: condensed tabular times in a left column, the moves beside them. Motion explains a change once: the board flips in when a plan arrives, only the times an edit moved flip afterwards, and under reduced motion everything crossfades. The product record is `apps/web/PRODUCT.md` and the direction contract `apps/web/.impeccable/surfaces/app-page-tsx.md`.
+- **Photos are real Wikimedia Commons photos, credited.** 73 places have a photo of that exact place, each checked by eye; the others show their city's photo inset on a mat and labelled, never as the place. Each credit names the author as they ask to be credited, links the licence and the Commons page. The photos are downloaded once at 500 and 960 px and served from the site (`data/place-photos.json`, `scripts/fetch-place-photos.ts`, `apps/web/lib/placePhotos.ts`); the service worker does not precache them. Two highlight photos (the Colosseum, the Duomo di Milano) carry Italy's cultural heritage restriction, which only binds commercial reproduction.
 
 ### Infrastructure
 
