@@ -54,12 +54,23 @@ locals {
       Resource = [local.api_key_param_arn]
     },
     {
-      # The only decryption CI needs is SSM reading the origin-verify parameter.
-      Sid       = "DenyDecryptOutsideOriginSecret"
-      Effect    = "Deny"
-      Action    = ["kms:Decrypt"]
-      Resource  = ["*"]
-      Condition = { StringNotEquals = { "kms:EncryptionContext:PARAMETER_ARN" = local.origin_secret_param_arn } }
+      # CI decrypts two things: SSM reading the origin-verify parameter, and Lambda decrypting
+      # this project's own function's environment while CloudFormation updates it.
+      # Decision: exempt the function's encryption context, not all of Lambda. Without the
+      # exemption Lambda answered UpdateFunctionConfiguration with success but silently kept the
+      # old environment (the first CI deploy kept GIT_SHA of the previous commit; the smoke
+      # test's commit check caught it, CloudTrail showed the denied Decrypt calls). Other
+      # functions' environments in this shared account stay unreadable to CI.
+      Sid      = "DenyDecryptOutsideOriginSecret"
+      Effect   = "Deny"
+      Action   = ["kms:Decrypt"]
+      Resource = ["*"]
+      Condition = {
+        StringNotEquals = {
+          "kms:EncryptionContext:PARAMETER_ARN"          = local.origin_secret_param_arn
+          "kms:EncryptionContext:aws:lambda:FunctionArn" = local.lambda_function_arn
+        }
+      }
     },
     {
       # Shared buckets: no settings changes and no permanent deletes (state history stays).

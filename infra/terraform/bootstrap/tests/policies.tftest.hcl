@@ -251,3 +251,30 @@ run "policies_fit_the_iam_size_limit" {
     error_message = "A managed policy exceeds the 6,144 character IAM limit and would fail to apply."
   }
 }
+
+# Regression: the first CI deploy kept the previous commit's GIT_SHA because the deny below also
+# blocked the Decrypt Lambda makes for the function's own environment, and Lambda then kept the
+# old environment while reporting success. The deny must still cover every other encryption
+# context, so CI cannot read other functions' environments or other SSM parameters.
+run "ci_can_update_its_own_function_environment_but_decrypt_nothing_else" {
+  command = plan
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_policy.deploy_guardrails.policy).Statement : s.Condition.StringNotEquals
+      if s.Sid == "DenyDecryptOutsideOriginSecret"
+      ]) == {
+      "kms:EncryptionContext:PARAMETER_ARN"          = "arn:aws:ssm:us-east-1:388773186626:parameter/italy-planner/origin-verify-secret"
+      "kms:EncryptionContext:aws:lambda:FunctionArn" = "arn:aws:lambda:us-east-1:388773186626:function:italy-planner-api"
+    }
+    error_message = "The Decrypt deny must exempt exactly the origin-verify parameter and this project's function."
+  }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_policy.deploy_guardrails.policy).Statement : s.Resource
+      if s.Sid == "DenyDecryptOutsideOriginSecret"
+    ]) == ["*"]
+    error_message = "The Decrypt deny must apply to every key."
+  }
+}
