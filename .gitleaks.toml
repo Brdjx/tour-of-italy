@@ -1,0 +1,17 @@
+# gitleaks configuration: every default rule, plus one narrow allowlist.
+
+[extend]
+useDefault = true
+
+# Decision: the pinned-id file holds public AWS resource identifiers (a CloudFront origin access
+# control id looks like an API key to the generic rule). The allowlist needs BOTH conditions: the
+# finding is in that one file AND the value has the exact shape of an AWS id (a 13 or 14 character
+# CloudFront id, a 10 character HTTP API id, or a UUID). A real secret pasted into the file, or an
+# id-shaped value anywhere else, is still reported.
+[[allowlists]]
+description = "Public AWS resource ids pinned for IAM scoping (not secrets)"
+condition = "AND"
+paths = ['''^infra/terraform/bootstrap/deployed-ids\.auto\.tfvars$''']
+regexes = [
+  '''^(E[A-Z0-9]{12,13}|[a-z0-9]{10}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$''',
+]
