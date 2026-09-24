@@ -31,3 +31,15 @@ packages/evals/results/*.json
 
 # Vitest local output
 .vitest/
+
+# Impeccable (design skill): the skill, its agents and the shared config are committed. The
+# platform binary is fetched by its launcher, and the hooks, local config and generated output
+# stay on each machine.
+.claude/settings.local.json
+.claude/skills/impeccable/scripts/bin/
+**/.impeccable/config.local.json
+**/.impeccable/questions/
+**/.impeccable/review/
+**/.impeccable/mocks/
+**/.impeccable/build/
+**/.impeccable/live/

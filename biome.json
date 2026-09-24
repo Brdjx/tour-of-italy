@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!data", "!**/results/*.json"]
+    "includes": ["**", "!data", "!**/results/*.json", "!.claude", "!.impeccable"]
   },
   "formatter": {
     "enabled": true,
