@@ -2,8 +2,10 @@
 
 Usage: python3 .github/scripts/check-infra-contract.py [repo-root]
 
-deploy.yml reads these after it has already changed AWS. A missing name there means a
-half-finished deploy, so this runs in CI (iac job) and fails the pull request instead.
+deploy.yml reads these after it has already changed AWS, and the pinning step in
+docs/deploy.md reads the pinned-id outputs after the first deploy has created the resources. A
+missing name there means a half-finished deploy, so this runs in CI (iac job) and fails the pull
+request instead.
 Standard library only: the SAM template is scanned by indentation, not parsed, because it uses
 CloudFormation tags (!Ref, !Sub) that a plain YAML loader rejects.
 """
@@ -12,11 +14,21 @@ import re
 import sys
 from pathlib import Path
 
-# Decision: only names deploy.yml or smoke-test.sh would fail without. Summary-only values
-# (ApiFunctionName, distribution_domain, site_url) are optional there, so they are not checked.
+# Decision: only names deploy.yml, smoke-test.sh or the pinning step would fail without.
+# Summary-only values (ApiFunctionName, distribution_domain, site_url, api_distribution_domain,
+# api_url) are optional there, so they are not checked.
 SAM_PARAMETERS = ["GitSha"]
-SAM_OUTPUTS = ["HttpApiUrl"]
-TERRAFORM_OUTPUTS = ["web_bucket_name", "distribution_id"]
+SAM_OUTPUTS = ["HttpApiUrl", "HttpApiId"]
+DEPLOY_OUTPUTS = ["web_bucket_name", "distribution_id"]
+# Pinned in infra/terraform/bootstrap (docs/deploy.md step 7), together with the SAM HttpApiId.
+PINNED_OUTPUTS = [
+    "distribution_id",
+    "api_distribution_id",
+    "origin_access_control_id",
+    "response_headers_policy_id",
+    "certificate_arn",
+]
+TERRAFORM_OUTPUTS = sorted(set(DEPLOY_OUTPUTS + PINNED_OUTPUTS))
 # The GitSha parameter must reach the function as GIT_SHA (services/api/src/config.ts), or the
 # health check can never report the deployed commit.
 GIT_SHA_ENV = re.compile(r"GIT_SHA:[^\n]*GitSha|GIT_SHA:[ \t]*\n[ \t]+(Ref|!Ref):?[ \t]*GitSha")
@@ -77,7 +89,7 @@ def main() -> None:
         print(f"::error::infra contract: {error}")
     if errors:
         sys.exit(1)
-    print("Infra provides every name deploy.yml relies on.")
+    print("Infra provides every name deploy.yml and the pinning step rely on.")
 
 
 if __name__ == "__main__":

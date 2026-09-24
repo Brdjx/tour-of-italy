@@ -2,8 +2,9 @@
 # sam deploy, with the deploy role from infra/terraform/bootstrap. Planned on pull requests with
 # the read-only plan role (terraform-plan.sh, -lock=false).
 #
-# Resources: origin-verify secret (SSM), ACM certificate, Route 53 alias records, private web
-# bucket, CloudFront with origin access control and security headers, WAF.
+# Resources: origin-verify secret (SSM), ACM certificate for both host names, Route 53 alias
+# records, private web bucket, two CloudFront distributions (the site with origin access control,
+# and the API host) sharing one security headers policy and one WAF web ACL.
 
 terraform {
   required_version = ">= 1.11.0, < 2.0.0"
@@ -50,5 +51,6 @@ locals {
   }
 
   web_bucket = "${local.name}-web-${var.aws_account_id}"
-  site_url   = "https://${var.domain_name}"
+  site_url   = "https://${var.site_domain}"
+  api_url    = "https://${var.api_domain}"
 }

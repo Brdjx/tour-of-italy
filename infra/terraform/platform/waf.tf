@@ -1,7 +1,31 @@
-# Web ACL in front of the whole distribution. Rate rules run first (cheapest, and they are the
-# main cost control for the Claude-backed /api/plan), then AWS managed rule groups.
+# One web ACL in front of both distributions (the site and the API host). Rate rules run first
+# (cheapest, and they are the main cost control for the Claude-backed plan endpoint), then AWS
+# managed rule groups.
 
 locals {
+  # The plan endpoint as each host spells it: /api/plan on the site, /plan on the API host (its
+  # origin path adds /api). Lowercase, because the rule lowercases the path before matching.
+  #
+  # Decision: STARTS_WITH on both prefixes, like the rule had for /api/plan alone. On the site
+  # host, /plan is not a page (the web app is one route), so counting it costs nothing; if a page
+  # under /plan is ever added, its page loads would count against this limit. An exact match
+  # would instead miss any future sub-path of the endpoint.
+  #
+  # Decision: plus ENDS_WITH /plan, for paths that start with a back-reference. AWS WAF
+  # NORMALIZE_PATH removes only back-references "that are not at the beginning of the input", so
+  # /%2e%2e/api/plan is inspected as /../api/plan and matches neither prefix. CloudFront then
+  # forwards the raw path (with origin_path /api in front on the API host), and the URL parser in
+  # the Lambda adapter resolves /api/%2e%2e/api/plan to /api/plan. The site host has the same
+  # shape (/api/../../api/plan: CloudFront normalizes the path to pick the /api/* behavior, then
+  # sends the raw path). The plan route is exact and strict (Hono, no trailing slash), so every
+  # request it serves has a path whose last segment decodes to "plan", whatever precedes it.
+  # Other paths ending in /plan serve nothing on either host, so counting them costs nothing.
+  plan_path_matches = [
+    { search_string = "/api/plan", positional_constraint = "STARTS_WITH" },
+    { search_string = "/plan", positional_constraint = "STARTS_WITH" },
+    { search_string = "/plan", positional_constraint = "ENDS_WITH" },
+  ]
+
   rate_limited_body = jsonencode({
     error = {
       code    = "RATE_LIMITED"
@@ -12,7 +36,7 @@ locals {
 
 resource "aws_wafv2_web_acl" "edge" {
   name        = "${local.name}-web"
-  description = "Edge protection for ${var.domain_name}"
+  description = "Edge protection for ${var.site_domain} and ${var.api_domain}"
   scope       = "CLOUDFRONT"
 
   default_action {
@@ -45,29 +69,37 @@ resource "aws_wafv2_web_acl" "edge" {
         evaluation_window_sec = 300
         aggregate_key_type    = "IP"
 
+        # Any spelling of the plan path (locals above). Each match keeps the same
+        # transformations: WAF sees the raw path, and CloudFront forwards it unnormalized, while
+        # the function (the URL parser in the Lambda adapter) resolves dot segments. So decode
+        # first (/api/%70lan, /%70lan), then normalize (/api/./plan, /x/../plan, //plan and
+        # backslashes), then lowercase. Without this the plan budget falls back to the global
+        # per-IP limit for anyone who adds a dot segment.
         scope_down_statement {
-          byte_match_statement {
-            search_string         = "/api/plan"
-            positional_constraint = "STARTS_WITH"
-            field_to_match {
-              uri_path {}
-            }
-            # WAF sees the raw path, and CloudFront forwards it unnormalized, while the function
-            # (the URL parser in the Lambda adapter) resolves dot segments. So decode first
-            # (/api/%70lan), then normalize (/api/./plan, /api/x/../plan, //api/plan and
-            # backslashes), then lowercase. Without this the plan budget falls back to the
-            # global per-IP limit for anyone who adds a dot segment.
-            text_transformation {
-              priority = 0
-              type     = "URL_DECODE"
-            }
-            text_transformation {
-              priority = 1
-              type     = "NORMALIZE_PATH_WIN"
-            }
-            text_transformation {
-              priority = 2
-              type     = "LOWERCASE"
+          or_statement {
+            dynamic "statement" {
+              for_each = local.plan_path_matches
+              content {
+                byte_match_statement {
+                  search_string         = statement.value.search_string
+                  positional_constraint = statement.value.positional_constraint
+                  field_to_match {
+                    uri_path {}
+                  }
+                  text_transformation {
+                    priority = 0
+                    type     = "URL_DECODE"
+                  }
+                  text_transformation {
+                    priority = 1
+                    type     = "NORMALIZE_PATH_WIN"
+                  }
+                  text_transformation {
+                    priority = 2
+                    type     = "LOWERCASE"
+                  }
+                }
+              }
             }
           }
         }

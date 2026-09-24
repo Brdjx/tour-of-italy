@@ -81,14 +81,37 @@ variable "api_stack_name" {
   default     = "italy-planner-api"
 }
 
-variable "domain_name" {
-  description = "Public host name of the site."
+# The two host names infra/terraform/platform serves. The deploy role may change DNS records
+# for exactly these names and their ACM validation records (deploy-platform.tf). They must equal
+# the platform's defaults (infra/test/hostnames.test.ts), or the deploy fails with AccessDenied.
+#
+# Decision: only italy-planner.brdjx.com or names under it, not any brdjx.com name. The zone is
+# shared with other stacks, so a one-line edit to another stack's host (or the www host) would
+# otherwise hand the deploy role that record and the validation CNAMEs under it.
+variable "site_domain" {
+  description = "Host name of the web app (platform site_domain)."
   type        = string
-  default     = "stripe.brdjx.com"
+  default     = "italy-planner.brdjx.com"
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)*italy-planner\\.brdjx\\.com$", var.site_domain))
+    error_message = "site_domain must be italy-planner.brdjx.com or a lowercase name under it, with no wildcard (the brdjx.com zone is shared with other stacks)."
+  }
+}
+
+variable "api_domain" {
+  description = "Host name of the public API (platform api_domain)."
+  type        = string
+  default     = "api.italy-planner.brdjx.com"
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)*italy-planner\\.brdjx\\.com$", var.api_domain)) && var.api_domain != var.site_domain
+    error_message = "api_domain must be italy-planner.brdjx.com or a lowercase name under it, with no wildcard (the brdjx.com zone is shared with other stacks), and differ from site_domain."
+  }
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone that holds domain_name (brdjx.com)."
+  description = "Route 53 hosted zone that holds site_domain and api_domain (brdjx.com)."
   type        = string
   default     = "Z0808500BKXP102OKNM9"
 }
@@ -132,13 +155,31 @@ variable "http_api_id" {
 }
 
 variable "distribution_id" {
-  description = "Id of the CloudFront distribution (platform output distribution_id)."
+  description = "Id of the site's CloudFront distribution (platform output distribution_id)."
   type        = string
   default     = ""
 
   validation {
     condition     = can(regex("^(E[A-Z0-9]{7,20})?$", var.distribution_id))
     error_message = "distribution_id must be empty or a CloudFront distribution id."
+  }
+}
+
+variable "api_distribution_id" {
+  description = "Id of the API host's CloudFront distribution (platform output api_distribution_id)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^(E[A-Z0-9]{7,20})?$", var.api_distribution_id))
+    error_message = "api_distribution_id must be empty or a CloudFront distribution id."
+  }
+
+  # Decision: a copy of the site's id would pass the format check, leave the API host unpinned
+  # (every deploy then fails on it) and still clear the "ids are pinned" check.
+  validation {
+    condition     = var.api_distribution_id == "" || var.api_distribution_id != var.distribution_id
+    error_message = "api_distribution_id must be the API host's distribution (platform output api_distribution_id), not the site's distribution_id."
   }
 }
 

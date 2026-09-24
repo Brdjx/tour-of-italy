@@ -1,4 +1,11 @@
-# Security headers for every response (site and API), plus the directory index function.
+# Security headers for every response on both distributions (site, /api/* and the API host),
+# plus the directory index function.
+#
+# Decision: the API host reuses this policy instead of a JSON-only one. Browsers apply a CSP only
+# to documents they render, so the site's CSP is inert on JSON, while HSTS, nosniff, DENY and
+# frame-ancestors 'none' still protect it. A second policy would be one more generated id for
+# infra/terraform/bootstrap to pin (IAM cannot scope headers policies by name) and a second
+# place to review, for no header a JSON client would act on.
 
 locals {
   osm_tiles = "https://tile.openstreetmap.org https://*.tile.openstreetmap.org"
@@ -36,7 +43,7 @@ locals {
 
 resource "aws_cloudfront_response_headers_policy" "security" {
   name    = "${local.name}-security-headers"
-  comment = "Security headers for ${var.domain_name}"
+  comment = "Security headers for ${var.site_domain} and ${var.api_domain}"
 
   security_headers_config {
     strict_transport_security {

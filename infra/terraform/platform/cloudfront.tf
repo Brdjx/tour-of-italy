@@ -1,5 +1,5 @@
-# One origin for the browser: the static site from S3 and /api/* from the HTTP API. Same origin
-# means no CORS, and the WAF and security headers cover both.
+# The site host: the static site from S3 and /api/* from the HTTP API. Same origin means no
+# CORS, and the WAF and security headers cover both. The API host is cloudfront-api.tf.
 
 resource "aws_cloudfront_origin_access_control" "web" {
   name                              = "${local.name}-web"
@@ -17,7 +17,7 @@ locals {
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   comment             = "${local.name}: static site and /api"
-  aliases             = [var.domain_name]
+  aliases             = [var.site_domain]
   default_root_object = "index.html"
   http_version        = "http2and3"
   is_ipv6_enabled     = true

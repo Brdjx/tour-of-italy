@@ -17,10 +17,31 @@ variable "region" {
   }
 }
 
-variable "domain_name" {
-  description = "Public host name of the site."
+# Decision: two host names. The web app calls /api/* on its own host (same origin: no CORS
+# preflight, a simple CSP), and the API host serves scripts, evals and tool clients without the
+# /api prefix. Both must be italy-planner.brdjx.com or names under it: the brdjx.com zone below
+# is shared with other stacks. infra/terraform/bootstrap allows DNS changes for exactly these
+# names (infra/test/hostnames.test.ts keeps the two roots in step).
+variable "site_domain" {
+  description = "Host name of the web app. The browser calls /api/* on this same host."
   type        = string
-  default     = "stripe.brdjx.com"
+  default     = "italy-planner.brdjx.com"
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)*italy-planner\\.brdjx\\.com$", var.site_domain))
+    error_message = "site_domain must be italy-planner.brdjx.com or a lowercase name under it, with no wildcard (the brdjx.com zone is shared with other stacks)."
+  }
+}
+
+variable "api_domain" {
+  description = "Host name of the public API (paths without /api, for example /health and /plan)."
+  type        = string
+  default     = "api.italy-planner.brdjx.com"
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)*italy-planner\\.brdjx\\.com$", var.api_domain)) && var.api_domain != var.site_domain
+    error_message = "api_domain must be italy-planner.brdjx.com or a lowercase name under it, with no wildcard (the brdjx.com zone is shared with other stacks), and differ from site_domain."
+  }
 }
 
 variable "hosted_zone_id" {
@@ -30,13 +51,13 @@ variable "hosted_zone_id" {
 }
 
 variable "api_stack_name" {
-  description = "SAM stack whose HttpApiDomain output is the /api/* origin."
+  description = "SAM stack whose HttpApiDomain output is the origin of /api/* and of the API host."
   type        = string
   default     = "italy-planner-api"
 }
 
 variable "plan_rate_limit" {
-  description = "WAF: requests per IP per 5 minutes to /api/plan before the IP gets 429s."
+  description = "WAF: requests per IP per 5 minutes to /api/plan (site) and /plan (API host) before the IP gets 429s."
   type        = number
   default     = 30
 
@@ -48,7 +69,7 @@ variable "plan_rate_limit" {
 }
 
 variable "global_rate_limit" {
-  description = "WAF: requests per IP per 5 minutes to anything on the site before the IP gets 429s."
+  description = "WAF: requests per IP per 5 minutes to anything on either host before the IP gets 429s."
   type        = number
   default     = 2000
 

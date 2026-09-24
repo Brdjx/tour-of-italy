@@ -2,8 +2,8 @@
 # Apply infra/terraform/platform, then report the outputs the rest of the deploy needs.
 #
 # Usage (from the repo root, with AWS credentials): bash .github/scripts/apply-platform.sh
-# Writes web_bucket_name, distribution_id, distribution_domain and site_url to GITHUB_OUTPUT when
-# that is set, and prints them either way.
+# Writes web_bucket_name, distribution_id, distribution_domain, site_url, api_distribution_id and
+# api_url to GITHUB_OUTPUT when that is set, and prints them either way.
 set -euo pipefail
 
 cd infra/terraform/platform
@@ -13,9 +13,9 @@ terraform apply -auto-approve -input=false
 outputs="$(terraform output -json)"
 read_output() { jq -r --arg key "$1" '.[$key].value // empty' <<<"$outputs"; }
 
-# Decision: only the bucket and distribution are required (the upload and invalidation need
-# them). distribution_domain and site_url only feed the summary, so a missing one never fails a
-# deploy after Terraform has already applied.
+# Decision: only the bucket and the site distribution are required (the upload and invalidation
+# need them). The other values only feed the summary, so a missing one never fails a deploy after
+# Terraform has already applied.
 for key in web_bucket_name distribution_id; do
   if [ -z "$(read_output "$key")" ]; then
     echo "::error::Terraform output ${key} is missing"
@@ -24,7 +24,7 @@ for key in web_bucket_name distribution_id; do
 done
 
 result=""
-for key in web_bucket_name distribution_id distribution_domain site_url; do
+for key in web_bucket_name distribution_id distribution_domain site_url api_distribution_id api_url; do
   result+="${key}=$(read_output "$key")"$'\n'
 done
 printf '%s' "$result"
