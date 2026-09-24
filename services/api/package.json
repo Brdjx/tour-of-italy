@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "tsx watch src/local.ts",
     "build": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "live-smoke": "tsx scripts/live-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",

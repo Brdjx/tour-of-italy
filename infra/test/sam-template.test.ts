@@ -64,8 +64,19 @@ describe("SAM template: timeouts and capacity", () => {
     expect(settings.ThrottlingBurstLimit).toBeTypeOf("number");
     expect(settings.ThrottlingRateLimit).toBeTypeOf("number");
     expect(settings.ThrottlingBurstLimit as number).toBeGreaterThan(0);
-    expect(settings.ThrottlingBurstLimit as number).toBeLessThanOrEqual(50);
-    expect(settings.ThrottlingRateLimit as number).toBeLessThanOrEqual(50);
+    expect(settings.ThrottlingBurstLimit as number).toBeLessThanOrEqual(200);
+    expect(settings.ThrottlingRateLimit as number).toBeLessThanOrEqual(100);
+  });
+
+  it("throttles plans below reserved concurrency, so a plan flood cannot starve page loads", () => {
+    const routes = resource("HttpApi").RouteSettings as Record<string, Props>;
+    const plan = routes["POST /api/plan"] as Props;
+    const reads = resource("HttpApi").DefaultRouteSettings as Props;
+    expect(plan.ThrottlingBurstLimit as number).toBeGreaterThan(0);
+    expect(plan.ThrottlingBurstLimit as number).toBeLessThan(
+      fn.ReservedConcurrentExecutions as number,
+    );
+    expect(plan.ThrottlingRateLimit as number).toBeLessThan(reads.ThrottlingRateLimit as number);
   });
 });
 
@@ -178,12 +189,17 @@ describe("SAM template: contract with CI and the platform", () => {
     expect(template.Outputs.HttpApiId?.Value).toEqual({ Ref: "HttpApi" });
   });
 
-  it("routes only /api/* to the function", () => {
+  it("routes only /api/* to the function, with the plan route separate for its throttle", () => {
     const events = fn.Events as Record<string, { Type: string; Properties: Props }>;
     const routes = Object.values(events).map(
       (event) => `${event.Type} ${event.Properties.Method} ${event.Properties.Path}`,
     );
-    expect(routes).toEqual(["HttpApi ANY /api/{proxy+}"]);
+    expect(routes.sort()).toEqual(["HttpApi ANY /api/{proxy+}", "HttpApi POST /api/plan"]);
+    // A route setting for a route that does not exist fails the deploy.
+    const keys = Object.values(events).map((e) => `${e.Properties.Method} ${e.Properties.Path}`);
+    for (const key of Object.keys(resource("HttpApi").RouteSettings as Props)) {
+      expect(keys).toContain(key);
+    }
   });
 
   it("names resources with the italy-planner prefix the deploy role is scoped to", () => {
