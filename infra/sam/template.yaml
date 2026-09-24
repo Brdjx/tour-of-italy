@@ -115,6 +115,8 @@ Resources:
           ORIGIN_VERIFY_PARAM: !Ref OriginVerifyParam
           ANTHROPIC_MODEL: !Ref AnthropicModel
           LLM_ENABLED: !Ref LlmEnabled
+          # Real Claude API client; the API refuses to start in fixture mode in production.
+          LLM_MODE: anthropic
           LLM_TIMEOUT_MS: "12000"
           PLAN_DEADLINE_MS: "24000"
           LLM_MAX_ATTEMPTS: "2"
@@ -122,6 +124,13 @@ Resources:
           LOG_LEVEL: info
           GIT_SHA: !Ref GitSha
       Events:
+        # A route of its own, so POST /api/plan gets a tighter throttle than the read routes.
+        Plan:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/plan
+            Method: POST
         Api:
           Type: HttpApi
           Properties:
@@ -135,11 +144,19 @@ Resources:
       Name: italy-planner-api
       Description: italy-planner API. Called through CloudFront only (origin-verify header).
       FailOnWarnings: true
-      # Decision: gateway throttling in front of the function's own limiter. Burst 20, 10 per
-      # second steady for the whole API; the WAF adds a per-IP limit on /api/plan at the edge.
+      # Decision: gateway throttling in front of the function's own limiter, split by route.
+      # Plans hold an instance for seconds (the model call), so POST /api/plan gets 1 per second
+      # with a burst of 6, below the reserved concurrency of 10: a plan flood gets clean 429s and
+      # always leaves instances for the read routes. Those answer in milliseconds, and every page
+      # load needs two of them, so they get 50 per second with a burst of 100. The WAF adds a
+      # per-IP limit on plan calls at the edge (/api/plan on the site, /plan on the API host).
       DefaultRouteSettings:
-        ThrottlingBurstLimit: 20
-        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      RouteSettings:
+        "POST /api/plan":
+          ThrottlingBurstLimit: 6
+          ThrottlingRateLimit: 1
       # Decision: no API access logs. HTTP API access logging needs an account-wide CloudWatch Logs
       # resource policy, and this account is shared. Throttled and failed calls still show in the
       # API's 4xx and 5xx metrics, and every call that reaches the function is logged by it.
@@ -233,6 +250,65 @@ Resources:
       AlarmActions: [!Ref AlarmTopic]
       OKActions: [!Ref AlarmTopic]
 
+  # The next two alarm on metrics the function writes itself (Embedded Metric Format on its
+  # request log line, services/api/src/lib/metrics.ts). A handled 500, a 503, or every plan
+  # quietly falling back to rules-only never shows in the Lambda Errors metric above.
+  HandledServerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-server-errors
+      AlarmDescription: The function answered 500 or 503 (handled errors the Lambda Errors metric misses).
+      Namespace: italy-planner
+      MetricName: ServerErrors
+      Dimensions: [{ Name: Service, Value: italy-planner-api }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  ModelFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-model-failures
+      AlarmDescription: >-
+        Over half of AI plans in 15 minutes fell back because the model call failed or the key
+        could not be read (revoked key, wrong model parameters, SSM or Anthropic outage).
+      Metrics:
+        - Id: plans
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: italy-planner
+              MetricName: AiPlans
+              Dimensions: [{ Name: Service, Value: italy-planner-api }]
+            Period: 900
+            Stat: Sum
+        - Id: failures
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: italy-planner
+              MetricName: AiPlanModelFailures
+              Dimensions: [{ Name: Service, Value: italy-planner-api }]
+            Period: 900
+            Stat: Sum
+        # Decision: at least 3 plans before the share counts, so one failed plan at 3 am is not
+        # an incident.
+        - Id: share
+          Label: Share of AI plans whose model call failed
+          Expression: IF(plans >= 3, failures / plans, 0)
+          ReturnData: true
+      EvaluationPeriods: 1
+      Threshold: 0.5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
 Outputs:
   HttpApiId:
     Description: API id. Pinned in infra/terraform/bootstrap (http_api_id) after the first deploy.
@@ -241,7 +317,7 @@ Outputs:
     Description: Direct execute-api URL. Only the smoke test uses it, to prove it refuses callers.
     Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
   HttpApiDomain:
-    Description: Host name CloudFront uses as the /api/* origin (read by infra/terraform/platform).
+    Description: Origin of the site's /api/* behavior and of the API host distribution (read by infra/terraform/platform).
     Value: !Sub "${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
   ApiFunctionName:
     Description: Function name, for logs and the deploy summary.

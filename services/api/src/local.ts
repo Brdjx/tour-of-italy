@@ -2,13 +2,12 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
+import { createRuntimeDeps } from "./runtime";
 
-// Local development server. Production traffic never reaches this file.
-
-const WEB_DEV_ORIGIN = "http://localhost:3000";
+// Local development server. Production traffic never reaches this file. CORS for the Next dev
+// server is set inside createApp (outside production only).
 
 // Decision: one optional .env at the repo root, read with Node's built-in parser instead of a
 // dotenv dependency. Variables already set in the shell win over the file.
@@ -22,14 +21,17 @@ function loadRootEnvFile(): void {
 loadRootEnvFile();
 const config = loadConfig();
 const server = new Hono();
+server.route("/", createApp(createRuntimeDeps(config)));
 
-// Decision: CORS exists only here. In production CloudFront serves the web app and the API from
-// one origin, so the Lambda never needs CORS headers.
-server.use("/api/*", cors({ origin: WEB_DEV_ORIGIN }));
-server.route("/", createApp({ config }));
+// Decision: listen on the loopback interface only, unless HOST says otherwise (HOST=0.0.0.0 to
+// test from a phone on the same network). Outside production there is no origin check and the
+// key in .env is real, so anyone on the same Wi-Fi could otherwise spend it.
+const hostname = process.env.HOST?.trim() || "127.0.0.1";
 
-const httpServer = serve({ fetch: server.fetch, port: config.port }, (info) => {
-  console.log(`API listening on http://localhost:${info.port}/api/health`);
+const httpServer = serve({ fetch: server.fetch, port: config.port, hostname }, (info) => {
+  console.log(
+    `API listening on http://${hostname}:${info.port}/api/health (model client: ${config.llmMode})`,
+  );
 });
 
 function shutdown(): void {
