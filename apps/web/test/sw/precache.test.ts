@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildIdFor,
-  injectPrecache,
   fileForUrl,
+  injectPrecache,
   precacheUrls,
   sha256Hex,
   writePrecache,

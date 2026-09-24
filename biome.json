@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!data", "!**/results/*.json", "!.claude", "!.impeccable", "!apps/web/public/map/maplibre"]
+    "includes": [
+      "**",
+      "!data",
+      "!**/results/*.json",
+      "!.claude",
+      "!.impeccable",
+      "!apps/web/public/map/maplibre"
+    ]
   },
   "formatter": {
     "enabled": true,
