@@ -26,59 +26,59 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T05 | Profile script writing `docs/data-profile.md` | todo | |
-| T06 | Shared type contract (`types.ts`) and tunable constants (`config.ts`) | todo | |
-| T07 | Normalizers: hours, seasons, duration, price, rating, geo, names, tags, ids | todo | |
-| T08 | `time.ts`: one source of truth for "is this place open on this date" | todo | |
-| T09 | Audit script writing `docs/data-issues.md` | todo | |
-| T10 | Independent record-by-record check of all 103 places | todo | |
-| T11 | Data test hardening: fuzzing, corrupted datasets, checksum, time zone matrix | todo | |
+| T05 | Profile script writing `docs/data-profile.md` | done | 9c68af4 |
+| T06 | Shared type contract (`types.ts`) and tunable constants (`config.ts`) | done | 9c68af4 |
+| T07 | Normalizers: hours, seasons, duration, price, rating, geo, names, tags, ids | done | 9c68af4 |
+| T08 | `time.ts`: one source of truth for "is this place open on this date" | done | 9c68af4 |
+| T09 | Audit script writing `docs/data-issues.md` | done | 9c68af4; 112 issues across 23 kinds |
+| T10 | Independent record-by-record check of all 103 places | done | record-by-record review found 0 mismatches |
+| T11 | Data test hardening: fuzzing, corrupted datasets, checksum, time zone matrix | done | 9c68af4; fuzzing, corrupted datasets, checksum, TZ guard |
 
 ## Phase 2: planner core
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T12 | Travel model (walk, local, regional, intercity rail) and bases with day trips | todo | |
-| T13 | Scoring and constraints | todo | |
-| T14 | Scheduler: `scheduleDay` and `planDeterministic` | todo | |
-| T15 | Validator, written independently of the scheduler | todo | |
-| T16 | Swap alternatives | todo | |
-| T17 | Property tests and validator mutation tests | todo | |
+| T12 | Travel model (walk, local, regional, intercity rail) and bases with day trips | done | 9e811c7 |
+| T13 | Scoring and constraints | done | 9e811c7 |
+| T14 | Scheduler: `scheduleDay` and `planDeterministic` | done | 9e811c7; three realism review rounds |
+| T15 | Validator, written independently of the scheduler | done | 2a3d349 |
+| T16 | Swap alternatives | done | 9e811c7 |
+| T17 | Property tests and validator mutation tests | done | 0337281; 5000-run property tests green |
 
 ## Phase 3: API and AI layer
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T18 | Hono routes: health, meta, places, data issues, plan | todo | |
-| T19 | Claude client: structured outputs, per-model settings, fixture client | todo | |
-| T20 | Plan orchestration: shortlist, select, validate, repair, fallback | todo | |
-| T21 | Reason sanitizing and rule-based reasons | todo | |
-| T22 | Logging, request ids, cache, rate limit, origin check, error handling | todo | |
-| T23 | Failure-injection integration tests (timeouts, errors, injection, leaks, abuse) | todo | |
+| T18 | Hono routes: health, meta, places, data issues, plan | done | 8488601 |
+| T19 | Claude client: structured outputs, per-model settings, fixture client | done | 8488601; live call blocked by key scope, see T58 |
+| T20 | Plan orchestration: shortlist, select, validate, repair, fallback | done | 8488601 |
+| T21 | Reason sanitizing and rule-based reasons | done | 8488601 |
+| T22 | Logging, request ids, cache, rate limit, origin check, error handling | done | 8488601 |
+| T23 | Failure-injection integration tests (timeouts, errors, injection, leaks, abuse) | done | 8488601; 301+ API tests |
 
 ## Phase 4: web app
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T24 | Trip form, timetable, source badge, warning chips, data notes panel | todo | |
-| T25 | Edits validated in the browser: swap, remove, reorder, undo | todo | |
-| T26 | Shareable plan links | todo | |
-| T27 | Day map | todo | |
-| T28 | PWA: manifest, icons, service worker, update prompt, offline planning | todo | |
-| T29 | Safe areas and responsive layouts for iPhone, iPad, and Android | todo | |
-| T30 | Component tests for every loading, error, and empty state | todo | |
-| T31 | End-to-end tests on six device profiles, accessibility scan, PWA checks | todo | |
+| T24 | Trip form, timetable, source badge, warning chips, data notes panel | done | 5adb40a |
+| T25 | Edits validated in the browser: swap, remove, reorder, undo | done | 5adb40a |
+| T26 | Shareable plan links | done | 5adb40a |
+| T27 | Day map | done | 5adb40a |
+| T28 | PWA: manifest, icons, service worker, update prompt, offline planning | done | 7a2b742 |
+| T29 | Safe areas and responsive layouts for iPhone, iPad, and Android | done | 5adb40a |
+| T30 | Component tests for every loading, error, and empty state | done | 5adb40a |
+| T31 | End-to-end tests on six device profiles, accessibility scan, PWA checks | done | 0572d6a; 286 E2E tests, 0 retries |
 
 ## Phase 5: infrastructure
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T32 | Terraform bootstrap: deploy and plan roles, permissions boundary, artifacts bucket, budget | todo | |
-| T33 | Terraform platform: certificate, DNS, web bucket, CloudFront, WAF, origin secret | todo | |
-| T34 | SAM: Lambda, HTTP API, log groups, alarms | todo | |
-| T35 | Infrastructure tests and security scan | todo | |
-| T36 | Allow the service worker and manifest in the content security policy | todo | |
-| T37 | Deploy runbook in `docs/deploy.md` | todo | |
+| T32 | Terraform bootstrap: deploy and plan roles, permissions boundary, artifacts bucket, budget | done | 329784b; 22 bootstrap + 12 platform Terraform tests |
+| T33 | Terraform platform: certificate, DNS, web bucket, CloudFront, WAF, origin secret | done | 329784b |
+| T34 | SAM: Lambda, HTTP API, log groups, alarms | done | 329784b; SAM lint clean, 31 template assertions |
+| T35 | Infrastructure tests and security scan | done | 329784b; terraform test, tflint, trivy in CI |
+| T36 | Allow the service worker and manifest in the content security policy | done | 329784b; CSP allows worker-src and manifest-src self |
+| T37 | Deploy runbook in `docs/deploy.md` | done | 329784b |
 
 ## Phase 6: CI/CD
 
@@ -93,8 +93,8 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T42 | Store the Anthropic key in SSM and as a GitHub secret without echoing it | todo | |
-| T43 | Apply bootstrap, configure the GitHub environment and variables | todo | |
+| T42 | Store the Anthropic key in SSM and as a GitHub secret without echoing it | done | SSM SecureString v1 (aws/ssm key) and repo secret set from file, never echoed |
+| T43 | Apply bootstrap, configure the GitHub environment and variables | in progress | bootstrap applied (21 resources); Project cost tag active; role variables set after first deploy |
 | T44 | First deploy: SAM, then platform, then web, then smoke checks | todo | |
 | T45 | Push to GitHub, confirm CI passes and the deploy runs from `main` | todo | |
 | T46 | Production smoke checks, including the browser smoke test | todo | |
@@ -120,6 +120,12 @@ Statuses:
 | T51 | Test audit repeated until two rounds find nothing new | todo | |
 | T52 | Final review: security, correctness, accessibility, prose, secrets in history | todo | |
 | T53 | Fresh clone check, tag `v1.0.0` | todo | |
+| T54 | Pre-publication scan: full history for secrets and private material, personal details out of committed defaults | todo | |
+| T55 | Make the repo public, require `ci-ok` on `main`, protect the `production` environment | todo | |
+| T56 | Tighten the deploy role trust to the `production` environment subject only | todo | |
+| T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | review | f619a28; bootstrap re-applied (1 policy updated); goes live with the first deploy (T44) |
+| T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | needs a new key or the workspace id from the Console |
+| T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | todo | |
 
 ## Cut or deferred
 
