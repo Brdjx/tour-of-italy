@@ -84,8 +84,8 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T38 | CI: verify, infrastructure checks, secret scan, Terraform plan on pull requests | review | actionlint and zizmor clean; not yet run on GitHub |
-| T39 | Deploy workflow with post-deploy smoke checks | review | actionlint and zizmor clean; not yet run on GitHub |
+| T38 | CI: verify, infrastructure checks, secret scan, Terraform plan on pull requests | done | ci.yml green on GitHub (9 jobs incl. WebKit E2E and gitleaks) |
+| T39 | Deploy workflow with post-deploy smoke checks | done | deploy run 36003028360: gate, build, OIDC deploy, prod smoke all green |
 | T40 | Eval workflow | review | actionlint clean; not yet run on GitHub |
 | T41 | Dependabot, code owners, pull request template, actions pinned to commit hashes | review | every action pinned to a verified commit hash |
 
@@ -94,24 +94,24 @@ Statuses:
 | Id | Task | Status | Evidence |
 |---|---|---|---|
 | T42 | Store the Anthropic key in SSM and as a GitHub secret without echoing it | done | SSM SecureString v1 (aws/ssm key) and repo secret set from file, never echoed |
-| T43 | Apply bootstrap, configure the GitHub environment and variables | in progress | bootstrap applied (21 resources); Project cost tag active; role variables set after first deploy |
-| T44 | First deploy: SAM, then platform, then web, then smoke checks | todo | |
-| T45 | Push to GitHub, confirm CI passes and the deploy runs from `main` | todo | |
-| T46 | Production smoke checks, including the browser smoke test | todo | |
+| T43 | Apply bootstrap, configure the GitHub environment and variables | done | bootstrap applied, six ids pinned (e338017), role variables set |
+| T44 | First deploy: SAM, then platform, then web, then smoke checks | done | 147e285 deployed by hand; smoke test all green on both hosts |
+| T45 | Push to GitHub, confirm CI passes and the deploy runs from `main` | done | c911df2 deployed automatically from main |
+| T46 | Production smoke checks, including the browser smoke test | done | post-deploy smoke.sh and Playwright smoke against production green |
 
 ## Phase 7: evals
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T47 | Fifteen eval cases using real place ids | todo | |
-| T48 | Live eval runner with recordings, replayed in CI without network | todo | |
+| T47 | Fifteen eval cases using real place ids | in progress | |
+| T48 | Live eval runner with recordings, replayed in CI without network | in progress | |
 | T49 | Compare Sonnet 5, Haiku 4.5, and the rules-only baseline | todo | |
 
 ## Phase 8: docs
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | todo | |
+| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | in progress | decisions, testing, architecture, README drafting; write-up waits for eval numbers |
 
 ## Phase 9: final pass
 
@@ -123,9 +123,9 @@ Statuses:
 | T54 | Pre-publication scan: full history for secrets and private material, personal details out of committed defaults | todo | |
 | T55 | Make the repo public, require `ci-ok` on `main`, protect the `production` environment | todo | |
 | T56 | Tighten the deploy role trust to the `production` environment subject only | todo | |
-| T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | review | f619a28; bootstrap re-applied (1 policy updated); goes live with the first deploy (T44) |
-| T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | needs a new key or the workspace id from the Console |
-| T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | todo | |
+| T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | done | live at italy-planner.brdjx.com and api.italy-planner.brdjx.com |
+| T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | waiting for a workspace-scoped key in .env.anthropic |
+| T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | in progress | |
 
 ## Cut or deferred
 
