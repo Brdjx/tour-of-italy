@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:props": "FC_RUNS=5000 vitest run --project planner --testTimeout=300000 test/properties test/planSweep test/validate/mutationProps test/validate/robustness test/normalize/fuzz",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "data:profile": "tsx scripts/profile-data.ts",
     "data:audit": "tsx scripts/audit-data.ts",
