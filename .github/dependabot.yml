@@ -19,6 +19,11 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    # Decision: @types/node follows the Lambda runtime (nodejs24.x, .nvmrc 24), so its major
+    # version moves only when the runtime does, by hand, together with .nvmrc and the SAM template.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: chore
       include: scope
