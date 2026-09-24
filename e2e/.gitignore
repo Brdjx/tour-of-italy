@@ -1,0 +1,3 @@
+# Playwright output (CI uploads both as an artifact when the job fails)
+playwright-report/
+test-results/
