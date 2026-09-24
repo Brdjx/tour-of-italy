@@ -1,30 +1,161 @@
 @import "tailwindcss";
+@import "./styles/layout.css";
+@import "./styles/form.css";
+@import "./styles/pickers.css";
+@import "./styles/overlays.css";
+@import "./styles/timetable.css";
+@import "./styles/pwa.css";
 
-/* Design tokens. The full visual design comes with the real UI; these names stay stable. */
-@theme {
-  --color-ink: #18222f;
-  --color-stone: #f4f6f5;
-  --color-lagoon: #17616b;
-  --color-rule: #d3d9d6;
-  --color-limone: #e9c53a;
-  --color-signal: #a8322d;
-  --font-sans: system-ui, sans-serif;
-}
-
+/*
+ * Design tokens. The palette is a railway timetable: Ink text on a cool Stone page, Lagoon for
+ * actions and the route, Rule hairlines, Limone for warnings, Signal for errors only. Components
+ * use the semantic names (page, fg, muted, line, accent...) so dark mode is one block below.
+ * Contrast (WCAG AA) was checked for every text pair in both schemes.
+ */
 :root {
-  --page-bg: var(--color-stone);
-  --page-fg: var(--color-ink);
+  --page: #f4f6f5; /* Stone */
+  --surface: #ffffff;
+  --fg: #18222f; /* Ink */
+  --muted: #4f5b67;
+  --line: #d3d9d6; /* Rule */
+  --line-strong: #7d8a86; /* input borders, 3:1 against page and surface */
+  --accent: #17616b; /* Lagoon */
+  --accent-fg: #ffffff;
+  --accent-soft: #e3eeef;
+  --hover: rgb(23 97 107 / 0.08);
+  --warn: #e9c53a; /* Limone */
+  --warn-fg: #18222f;
+  --danger: #a8322d; /* Signal */
+  --danger-soft: #f8e9e8;
+  --focus: #17616b;
+  --toast-bg: #18222f;
+  --toast-fg: #f4f6f5;
+  --toast-accent: #e9c53a;
+  --toast-focus: #e9c53a; /* Limone on the Ink toast, 9.6:1 */
+  --changed-bg: color-mix(in srgb, var(--warn) 40%, transparent); /* edited-row flash */
+  /* The status bar strip in the installed iOS app. black-translucent draws white status text,
+     so light mode paints the strip Ink; dark mode keeps the page colour. */
+  --status-bar: #18222f;
+
+  /* Safe areas for notches, the Dynamic Island, and the home indicator (viewport-fit=cover). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --gutter-x-left: max(16px, var(--safe-left));
+  --gutter-x-right: max(16px, var(--safe-right));
+
+  color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page-bg: #11191f;
-    --page-fg: var(--color-stone);
+    --page: #11191f; /* deep lagoon slate */
+    --surface: #18232b;
+    --fg: #f4f6f5;
+    --muted: #a3afb8;
+    --line: #2c3a44;
+    --line-strong: #647480; /* 3.3:1 on surface, 3.7:1 on page */
+    --accent: #5fb0ba;
+    --accent-fg: #0c1419;
+    --accent-soft: #1d3339;
+    --hover: rgb(95 176 186 / 0.12);
+    --warn: #e9c53a;
+    --warn-fg: #18222f;
+    --danger: #f08a82;
+    --danger-soft: #2c1b1c;
+    --focus: #7cc4cc;
+    --toast-bg: #f4f6f5;
+    --toast-fg: #18222f;
+    --toast-accent: #17616b;
+    --toast-focus: #17616b; /* Lagoon on the Stone toast, 6.5:1 */
+    /* A lighter flash keeps muted and accent text at 4.5:1 or more while it fades. */
+    --changed-bg: color-mix(in srgb, var(--warn) 18%, transparent);
+    --status-bar: var(--page);
   }
 }
 
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-hover: var(--hover);
+  --color-warn: var(--warn);
+  --color-warn-fg: var(--warn-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-focus: var(--focus);
+  --color-toast-accent: var(--toast-accent);
+  --color-toast-focus: var(--toast-focus);
+  --font-sans: var(--font-schibsted), system-ui, sans-serif;
+}
+
+/* Type scale: 14, 16, 20, 28, 40. */
+@theme {
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.35;
+  --text-base: 1rem;
+  --text-base--line-height: 1.45;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.3;
+  --text-h2: 1.75rem;
+  --text-h2--line-height: 1.2;
+  --text-h1: 2.5rem;
+  --text-h1--line-height: 1.1;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--page);
+  /* Focus and scrollIntoView keep the target clear of the pinned day tabs at the top and of the
+     sticky "Plan my trip" bar and the toast at the bottom (WCAG 2.4.11, focus not obscured). */
+  scroll-padding-top: calc(var(--safe-top) + 76px);
+  scroll-padding-bottom: calc(var(--safe-bottom) + 96px);
+}
+
 body {
-  background: var(--page-bg);
-  color: var(--page-fg);
-  font-variant-numeric: tabular-nums;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--page);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: clip;
+}
+
+:focus-visible {
+  outline-color: var(--focus);
+}
+
+::selection {
+  background: var(--warn);
+  color: var(--warn-fg);
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter-x-left);
+  top: -200px;
+  z-index: 70;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: calc(var(--safe-top) + 8px);
 }
