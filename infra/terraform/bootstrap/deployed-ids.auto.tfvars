@@ -1,0 +1,6 @@
+http_api_id                = "jl4qcus9w6"
+distribution_id            = "E2CSQOFP39HR1W"
+api_distribution_id        = "EIV43CJY8Z4XK"
+origin_access_control_id   = "E3SBC5CHZWIYUB"
+response_headers_policy_id = "b65f5f03-7063-4c06-b6e9-d3e3517a1cfe"
+certificate_id             = "5bfeca2d-bf6e-434b-8485-8df34593231e"
