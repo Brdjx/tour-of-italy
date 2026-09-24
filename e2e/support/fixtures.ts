@@ -53,17 +53,23 @@ function recordClipboard(): void {
 }
 
 /**
- * The browser's own console lines a test may see:
- * - "Failed to load resource": a request that failed. Every such line in the suite comes from a
- *   fault a test injects (a 404, 400, 429 or 503, a refused or reset connection, going offline).
- * - WebKit on Linux reports the viewport key interactive-widget as unrecognized. Chromium uses it
- *   (it keeps the Android keyboard from covering inputs) and WebKit ignores it, so the line is a
- *   browser notice about our own meta tag, not an app error. WebKit on macOS does not log it.
+ * The one console error a test may cause on purpose: the browser's own line for a request that
+ * failed. Every such line in the suite comes from a fault a test injects (a 404, 400, 429 or 503,
+ * a refused or reset connection, going offline).
  */
-// Decision: an allowlist of these exact lines, not a per-test opt-out. Anything else logged as an
+// Decision: an allowlist of this one line, not a per-test opt-out. Anything else logged as an
 // error (a React warning, an exception the app caught and logged) fails the test that caused it.
-const EXPECTED_CONSOLE_ERROR =
-  /^(Failed to load resource\b|Viewport argument key "interactive-widget" not recognized and ignored\.$)/;
+const EXPECTED_CONSOLE_ERROR = /^Failed to load resource\b/;
+
+/**
+ * A browser notice that is never recorded at all. WebKit on Linux reports the viewport key
+ * interactive-widget as unrecognized. Chromium uses the key (it keeps the Android keyboard from
+ * covering inputs) and WebKit ignores it, so the line describes our own meta tag, not an app
+ * error. WebKit on macOS does not log it.
+ */
+// Decision: dropped where console messages are collected, so no assertion (the watchdog's or a
+// test's own check of consoleErrors) ever sees it.
+const BROWSER_NOTICE = /^Viewport argument key "interactive-widget" not recognized and ignored\.$/;
 
 export interface Watchdog {
   pageErrors: string[];
@@ -117,7 +123,8 @@ export const test = base.extend<Fixtures>({
       const watch = (target: Page) => {
         target.on("pageerror", (error) => watchdog.pageErrors.push(error.message));
         target.on("console", (message) => {
-          if (message.type() === "error") watchdog.consoleErrors.push(message.text());
+          if (message.type() !== "error" || BROWSER_NOTICE.test(message.text())) return;
+          watchdog.consoleErrors.push(message.text());
         });
       };
       // The test's page exists already; pages it opens later (a shared link) are watched too.
