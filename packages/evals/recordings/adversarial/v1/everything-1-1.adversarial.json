@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "everything",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v1",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:8a115b2fb14003479cf5a7af774b889833353dd07f7f82120920cf604edc7417",
+  "request": {
+    "startDate": "2026-10-16",
+    "pace": "balanced",
+    "interests": [
+      "historic",
+      "art",
+      "food",
+      "scenic",
+      "views",
+      "wine",
+      "local-favorite",
+      "cultural"
+    ],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":\"three days please\",\"summary\":42}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    "latencyMs": 0,
+    "model": "adversarial"
+  },
+  "scenario": {
+    "name": "Off-schema JSON, then a valid answer",
+    "note": "Parses as JSON but not as an itinerary; the repair turn names the schema problems.",
+    "expectSource": "ai_repaired"
+  }
+}

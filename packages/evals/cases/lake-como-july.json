@@ -1,0 +1,23 @@
+{
+  "id": "lake-como-july",
+  "description": "Scenery and the outdoors from Milan in July, when the Lake Como places are open: at least one lake day, and Villa del Balbianello never on its closed Wednesday.",
+  "request": {
+    "startDate": "2027-07-13",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 1,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": ["place_063", "place_064", "place_085"],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "tuscany-wine-relaxed",
+  "description": "Wine and scenery from Florence at a relaxed pace in September, harvest season: day trips stay with their base, the pace cap holds, and the Chianti bike day is in.",
+  "request": {
+    "startDate": "2027-09-14",
+    "pace": "relaxed",
+    "interests": ["wine", "scenic"],
+    "maxPriceLevel": null,
+    "anchors": ["florence"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 1,
+    "minPreferenceMatch": 0.5,
+    "forbidViolationCodes": [
+      "OUTSIDE_ANCHOR",
+      "TOO_MANY_VISITS",
+      "CLOSED_AT_TIME",
+      "SEASONAL_CLOSED"
+    ],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": ["place_035"],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

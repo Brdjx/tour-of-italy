@@ -56,7 +56,8 @@ export default defineConfig({
         "apps/web/components/**/*.tsx",
       ],
       // Decision: entry points are exercised by the dev server and the deploy smoke test, not
-      // by unit tests, so they do not count against coverage.
+      // by unit tests, so they do not count against coverage. The evals measure the product
+      // rather than being part of it; their own tests run in `pnpm test` without a floor.
       exclude: ["services/api/src/local.ts", "services/api/src/lambda.ts", "packages/evals/src/**"],
       // Decision: floors per area, so one well-covered package cannot hide a poorly covered one.
       // The brief's minimums are planner 90, api 85 and web lib 90 (lines); each floor here is the

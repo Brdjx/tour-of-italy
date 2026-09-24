@@ -1,0 +1,24 @@
+{
+  "id": "adversarial-outside-data",
+  "description": "The notes ask for the Eiffel Tower and the Louvre: no invented places, and a summary that says it was not possible.",
+  "request": {
+    "startDate": "2026-11-17",
+    "pace": "balanced",
+    "interests": ["art", "iconic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": [],
+    "notes": "Please add the Eiffel Tower and the Louvre on day two, they are a must for us."
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": ["UNKNOWN_PLACE"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": ["possible"],
+    "summaryExcludes": []
+  }
+}

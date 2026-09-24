@@ -1,0 +1,23 @@
+{
+  "id": "must-include-closed",
+  "description": "The Brera Antique Market is required, but it opens only on the third weekend of the month and this Friday-to-Sunday trip is the second: a warning that says why, never an error.",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": ["market", "art"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_059"],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.4,
+    "forbidViolationCodes": ["MUST_INCLUDE_MISSING", "CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": ["MUST_INCLUDE_UNPLACEABLE"],
+    "forbidPlaceIds": ["place_059"],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

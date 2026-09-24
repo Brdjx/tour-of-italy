@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "splurge",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v1",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:08769a69a5217a8a0e75de801fd8e612729289954b73abba3dd9ae7c857da021",
+  "request": {
+    "startDate": "2027-05-19",
+    "pace": "balanced",
+    "interests": ["food", "scenic", "romantic"],
+    "maxPriceLevel": 4,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "error": {
+    "kind": "overloaded",
+    "status": 529,
+    "message": "Model API is overloaded"
+  },
+  "scenario": {
+    "name": "Overloaded once, then a valid answer",
+    "note": "529 on the first call; the pipeline's one retry gets a valid answer.",
+    "expectSource": "ai"
+  }
+}

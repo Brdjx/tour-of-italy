@@ -1,0 +1,23 @@
+{
+  "id": "splurge",
+  "description": "Food, scenery, and romance at any price in May: the top price level raises no budget warnings, and seasonal places open in May are fair game.",
+  "request": {
+    "startDate": "2027-05-19",
+    "pace": "balanced",
+    "interests": ["food", "scenic", "romantic"],
+    "maxPriceLevel": 4,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": ["OVER_BUDGET", "CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

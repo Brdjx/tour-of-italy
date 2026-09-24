@@ -1,0 +1,23 @@
+{
+  "id": "budget-traveler",
+  "description": "Food and history at the lowest price level from a Saturday: nothing over budget, including over a weekend and a Monday.",
+  "request": {
+    "startDate": "2026-11-07",
+    "pace": "balanced",
+    "interests": ["food", "historic"],
+    "maxPriceLevel": 1,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": ["OVER_BUDGET", "CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

@@ -6,10 +6,12 @@
   "scripts": {
     "eval": "tsx src/run.ts",
     "eval:replay": "tsx src/replay.ts",
+    "eval:seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@italy/api": "workspace:*",
-    "@italy/planner": "workspace:*"
+    "@italy/planner": "workspace:*",
+    "zod": "4.6.5"
   }
 }

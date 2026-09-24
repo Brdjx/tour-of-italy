@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "rome-food-balanced",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v1",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:80a4fd4bfcf35705d3ed1559b537a7d679630da08aa47a49e610acc28eb5da0b",
+  "request": {
+    "startDate": "2026-10-13",
+    "pace": "balanced",
+    "interests": ["food", "local-favorite"],
+    "maxPriceLevel": null,
+    "anchors": ["rome"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_002\",\"place_003\",\"place_018\",\"place_005\",\"place_004\"],\"reasons\":[{\"placeI",
+    "stopReason": "max_tokens",
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    "latencyMs": 0,
+    "model": "adversarial"
+  },
+  "scenario": {
+    "name": "Cut off at max_tokens",
+    "note": "The answer stops mid-JSON; no repair (it would need even more room), rules-only plan.",
+    "expectSource": "deterministic",
+    "expectFallbackReason": "max_tokens"
+  }
+}

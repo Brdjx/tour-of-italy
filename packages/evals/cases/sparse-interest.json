@@ -1,0 +1,23 @@
+{
+  "id": "sparse-interest",
+  "description": "One interest that a single place carries (Il Latini, a Florence restaurant), across the 2028 leap day: still a full, valid plan, with that one place in it.",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": ["place_039"],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

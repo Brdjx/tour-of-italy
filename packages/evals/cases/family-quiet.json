@@ -1,0 +1,23 @@
+{
+  "id": "family-quiet",
+  "description": "A relaxed family trip with outdoor and quiet places, from a Sunday into the Monday closures: the pace cap holds and the tags match.",
+  "request": {
+    "startDate": "2027-06-06",
+    "pace": "relaxed",
+    "interests": ["family-friendly", "outdoors", "quiet"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.5,
+    "forbidViolationCodes": ["TOO_MANY_VISITS", "CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

@@ -266,6 +266,9 @@ importers:
       '@italy/planner':
         specifier: workspace:*
         version: link:../planner
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/planner:
     dependencies:

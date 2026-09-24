@@ -1,0 +1,32 @@
+{
+  "id": "everything",
+  "description": "Eight interests at once over a Friday-to-Sunday weekend, with Sunday closures in Rome: the plan still matches the interests and stays valid.",
+  "request": {
+    "startDate": "2026-10-16",
+    "pace": "balanced",
+    "interests": [
+      "historic",
+      "art",
+      "food",
+      "scenic",
+      "views",
+      "wine",
+      "local-favorite",
+      "cultural"
+    ],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.8,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

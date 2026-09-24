@@ -1,0 +1,23 @@
+{
+  "id": "florence-art-monday",
+  "description": "Art and history in Florence at a packed pace, starting on a Monday when the Uffizi, the Accademia, and the Pitti Palace are closed.",
+  "request": {
+    "startDate": "2026-10-05",
+    "pace": "packed",
+    "interests": ["art", "historic"],
+    "maxPriceLevel": null,
+    "anchors": ["florence"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 1,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

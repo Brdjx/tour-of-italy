@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "kind": "simulated",
+  "caseId": "tuscany-wine-relaxed",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "simulated",
+  "promptVersion": "v1",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:38d9f667854d1ac3de76fb43479fd6c482e0b989926bc38b1bd06149edf86818",
+  "request": {
+    "startDate": "2027-09-14",
+    "pace": "relaxed",
+    "interests": ["wine", "scenic"],
+    "maxPriceLevel": null,
+    "anchors": ["florence"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_032\",\"place_028\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_032\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_028\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_037\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_027\",\"place_036\",\"place_033\",\"place_026\",\"place_039\"],\"reasons\":[{\"placeId\":\"place_027\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_036\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_033\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_026\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_039\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_040\",\"place_029\",\"place_034\",\"place_084\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_040\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_029\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_034\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_084\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_041\",\"reason\":\"A good fit for the interests in this trip.\"}]}],\"summary\":\"A trip built around your interests, with each day kept close to one base.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 1575,
+      "outputTokens": 376
+    },
+    "latencyMs": 0,
+    "model": "fixture:valid"
+  }
+}

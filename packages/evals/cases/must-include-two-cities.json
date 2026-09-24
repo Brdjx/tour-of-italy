@@ -1,0 +1,28 @@
+{
+  "id": "must-include-two-cities",
+  "description": "The Borghese Gallery in Rome and the Uffizi in Florence are both required, from a Thursday: two bases with a transfer, and both places in the plan.",
+  "request": {
+    "startDate": "2026-10-15",
+    "pace": "balanced",
+    "interests": ["art", "historic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_007", "place_026"],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 2,
+    "minPreferenceMatch": 0.6,
+    "forbidViolationCodes": [
+      "MUST_INCLUDE_MISSING",
+      "TOO_MANY_ANCHORS",
+      "CLOSED_AT_TIME",
+      "SEASONAL_CLOSED"
+    ],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

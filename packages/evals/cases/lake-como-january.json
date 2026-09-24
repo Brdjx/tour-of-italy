@@ -1,0 +1,23 @@
+{
+  "id": "lake-como-january",
+  "description": "The same trip in January, when Bellagio, Villa del Balbianello, the Como lakefront, and the Ceresio 7 rooftop are closed for the season: the plan thins out gracefully instead of breaking.",
+  "request": {
+    "startDate": "2027-01-12",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 1,
+    "minPreferenceMatch": 0.4,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": ["place_063", "place_064", "place_065", "place_085"],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}
