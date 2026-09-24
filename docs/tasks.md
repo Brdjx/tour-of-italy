@@ -126,6 +126,8 @@ Statuses:
 | T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | done | live at italy-planner.brdjx.com and api.italy-planner.brdjx.com |
 | T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | blocked | waiting for a workspace-scoped key in .env.anthropic |
 | T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | in progress | |
+| T60 | Simpler default view: filters behind More options, collapsed trip summary after planning | in progress | |
+| T61 | Loading skeletons before search (meta, places, map) and after search (timetable while planning) | in progress | |
 
 ## Cut or deferred
 

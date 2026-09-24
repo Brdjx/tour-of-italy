@@ -15,7 +15,7 @@ browser -> CloudFront site distribution (italy-planner.brdjx.com)
              /*      -> S3 bucket italy-planner-web-388773186626 (private, origin access control)
              /api/*  -> HTTP API italy-planner-api -> Lambda italy-planner-api
 
-scripts, evals, tools -> CloudFront API distribution (api.italy-planner.brdjx.com)
+smoke test, scripts, tools -> CloudFront API distribution (api.italy-planner.brdjx.com)
              /*      -> the same HTTP API with origin path /api (/health reaches /api/health)
 
 Both distributions: one WAF web ACL, one security headers policy, one certificate for both
@@ -26,10 +26,11 @@ names, and the x-origin-verify header (the function answers 403 to calls without
 
 The web app stays same-origin: it calls `/api/*` on its own host, so there is no CORS preflight,
 the CSP needs no second host (`connect-src 'self'` plus the map tiles), and one WAF path covers
-every browser call. The public API
-host serves scripts, evals and future tool clients with plain paths (`/health`, `/meta`,
-`/places`, `/data-issues`, `POST /plan`) through the same WAF rules and the same origin secret, so
-it opens no way around either. It sends no CORS headers, so it is not meant for other websites.
+every browser call. The public API host serves the post-deploy smoke test, curl and scripts, and
+future tool clients with plain paths (`/health`, `/meta`, `/places`, `/data-issues`, `POST /plan`)
+through the same WAF rules and the same origin secret, so it opens no way around either. It sends
+no CORS headers, so it is not meant for other websites. The evals use neither host: they run the
+production pipeline in-process.
 
 ```sh
 curl -s https://api.italy-planner.brdjx.com/health
