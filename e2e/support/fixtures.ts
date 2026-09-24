@@ -53,13 +53,17 @@ function recordClipboard(): void {
 }
 
 /**
- * The one console error a test may cause on purpose: the browser's own line for a request that
- * failed. Every such line in the suite comes from a fault a test injects (a 404, 400, 429 or 503,
- * a refused or reset connection, going offline).
+ * The browser's own console lines a test may see:
+ * - "Failed to load resource": a request that failed. Every such line in the suite comes from a
+ *   fault a test injects (a 404, 400, 429 or 503, a refused or reset connection, going offline).
+ * - WebKit on Linux reports the viewport key interactive-widget as unrecognized. Chromium uses it
+ *   (it keeps the Android keyboard from covering inputs) and WebKit ignores it, so the line is a
+ *   browser notice about our own meta tag, not an app error. WebKit on macOS does not log it.
  */
-// Decision: an allowlist of this one line, not a per-test opt-out. Anything else logged as an
+// Decision: an allowlist of these exact lines, not a per-test opt-out. Anything else logged as an
 // error (a React warning, an exception the app caught and logged) fails the test that caused it.
-const EXPECTED_CONSOLE_ERROR = /^Failed to load resource\b/;
+const EXPECTED_CONSOLE_ERROR =
+  /^(Failed to load resource\b|Viewport argument key "interactive-widget" not recognized and ignored\.$)/;
 
 export interface Watchdog {
   pageErrors: string[];
