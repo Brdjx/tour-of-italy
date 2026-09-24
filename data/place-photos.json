@@ -1,0 +1,415 @@
+{
+  "places": {
+    "place_001": {
+      "file": "File:Colosseo 2020.jpg",
+      "description": "The Colosseum's outer ring and its broken upper section",
+      "focal": "45% 45%"
+    },
+    "place_002": {
+      "file": "File:Santa Maria in Trastevere fountain.jpg",
+      "description": "The fountain in Piazza di Santa Maria in Trastevere, in front of the basilica's portico",
+      "focal": "45% 50%"
+    },
+    "place_004": {
+      "file": "File:Foro Romano Musei Capitolini Roma.jpg",
+      "description": "Temple columns and ruins of the Roman Forum, seen from the Capitoline",
+      "focal": "40% 55%",
+      "author": "Wolfgang Moroder"
+    },
+    "place_005": {
+      "file": "File:Pantheon (Rome) - Right side and front.jpg",
+      "description": "The Pantheon's portico and brick rotunda on Piazza della Rotonda",
+      "focal": "55% 40%"
+    },
+    "place_006": {
+      "file": "File:Campo dei Fiori.jpg",
+      "description": "Market stalls under white umbrellas in Campo de' Fiori",
+      "focal": "50% 60%"
+    },
+    "place_007": {
+      "file": "File:Roma Museo Borghese.jpg",
+      "description": "The front of the Villa Borghese, home of the Galleria Borghese",
+      "focal": "50% 50%"
+    },
+    "place_008": {
+      "file": "File:0 Piazza Navona - Rome (1).JPG",
+      "description": "Sant'Agnese in Agone and the Fontana del Moro in Piazza Navona",
+      "focal": "40% 50%"
+    },
+    "place_010": {
+      "file": "File:Vatican Museums Spiral Staircase 2012.jpg",
+      "description": "The spiral staircase of the Vatican Museums, seen from above",
+      "focal": "50% 55%"
+    },
+    "place_011": {
+      "file": "File:GiolittiCafeRoma.jpg",
+      "description": "The Giolitti storefront with its umbrellas and outdoor tables",
+      "focal": "35% 45%"
+    },
+    "place_012": {
+      "file": "File:Roma- Bocca della Verità - 52347330118.jpg",
+      "description": "The Bocca della Verità mask in the portico of Santa Maria in Cosmedin",
+      "focal": "42% 45%"
+    },
+    "place_013": {
+      "file": "File:Vallo Ferroviario Pigneto.JPG",
+      "description": "The railway cutting through Pigneto, lined with apartment blocks",
+      "focal": "55% 50%"
+    },
+    "place_014": {
+      "file": "File:The Aventine Keyhole.jpg",
+      "description": "St Peter's dome at the end of the hedge tunnel, seen through the Aventine keyhole",
+      "focal": "50% 45%"
+    },
+    "place_015": {
+      "file": "File:Testaccio - il nuovo mercato 1280317.jpg",
+      "description": "The latticed walls of the Nuovo Mercato di Testaccio",
+      "focal": "30% 55%"
+    },
+    "place_016": {
+      "file": "File:Palatine Hill from across the Circus Maximus April 2019.jpg",
+      "description": "The Palatine's palace ruins seen across the Circus Maximus",
+      "focal": "60% 45%"
+    },
+    "place_017": {
+      "file": "File:0 Pont et château Sant'Angelo - Rome (1).JPG",
+      "description": "Castel Sant'Angelo and Ponte Sant'Angelo across the Tiber",
+      "focal": "62% 40%"
+    },
+    "place_018": {
+      "file": "File:Trevi Fountain - Roma.jpg",
+      "description": "The Trevi Fountain and the facade of Palazzo Poli",
+      "focal": "50% 50%"
+    },
+    "place_019": {
+      "file": "File:The Spanish Steps, as seen from the Fontana della Barcaccia in the Piazza di Spagna, Sallustiano obelisk against background of the Church of the Santissima Trinità dei Monti. Rome, Italy.jpg",
+      "description": "The Barcaccia fountain below the Spanish Steps and Trinità dei Monti",
+      "focal": "58% 45%"
+    },
+    "place_021": {
+      "file": "File:Appian Way.jpg",
+      "description": "The paved Via Appia Antica between umbrella pines",
+      "focal": "45% 55%"
+    },
+    "place_023": {
+      "file": "File:Piazza del Popolo Obelisco Flaminio a Roma.jpg",
+      "description": "Piazza del Popolo with the Flaminio obelisk and Santa Maria del Popolo",
+      "focal": "60% 60%",
+      "author": "Wolfgang Moroder"
+    },
+    "place_024": {
+      "file": "File:Rome (Italy), Piazza della Fontanella di Borghese -- 2013 -- 3771.jpg",
+      "description": "Print and book kiosks on Piazza Borghese",
+      "focal": "35% 60%"
+    },
+    "place_026": {
+      "file": "File:Galería Uffizi, Florencia, Italia, 2022-09-18, DD 50-52 HDR.jpg",
+      "description": "The Tribuna room of the Uffizi, with red walls, statues and a domed ceiling",
+      "focal": "50% 50%"
+    },
+    "place_027": {
+      "file": "File:Florence Sunset - Flickr - Maëlick.jpg",
+      "description": "Sunset over Florence and the Arno from Piazzale Michelangelo",
+      "focal": "45% 45%"
+    },
+    "place_028": {
+      "file": "File:Florence, Piazza Santo Spirito 1.jpg",
+      "description": "Piazza Santo Spirito in the Oltrarno, with trees and ochre facades",
+      "focal": "50% 55%"
+    },
+    "place_030": {
+      "file": "File:Firenze - Mercato Centrale (28880331908).jpg",
+      "description": "The arched facade of the Mercato Centrale, with the Duomo dome behind",
+      "focal": "60% 45%"
+    },
+    "place_031": {
+      "file": "File:Mercato centrale, fi, primo piano 02.JPG",
+      "description": "The upstairs food hall of the Mercato Centrale, with iron roof trusses and wicker lamps",
+      "focal": "45% 40%"
+    },
+    "place_032": {
+      "file": "File:David at the Galleria dell'Accademia (61351).jpg",
+      "description": "Michelangelo's David at the end of the Accademia's hall, above a crowd of visitors",
+      "focal": "50% 35%"
+    },
+    "place_034": {
+      "file": "File:Jardín de Bóboli, Florencia, Italia, 2022-09-19, DD 26.jpg",
+      "description": "The Boboli Gardens amphitheater, with Palazzo Pitti behind",
+      "focal": "50% 45%"
+    },
+    "place_035": {
+      "file": "File:View from Villa Vignamaggio (5771965060).jpg",
+      "description": "Vineyards and wooded hills of Chianti near Greve",
+      "focal": "50% 65%"
+    },
+    "place_036": {
+      "file": "File:Basílica de la Santa Cruz, Florencia, Italia, 2022-09-18, DD 95.jpg",
+      "description": "The marble facade of the Basilica of Santa Croce",
+      "focal": "50% 50%"
+    },
+    "place_038": {
+      "file": "File:Siena Cattedrale nuova Vista su la Piazza del Campo 2.jpg",
+      "description": "Siena's rooftops, Piazza del Campo and the Torre del Mangia",
+      "focal": "65% 55%"
+    },
+    "place_040": {
+      "file": "File:San Miniato al Monte.jpg",
+      "description": "The green and white marble facade of San Miniato al Monte",
+      "focal": "50% 45%"
+    },
+    "place_043": {
+      "file": "File:Osteria Francescana IMG 2689 (23507139000).jpg",
+      "description": "The pink front and door of Osteria Francescana on Via Stella",
+      "focal": "45% 55%"
+    },
+    "place_045": {
+      "file": "File:Ferrari-Museum Maranello 1.JPG",
+      "description": "The red Museo Ferrari entrance arch in Maranello",
+      "focal": "58% 50%"
+    },
+    "place_046": {
+      "file": "File:Bologna, Via Drapperie (4).jpg",
+      "description": "Hams, salami and cheeses in a salumeria on Via Drapperie",
+      "focal": "45% 45%"
+    },
+    "place_048": {
+      "file": "File:Torre degli Asinelli e Torre della Garisenda a Bologna.jpg",
+      "description": "The Torre degli Asinelli at the end of Via Rizzoli",
+      "focal": "50% 40%"
+    },
+    "place_049": {
+      "file": "File:Bologna, portici di via zamboni 01.JPG",
+      "description": "The vaulted portico on Via Zamboni in the university quarter",
+      "focal": "45% 45%",
+      "author": "Sailko"
+    },
+    "place_051": {
+      "file": "File:Bologna — Pinacoteca nazionale di Bologna (outside).jpg",
+      "description": "The arcaded orange facade of the Pinacoteca Nazionale on Via delle Belle Arti",
+      "focal": "50% 55%"
+    },
+    "place_052": {
+      "file": "File:--Piazza Maggiore--.jpg",
+      "description": "Piazza Maggiore at dusk, with Palazzo d'Accursio and its clock tower lit",
+      "focal": "40% 50%"
+    },
+    "place_055": {
+      "file": "File:Milan Cathedral from Piazza del Duomo.jpg",
+      "description": "The white marble spires of the Duomo di Milano",
+      "focal": "52% 50%"
+    },
+    "place_056": {
+      "file": "File:Da Vinci Last Supper Milan 04 2024 7011.jpg",
+      "description": "Leonardo's Last Supper on the refectory wall of Santa Maria delle Grazie",
+      "focal": "52% 50%"
+    },
+    "place_057": {
+      "file": "File:Sunset On Naviglio Grande (248958685).jpeg",
+      "description": "The Naviglio Grande at sunset, with cafes along both banks",
+      "focal": "50% 55%"
+    },
+    "place_058": {
+      "file": "File:Milan - Pinacothèque de Brera - Cour intérieure.jpg",
+      "description": "The arcaded courtyard of the Palazzo di Brera, with Canova's bronze Napoleon",
+      "focal": "40% 55%"
+    },
+    "place_060": {
+      "file": "File:Galleria Vittorio Emanuele II (45296173451).jpg",
+      "description": "The glass vault and dome of the Galleria Vittorio Emanuele II",
+      "focal": "50% 40%"
+    },
+    "place_062": {
+      "file": "File:Fondazione Prada, Milan.jpg",
+      "description": "The gold Haunted House tower and the Podium at Fondazione Prada",
+      "focal": "60% 40%"
+    },
+    "place_063": {
+      "file": "File:Lac de Côme - Bellagio.jpg",
+      "description": "Bellagio's lakefront and the San Giacomo bell tower on Lake Como",
+      "focal": "58% 45%"
+    },
+    "place_064": {
+      "file": "File:Tremezzina - Villa del Balbianello - 2024-09-08 16-26-39 007.jpg",
+      "description": "Villa del Balbianello on its point above Lake Como",
+      "focal": "45% 40%"
+    },
+    "place_066": {
+      "file": "File:Rialto 2025 4.jpg",
+      "description": "The Rialto Bridge over the Grand Canal, with boats in front",
+      "focal": "55% 45%"
+    },
+    "place_067": {
+      "file": "File:(Venice) Doge's Palace facing the sea.jpg",
+      "description": "The Doge's Palace facade on the water, with gondolas moored in front",
+      "focal": "48% 50%"
+    },
+    "place_068": {
+      "file": "File:Venice, Cannaregio, Fond. degli Ormesini, evening.jpg",
+      "description": "Canalside tables outside the bars on Fondamenta degli Ormesini at dusk",
+      "focal": "35% 60%"
+    },
+    "place_069": {
+      "file": "File:Guggenheim Venedig-DSC 0053w.jpg",
+      "description": "Palazzo Venier dei Leoni, home of the Peggy Guggenheim Collection, on the Grand Canal",
+      "focal": "45% 50%"
+    },
+    "place_070": {
+      "file": "File:Burano Venice 17.jpg",
+      "description": "Painted houses along a Burano canal, with the leaning bell tower of San Martino",
+      "focal": "35% 45%"
+    },
+    "place_071": {
+      "file": "File:Venezia - Rio dei Fuseri (24976892498).jpg",
+      "description": "A gondolier rowing passengers down Rio dei Fuseri, a narrow canal in San Marco",
+      "focal": "40% 55%"
+    },
+    "place_072": {
+      "file": "File:Ponte de l'Avogaria (Venice) - Initio del rio de Malpaga.jpg",
+      "description": "Ponte de l'Avogaria over a canal in Dorsoduro, with moored boats",
+      "focal": "45% 40%"
+    },
+    "place_074": {
+      "file": "File:Venezia Basilica di San Marco Fassade 2.jpg",
+      "description": "The west facade and domes of St Mark's Basilica",
+      "focal": "50% 45%"
+    },
+    "place_075": {
+      "file": "File:Fondamenta della Misericordia (Venice).jpg",
+      "description": "A quiet Rio della Misericordia and its fondamenta in Cannaregio",
+      "focal": "55% 55%"
+    },
+    "place_077": {
+      "file": "File:Rome Trevi fountain at night 2020 P01.jpg",
+      "description": "The Trevi Fountain lit at night",
+      "focal": "50% 45%"
+    },
+    "place_080": {
+      "file": "File:Laghetto and Tempio di Esculapio in Villa Borghese 01.jpg",
+      "description": "The lake in the Villa Borghese gardens and the Temple of Aesculapius",
+      "focal": "40% 40%"
+    },
+    "place_081": {
+      "file": "File:Palazzo Pitti nel tardo pomeriggio.jpg",
+      "description": "The rusticated facade of Palazzo Pitti in late afternoon light",
+      "focal": "45% 45%"
+    },
+    "place_084": {
+      "file": "File:Ponte Vecchio from Ponte alle Grazie.jpg",
+      "description": "The Ponte Vecchio over the Arno, with its overhanging shops",
+      "focal": "50% 45%"
+    },
+    "place_085": {
+      "file": "File:Como cityscape and lakefront from Monumento ai Caduti.jpg",
+      "description": "Como's lakefront, marina and Tempio Voltiano, seen from above",
+      "focal": "40% 55%"
+    },
+    "place_086": {
+      "file": "File:Arengario da Piazzetta Reale.jpg",
+      "description": "Palazzo dell'Arengario, home of the Museo del Novecento, from Piazzetta Reale",
+      "focal": "50% 45%"
+    },
+    "place_088": {
+      "file": "File:Basilica di San Giorgio Maggiore a Venezia.jpg",
+      "description": "The campanile of San Giorgio Maggiore beside Palladio's basilica, seen across the water",
+      "focal": "40% 45%",
+      "author": "Wolfgang Moroder"
+    },
+    "place_089": {
+      "file": "File:Pienza panorama.jpg",
+      "description": "Pienza's hilltop skyline above cypresses and olive trees",
+      "focal": "48% 45%"
+    },
+    "place_091": {
+      "file": "File:Caffè Florian(Venedig)-2025-msu-5294-.jpg",
+      "description": "Caffè Florian's storefront under the arcade on Piazza San Marco",
+      "focal": "50% 55%"
+    },
+    "place_093": {
+      "file": "File:Firenze, piazza san giovanni e piazza del duomo durante il lockdown (2020).jpg",
+      "description": "The Baptistery, the Duomo and Giotto's campanile in an empty Piazza del Duomo",
+      "focal": "50% 50%"
+    },
+    "place_095": {
+      "file": "File:Padua (1).jpg",
+      "description": "The Orto Botanico of Padua framed by palm fronds, with the domes of the Basilica del Santo behind",
+      "focal": "50% 55%"
+    },
+    "place_096": {
+      "file": "File:Venezia Caffè Quadri (52570914740).jpg",
+      "description": "The Quadri's arcade and terrace on Piazza San Marco at night, below the Al Quadri dining room",
+      "focal": "50% 45%"
+    },
+    "place_097": {
+      "file": "File:20140803 Rome View from Janiculum 0286.jpg",
+      "description": "Rome's rooftops and domes seen from the Janiculum at golden hour",
+      "focal": "50% 50%"
+    },
+    "place_098": {
+      "file": "File:Milan Sant'Ambrogio 016 4923.jpg",
+      "description": "The atrium and Romanesque facade of the Basilica di Sant'Ambrogio, with its two bell towers",
+      "focal": "50% 45%"
+    },
+    "place_099": {
+      "file": "File:Eataly in 2019.02.jpg",
+      "description": "The Eataly sign on the former Air Terminal Ostiense, above a street of parked cars",
+      "focal": "80% 35%"
+    },
+    "place_101": {
+      "file": "File:Bargello, cortile, 03,0.jpg",
+      "description": "The Bargello courtyard seen through the entrance arch, with its loggia and outdoor staircase",
+      "focal": "50% 50%"
+    },
+    "place_102": {
+      "file": "File:Milano, via Monte Napoleone (30823064395).jpg",
+      "description": "A palazzo with boutique windows on Via Monte Napoleone",
+      "focal": "40% 55%"
+    },
+    "place_103": {
+      "file": "File:Palazzo Vecchio FI.jpg",
+      "description": "Palazzo Vecchio and its tower, from Piazza della Signoria",
+      "focal": "50% 40%"
+    }
+  },
+  "fallbacks": {
+    "city:Rome": {
+      "file": "File:Rome Rooftops - May 2015 - Dome City 1.jpg",
+      "description": "Baroque domes above the rooftops of central Rome",
+      "focal": "55% 40%"
+    },
+    "city:Florence": {
+      "file": "File:Río Arno, Florencia, Italia, 2022-09-19, DD 40.jpg",
+      "description": "The Arno and the palazzi along its banks, with the Ponte Vecchio in the distance",
+      "focal": "45% 45%"
+    },
+    "city:Modena": {
+      "file": "File:モデナのPiazza Grande (36309429504).jpg",
+      "description": "Modena's cathedral and Ghirlandina tower on Piazza Grande",
+      "focal": "40% 45%"
+    },
+    "city:Bologna": {
+      "file": "File:Bologna, Strada Maggiore, Piazetta dei Servi.jpg",
+      "description": "Porticoes along Strada Maggiore in Bologna",
+      "focal": "55% 50%"
+    },
+    "city:Parma": {
+      "file": "File:Duomo e Battistero di Parma.jpg",
+      "description": "Parma's cathedral, bell tower and pink Baptistery among tiled roofs, seen from above",
+      "focal": "55% 50%"
+    },
+    "city:Milan": {
+      "file": "File:Piazza Cordusio a Milano, veduta generale.jpg",
+      "description": "Piazza Cordusio in Milan, with a yellow tram and the domed Generali palazzo",
+      "focal": "55% 50%"
+    },
+    "city:Venice": {
+      "file": "File:Classic View of Venice - Flickr - kuhnmi.jpg",
+      "description": "The Grand Canal at dusk, looking toward Santa Maria della Salute",
+      "focal": "45% 40%"
+    },
+    "city:Isola della Scala": {
+      "file": "File:Torre Scaligera Isola della Scala.jpg",
+      "description": "The Torre Scaligera and its bridge over the Tartaro river",
+      "focal": "40% 50%"
+    }
+  }
+}

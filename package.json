@@ -21,6 +21,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "data:profile": "tsx scripts/profile-data.ts",
     "data:audit": "tsx scripts/audit-data.ts",
+    "photos:fetch": "tsx scripts/fetch-place-photos.ts",
     "eval": "pnpm --filter @italy/evals eval",
     "eval:replay": "pnpm --filter @italy/evals eval:replay"
   },
