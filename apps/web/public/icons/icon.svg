@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>3 Days in Italy</title>
+  <!-- The app icon and the source of every PNG icon (scripts/generate-icons.ts). A timetable:
+       three stops on a dotted route, like one day of the plan. Full bleed, with everything
+       inside the maskable safe circle (radius 205 around the center). -->
+  <rect width="512" height="512" fill="#17616b"/>
+  <circle cx="176" cy="184" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="200" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="216" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="296" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="312" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="328" r="5" fill="#f4f6f5"/>
+  <circle cx="176" cy="144" r="30" fill="#e9c53a"/>
+  <circle cx="176" cy="256" r="30" fill="#f4f6f5"/>
+  <circle cx="176" cy="368" r="30" fill="#f4f6f5"/>
+  <rect x="232" y="126" width="128" height="36" rx="18" fill="#f4f6f5"/>
+  <rect x="232" y="238" width="100" height="36" rx="18" fill="#f4f6f5"/>
+  <rect x="232" y="350" width="116" height="36" rx="18" fill="#f4f6f5"/>
+</svg>
