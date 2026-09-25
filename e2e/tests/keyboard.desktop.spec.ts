@@ -66,8 +66,6 @@ test("plans, switches days, swaps, reorders, removes and undoes with the keyboar
   await page.keyboard.press("Enter");
   await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
   await expect(page.locator("#day-heading-0")).toBeFocused();
-  // Focus lands there so reading starts there; the heading is not a control and draws no ring.
-  expect(await ringShows(page)).toBe(false);
 
   // Day tabs: one tab stop, arrows move between days.
   await tabTo(page, "day-tab-1", 10, "Shift+Tab");
@@ -129,6 +127,8 @@ test("opens a stop's details in a sheet and comes back to Details with the keybo
   await page.keyboard.press("Enter");
   await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
   await expect(page.locator("#day-heading-0")).toBeFocused();
+  // Focus lands there so reading starts there; the heading is not a control and draws no ring.
+  expect(await ringShows(page), "the day heading shows a focus ring").toBe(false);
 
   // Details opens the sheet on its title; Tab stays inside it (or passes through the browser's
   // own controls, which reads as BODY here) and never reaches the board behind it.
