@@ -15,6 +15,7 @@ import {
 } from "./map/camera";
 import { MapUnavailable } from "./map/MapUnavailable";
 import { setUpMap } from "./map/setup";
+import { spreadOffsets } from "./map/spread";
 import { useColorScheme } from "./map/useColorScheme";
 
 // The MapLibre map itself, loaded only in the browser (see DayMap): the self-hosted vector
@@ -34,10 +35,18 @@ const ITALY: { center: [number, number]; zoom: number } = { center: [12.5, 42.5]
 /** How MapLibre's error starts when its worker file cannot load (maplibre-gl 6). */
 const WORKER_FAILED = "Worker failed to load";
 
-function markerElement(point: MapPoint): HTMLElement {
+/**
+ * The disc for one stop. `above` is how many discs it sits over: earlier stops get more.
+ * Decision: earlier stops draw above later ones. MapLibre stacks markers in the order they are
+ * added, so where stops crowd together the last stop of the day covered the first, the one the
+ * traveler looks for first.
+ */
+function markerElement(point: MapPoint, above: number): HTMLElement {
   const holder = document.createElement("div");
   holder.innerHTML = markerHtml(point);
-  return holder.firstElementChild as HTMLElement;
+  const element = holder.firstElementChild as HTMLElement;
+  element.style.zIndex = String(above);
+  return element;
 }
 
 /** Keeps the map's own controls out of the tab order: the frame around it is aria-hidden. */
@@ -138,14 +147,29 @@ export default function DayMapInner({ points }: { points: readonly MapPoint[] })
     map.setStyle(mapStyle(scheme, window.location.origin, routeData(points)));
   }, [scheme, key, points]);
 
-  // One numbered marker per stop.
+  // One numbered marker per stop, nudged apart where they would overlap (map/spread.ts).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const markers = points.map((point) =>
-      new Marker({ element: markerElement(point) }).setLngLat([point.lng, point.lat]).addTo(map),
+    const markers = points.map((point, index) =>
+      new Marker({ element: markerElement(point, points.length - index) })
+        .setLngLat([point.lng, point.lat])
+        .addTo(map),
     );
+    // Decision: the nudge is worked out again on every zoom frame, not only when a zoom ends.
+    // How far apart two stops are on screen depends only on the zoom (the map never rotates or
+    // tilts), and the push fades to nothing as they separate, so during the camera's glide the
+    // discs ease apart or back onto their places with it instead of jumping at the end.
+    const spread = () => {
+      const offsets = spreadOffsets(points.map((point) => map.project([point.lng, point.lat])));
+      markers.forEach((marker, index) => {
+        marker.setOffset(offsets[index] ?? [0, 0]);
+      });
+    };
+    spread();
+    map.on("zoom", spread);
     return () => {
+      map.off("zoom", spread);
       for (const marker of markers) marker.remove();
     };
   }, [points]);

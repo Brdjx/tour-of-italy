@@ -5,8 +5,9 @@ import { HIGHLIGHT_PLACE_IDS, photoForPlace } from "../lib/placePhotos";
 import { PhotoCredit, PlacePhotoImage } from "./PlacePhotoImage";
 import { Skeleton } from "./skeleton/Skeleton";
 
-// A few of the places a trip can include, each with a real photo of that place and its credit,
-// before any plan exists. They sweep in from the top left to the bottom right once. They are
+// A few of the places a trip can include, each with a real photo of that place and a one-line
+// credit, before any plan exists: a row that scrolls sideways on phones and tablets, a grid beside
+// the form from 1024 px. They sweep in from the top left to the bottom right once. They are
 // examples of the data, not a promise that a trip includes them, and they are not links. Until
 // the places load, square skeletons hold their place.
 
@@ -27,15 +28,11 @@ export function Highlights({ ctx }: { ctx: PlannerContext | null }) {
               return (
                 <li key={place.id} className="highlight" data-step={index}>
                   <figure>
-                    <PlacePhotoImage
-                      photo={photo}
-                      shape="square"
-                      sizes="(min-width: 1024px) 180px, 45vw"
-                    />
+                    <PlacePhotoImage photo={photo} shape="square" sizes="220px" />
                     <figcaption className="highlight-caption">
                       <span className="highlight-name">{place.name}</span>
                       <span className="highlight-city">{place.city}</span>
-                      <PhotoCredit photo={photo} />
+                      <PhotoCredit photo={photo} compact />
                     </figcaption>
                   </figure>
                 </li>

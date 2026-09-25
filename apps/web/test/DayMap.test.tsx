@@ -10,6 +10,7 @@ import {
 } from "../components/DayMap";
 import DayMapInner from "../components/DayMapInner";
 import { easeOutExpo } from "../components/map/camera";
+import { MARKER_MAX_NUDGE, MARKER_MIN_GAP, spreadOffsets } from "../components/map/spread";
 import { lngLatBounds, type MapPoint, mapPoints, routeData } from "../lib/mapPoints";
 import { PALETTES } from "../lib/mapStyle";
 import { ctx, fixturePlan, must } from "./fixtures";
@@ -22,7 +23,8 @@ import { ctx, fixturePlan, must } from "./fixtures";
 type Handler = (event: Record<string, unknown>) => void;
 
 const fake = vi.hoisted(() => {
-  const state = { throwOnCreate: false, maps: [] as FakeMap[] };
+  // scale: screen px per degree, standing in for the zoom in project().
+  const state = { throwOnCreate: false, maps: [] as FakeMap[], scale: 100_000 };
   const basemap: { roundZoom?: boolean } = {};
 
   class FakeMap {
@@ -47,6 +49,16 @@ const fake = vi.hoisted(() => {
       this.handlers.set(type, [...(this.handlers.get(type) ?? []), handler]);
       return this;
     }
+    off(type: string, handler: Handler) {
+      this.handlers.set(
+        type,
+        (this.handlers.get(type) ?? []).filter((known) => known !== handler),
+      );
+      return this;
+    }
+    project([lng, lat]: [number, number]) {
+      return { x: lng * state.scale, y: -lat * state.scale };
+    }
     emit(type: string, event: Record<string, unknown> = {}) {
       for (const handler of this.handlers.get(type) ?? []) handler(event);
     }
@@ -62,11 +74,17 @@ const fake = vi.hoisted(() => {
   class FakeMarker {
     element: HTMLElement;
     lngLat: [number, number] | null = null;
+    offset: [number, number] = [0, 0];
     constructor(options: { element: HTMLElement }) {
       this.element = options.element;
     }
     setLngLat(lngLat: [number, number]) {
       this.lngLat = lngLat;
+      return this;
+    }
+    setOffset(offset: [number, number]) {
+      this.offset = offset;
+      this.element.dataset.offset = offset.join(",");
       return this;
     }
     addTo(map: FakeMap) {
@@ -147,6 +165,7 @@ function markerNumbers(container: HTMLElement): string[] {
 beforeEach(() => {
   fake.state.throwOnCreate = false;
   fake.state.maps.length = 0;
+  fake.state.scale = 100_000;
   vi.stubGlobal("WebGL2RenderingContext", class {});
 });
 
@@ -260,6 +279,37 @@ describe("DayMapInner", () => {
     expect(marker?.classList.contains("map-marker--approximate")).toBe(true);
   });
 
+  it("draws earlier stops above later ones, so the first stop is never hidden", () => {
+    stubMedia();
+    const points = dayPoints(0);
+    const { container } = render(<DayMapInner points={points} />);
+    const layers = [...container.querySelectorAll<HTMLElement>(".map-marker")].map((marker) =>
+      Number(marker.style.zIndex),
+    );
+    expect(layers).toHaveLength(points.length);
+    expect(layers).toEqual([...layers].sort((a, b) => b - a));
+    expect(new Set(layers).size).toBe(layers.length);
+  });
+
+  it("nudges stops that would overlap apart, and eases them back as the map zooms in", () => {
+    stubMedia();
+    const base = must(dayPoints(0)[0]);
+    // Two stops about 5 m apart: 5 px on screen at this scale, so the discs would cover each other.
+    const points: MapPoint[] = [
+      base,
+      { ...base, number: 2, placeId: "near", lng: base.lng + 0.00005 },
+    ];
+    const { container } = render(<DayMapInner points={points} />);
+    const offsets = () =>
+      [...container.querySelectorAll<HTMLElement>(".map-marker")].map(
+        (marker) => marker.dataset.offset,
+      );
+    expect(offsets()).toEqual(["-8.5,0", "8.5,0"]);
+    fake.state.scale = 1_000_000; // zoomed in: 50 px apart, room for both
+    act(() => lastMap().emit("zoom"));
+    expect(offsets()).toEqual(["0,0", "0,0"]);
+  });
+
   it("opens framed on the day's stops, without a camera move", () => {
     stubMedia();
     const points = dayPoints(0);
@@ -362,5 +412,75 @@ describe("DayMapInner", () => {
     expect(container.querySelector("canvas")?.getAttribute("tabindex")).toBe("-1");
     unmount();
     expect(map.remove).toHaveBeenCalledOnce();
+  });
+});
+
+describe("spreadOffsets", () => {
+  it("leaves discs that are already clear of each other where they are", () => {
+    expect(
+      spreadOffsets([
+        { x: 0, y: 0 },
+        { x: MARKER_MIN_GAP, y: 0 },
+        { x: 0, y: 40 },
+      ]),
+    ).toEqual([
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ]);
+  });
+
+  it("pushes two close discs apart along the line between them, half each", () => {
+    expect(
+      spreadOffsets([
+        { x: 100, y: 100 },
+        { x: 100, y: 110 },
+      ]),
+    ).toEqual([
+      [0, -6],
+      [0, 6],
+    ]);
+  });
+
+  it("separates stops on the exact same spot the same way every time", () => {
+    const same = [
+      { x: 50, y: 50 },
+      { x: 50, y: 50 },
+    ];
+    const first = spreadOffsets(same);
+    expect(first).toEqual(spreadOffsets(same));
+    const [a, b] = first as [[number, number], [number, number]];
+    expect(Math.hypot(b[0] - a[0], b[1] - a[1])).toBeGreaterThanOrEqual(MARKER_MIN_GAP - 1);
+  });
+
+  it("never moves a disc further than the nudge limit, even in a crowd", () => {
+    const crowd = Array.from({ length: 6 }, (_, index) => ({ x: index * 2, y: index }));
+    for (const [x, y] of spreadOffsets(crowd)) {
+      expect(Math.hypot(x, y)).toBeLessThanOrEqual(MARKER_MAX_NUDGE + 0.5);
+    }
+  });
+
+  it("keeps every number readable in the phone review's cluster of stops 1, 3 and 6", () => {
+    // Stop 1 sat under stops 6 and 3, their centres 6 to 9 px apart.
+    const cluster = [
+      { x: 120, y: 140 },
+      { x: 20, y: 30 },
+      { x: 128, y: 136 },
+      { x: 200, y: 60 },
+      { x: 60, y: 200 },
+      { x: 114, y: 146 },
+    ];
+    const moved = spreadOffsets(cluster).map(([x, y], index) => ({
+      x: (cluster[index] as { x: number }).x + x,
+      y: (cluster[index] as { y: number }).y + y,
+    }));
+    for (const i of [0, 2, 5]) {
+      for (const j of [0, 2, 5]) {
+        if (i >= j) continue;
+        const a = moved[i] as { x: number; y: number };
+        const b = moved[j] as { x: number; y: number };
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(MARKER_MIN_GAP - 1);
+      }
+    }
   });
 });

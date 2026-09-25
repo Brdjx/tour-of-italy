@@ -51,27 +51,60 @@ export function PlacePhotoImage({ photo, shape, sizes, eager = false }: PlacePho
   );
 }
 
+/** The whole credit as one line of text: "Photo: A. Rossi, CC BY-SA 3.0, Wikimedia Commons". */
+export function fullCredit(photo: PlacePhoto): string {
+  const note = photo.note ? `${photo.note} ` : "";
+  return `${note}Photo: ${photo.author}, ${photo.license}, Wikimedia Commons`;
+}
+
 /**
  * "Photo: A. Rossi, CC BY-SA 3.0, Wikimedia Commons": the author, the licence linked to the
  * licence itself (the 2.x and 3.0 licences ask for its URL), and the source linked to the photo's
  * Commons page. A city or general photo says so first.
+ *
+ * `compact` fits one line under a small photo: "Photo: A. Rossi, CC BY-SA 3.0", the author linked
+ * to the photo's Commons page and the licence to the licence. When the line is too long for its
+ * box it ends in an ellipsis, and the title carries the full credit.
  */
-export function PhotoCredit({ photo }: { photo: PlacePhoto }) {
+export function PhotoCredit({ photo, compact = false }: { photo: PlacePhoto; compact?: boolean }) {
+  if (compact) return <CompactCredit photo={photo} />;
   return (
     <p className="photo-credit">
       {photo.note ? <span className="photo-credit-note">{photo.note} </span> : null}
       <span>Photo: {photo.author}, </span>
-      {photo.licenseUrl ? (
-        <a href={photo.licenseUrl} target="_blank" rel="noreferrer noopener">
-          {photo.license}
-        </a>
-      ) : (
-        <span>{photo.license}</span>
-      )}
+      <LicenceLink photo={photo} />
       <span>, </span>
       <a href={photo.sourceUrl} target="_blank" rel="noreferrer noopener">
         Wikimedia Commons
       </a>
     </p>
+  );
+}
+
+// Decision: the author's name is the link to the photo's Commons page, so the source still has a
+// link without the words "Wikimedia Commons" taking the line. Screen readers hear where it goes;
+// a city or general photo's note is in the title only, because its label chip is on the photo.
+function CompactCredit({ photo }: { photo: PlacePhoto }) {
+  return (
+    <p className="photo-credit photo-credit--compact" title={fullCredit(photo)}>
+      <span>Photo: </span>
+      <a href={photo.sourceUrl} target="_blank" rel="noreferrer noopener">
+        {photo.author}
+        <span className="sr-only">, the photo on Wikimedia Commons</span>
+      </a>
+      <span>, </span>
+      <LicenceLink photo={photo} />
+    </p>
+  );
+}
+
+/** The licence, linked to its text when it has one (public domain has none). */
+function LicenceLink({ photo }: { photo: PlacePhoto }) {
+  return photo.licenseUrl ? (
+    <a href={photo.licenseUrl} target="_blank" rel="noreferrer noopener">
+      {photo.license}
+    </a>
+  ) : (
+    <span>{photo.license}</span>
   );
 }

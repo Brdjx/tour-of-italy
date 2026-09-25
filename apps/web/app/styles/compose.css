@@ -90,14 +90,17 @@
 }
 
 /*
- * Highlights: real photos of a few places, after the form on phones and tablets, beside it from
- * 1024 px (the compose column widens, the form keeps its 560 px). The tiles reveal in a
- * diagonal sweep from the top left: each waits by its row plus its column.
+ * Highlights: real photos of a few places. Below 1024 px they follow the form as one row that
+ * scrolls sideways and snaps to each photo, running out to the screen edges so the cut-off photo
+ * says there is more. From 1024 px they sit beside the form (the compose column widens, the form
+ * keeps its 560 px) as a tight grid. The tiles reveal in a diagonal sweep from the top left:
+ * each waits by its row plus its column.
  */
 @layer components {
   .highlights {
     margin-top: 40px;
     padding-bottom: 24px;
+    container-type: inline-size;
   }
 
   .highlights-title {
@@ -109,10 +112,36 @@
     letter-spacing: 0.02em;
   }
 
+  /* One row. Decision: the row bleeds to the viewport edges and pads back to the column, so the
+     first photo lines up with the form and the last scrolls clear of the edge. The bleed is in
+     cqw (the column's width, .highlights is the container), not %, because scroll-padding
+     resolves % against the row itself. Each tile is wide enough for its one-line credit at
+     375 px, and more than half of the next tile shows, which is what says the row scrolls. */
   .highlights-grid {
+    --row-bleed: calc(50vw - 50cqw);
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px 6px;
+    grid-auto-flow: column;
+    grid-auto-columns: min(56vw, 220px);
+    gap: 14px;
+    margin-inline: calc(-1 * var(--row-bleed));
+    padding-inline: var(--row-bleed);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--row-bleed);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+
+  /* Touch screens scroll the row with a swipe; the bar would only cover the credits. */
+  @media (hover: none) {
+    .highlights-grid {
+      scrollbar-width: none;
+    }
+  }
+
+  .highlight {
+    min-width: 0;
+    scroll-snap-align: start;
   }
 
   .highlight .place-photo--square {
@@ -148,23 +177,47 @@
     font-size: 0.75rem;
   }
 
-  /* Two columns: step = row + column. */
+  /* The compact credit: "Photo: <author>, <licence>" on one line, cut with an ellipsis when the
+     tile is narrow; the paragraph's title holds the full credit. The line is a little taller than
+     the text so the clip never cuts the links' underlines. It is positioned so the link's
+     screen-reader text is clipped with it; unpositioned, that text escaped to the page and made
+     it scroll sideways from a photo scrolled out of the row. */
+  .photo-credit--compact {
+    position: relative;
+    overflow: hidden;
+    line-height: 1.6;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Decision: a keyboard focus on either link opens the credit to its full width, wrapping if it
+     must. Clipped, the licence link took focus with its ring cut off past the ellipsis. */
+  .photo-credit--compact:has(:focus-visible) {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  /* In a row the sweep runs left to right: step = column. */
   .highlight {
     --step: 0;
     animation: tile-reveal 520ms var(--ease-out) both;
     animation-delay: calc(200ms + var(--step) * 80ms);
   }
 
-  .highlight:nth-child(2),
-  .highlight:nth-child(3) {
+  .highlight:nth-child(2) {
     --step: 1;
   }
-  .highlight:nth-child(4),
-  .highlight:nth-child(5) {
+  .highlight:nth-child(3) {
     --step: 2;
   }
-  .highlight:nth-child(6) {
+  .highlight:nth-child(4) {
     --step: 3;
+  }
+  .highlight:nth-child(5) {
+    --step: 4;
+  }
+  .highlight:nth-child(6) {
+    --step: 5;
   }
 
   @keyframes tile-reveal {
@@ -196,21 +249,71 @@
       margin-top: 32px;
     }
 
-    .highlights-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .highlights-title {
+      margin-bottom: 10px;
     }
 
-    /* Three columns: step = row + column. */
+    /* Beside the form: a grid again, tighter than the row, with no bleed and no scrolling. */
+    .highlights-grid {
+      --row-bleed: 0px;
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-columns: auto;
+      gap: 14px 6px;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+
+    .highlight-caption {
+      margin-top: 6px;
+    }
+
+    .highlight-caption .photo-credit {
+      margin-top: 2px;
+    }
+
+    /* Two columns: step = row + column. */
     .highlight:nth-child(2),
-    .highlight:nth-child(4) {
+    .highlight:nth-child(3) {
       --step: 1;
     }
-    .highlight:nth-child(3),
-    .highlight:nth-child(5) {
+    .highlight:nth-child(4) {
       --step: 2;
     }
-    .highlight:nth-child(6) {
-      --step: 3;
+
+    /* Decision: in two columns only the first four show. Six made a column twice the height of
+       the form beside it; four stand level with it and each still has room for its credit. */
+    .highlight:nth-child(n + 5) {
+      display: none;
+    }
+  }
+
+  /* Decision: three columns, all six photos, once the side column gives each photo 140 px or
+     more (from about 1130 px of window). Below that, three columns cut every credit down to
+     "Photo: Fe...", so four photos in two larger columns read better. A container query, because it is the column's width that
+     decides, not the window's. */
+  @media (min-width: 1024px) {
+    @container (min-width: 440px) {
+      .highlights-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .highlight:nth-child(n + 5) {
+        display: block;
+      }
+
+      /* Three columns: step = row + column. */
+      .highlight:nth-child(2),
+      .highlight:nth-child(4) {
+        --step: 1;
+      }
+      .highlight:nth-child(3),
+      .highlight:nth-child(5) {
+        --step: 2;
+      }
+      .highlight:nth-child(6) {
+        --step: 3;
+      }
     }
   }
 
