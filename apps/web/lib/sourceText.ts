@@ -76,7 +76,7 @@ interface Base {
  * never from the link; without an AI plan on record the line claims neither the AI nor the
  * rules, since a plan made with the traveler's notes keeps no AI text on record either.
  */
-function savedBase(saved: SavedTrip | null, now: Date): Base {
+function savedBase(itinerary: Itinerary, saved: SavedTrip | null, now: Date): Base {
   if (!saved) return { claim: "Saved trip", ai: false, edited: false };
   const ai = saved.plannedBy !== "rules";
   const day = shortDayOfTimestamp(saved.createdAt, now);
@@ -85,13 +85,23 @@ function savedBase(saved: SavedTrip | null, now: Date): Base {
     ...(ai ? ["planned with AI"] : []),
     ...(day ? [`saved ${day}`] : []),
   ];
-  // A trip timed again here shows the rules' why lines, so its check is ink.
-  return { claim: parts.join(", "), ai: ai && !saved.retimed, edited: saved.edited };
+  // Decision: the check is gold only while the AI's why lines are on screen. A trip timed again
+  // here shows the rules' why lines, and so does a trip saved from a plan made with the
+  // traveler's notes (its record keeps none of the AI's text), though the AI chose its places.
+  const aiReasons = !saved.retimed && hasAiReason(itinerary);
+  return { claim: parts.join(", "), ai: ai && aiReasons, edited: saved.edited };
+}
+
+/** Whether any stop's why line is the AI's. */
+function hasAiReason(itinerary: Itinerary): boolean {
+  return itinerary.days.some((day) => day.stops.some((stop) => stop.reasonSource === "ai"));
 }
 
 function baseFor(itinerary: Itinerary, origin: PlanOrigin, status: SourceStatus): Base {
   const base = { ai: false, edited: false };
-  if (origin === "saved") return savedBase(status.saved ?? null, status.now ?? new Date());
+  if (origin === "saved") {
+    return savedBase(itinerary, status.saved ?? null, status.now ?? new Date());
+  }
   if (origin === "shared") return { ...base, claim: "Shared plan, rebuilt from its places" };
   if (origin === "offline") {
     const cause = status.cause ?? null;

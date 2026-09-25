@@ -172,10 +172,19 @@ describe("sourceText", () => {
     });
 
     it("gives a trip timed again with newer place data the rules' mark", () => {
-      const text = sourceText(fixturePlan(), "saved", {
+      const text = sourceText(aiPlan(), "saved", {
         saved: { ...saved, retimed: true },
         now: NOW,
       });
+      expect(text).toMatchObject({
+        claim: "Saved trip, planned with AI, saved 20 Sep",
+        marker: "rules",
+      });
+    });
+
+    it("gives a trip saved from a plan made with notes the rules' mark, since no why line is the AI's", () => {
+      // The AI chose its places, but its record kept none of the AI's text (privateAiText).
+      const text = sourceText(fixturePlan(), "saved", { saved, now: NOW });
       expect(text).toMatchObject({
         claim: "Saved trip, planned with AI, saved 20 Sep",
         marker: "rules",
