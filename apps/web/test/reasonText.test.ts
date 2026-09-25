@@ -7,28 +7,31 @@ import { ctx, fixturePlan, place } from "./fixtures";
 
 // The "why" line must add something: a rule reason that only repeats the subtitle and rating
 // printed above it tells the traveler nothing. Only exact repeats may go; anything new stays.
+// The planner no longer opens with the type and area or the meal, but plans saved in the browser
+// or shared before that change still do, so those tests use the old wording as it was written.
 
 const NO_REQUEST = { interests: [], mustInclude: [] };
 const visit = (p: Place) => ({ place: p, role: "visit" as const, ratingShown: true });
 
 describe("displayReason", () => {
   it("drops the type-and-area and rating sentences the row already shows", () => {
-    const cafe = [...ctx.places].find((p) => p.type === "cafe" && p.rating !== null) as Place;
-    const raw = ruleReason(cafe, NO_REQUEST, "visit");
+    const cafe = place("place_011"); // Giolitti, a cafe in Pigna rated 4.3
+    const raw = "Cafe in Pigna. Rated 4.3 out of 5. A local favorite."; // an old saved plan
     expect(raw).toContain(`${placeSubtitle(cafe)}.`);
     const shown = displayReason(raw, false, visit(cafe));
-    expect(shown ?? "").not.toContain(`${placeSubtitle(cafe)}.`);
-    expect(shown ?? "").not.toMatch(/Rated [\d.]+ out of 5\./);
+    expect(shown).toBe("A local favorite.");
+    const now = displayReason(ruleReason(cafe, NO_REQUEST, "visit"), false, visit(cafe));
+    expect(now).toBe("Listed as iconic and a local favorite.");
   });
 
-  it("keeps what is new: interests, must-see and local favorite", () => {
+  it("keeps what is new: interests, must-see and the local favorite listing", () => {
     const favorite = [...ctx.places].find((p) => p.tags.includes("local-favorite")) as Place;
     const tag = favorite.tags.find((t) => t !== "local-favorite") as string;
     const raw = ruleReason(favorite, { interests: [tag], mustInclude: [favorite.id] }, "visit");
     const shown = displayReason(raw, false, visit(favorite)) ?? "";
     expect(shown).toContain("You asked to include this.");
     expect(shown).toContain("Matches your interest in");
-    expect(shown).toContain("A local favorite.");
+    expect(shown).toContain("Listed as a local favorite.");
   });
 
   it("keeps the rating sentence where the rating is not printed (the swap sheet)", () => {
@@ -40,19 +43,17 @@ describe("displayReason", () => {
 
   it("turns a meal lead into its only news, the closeness to the previous stop", () => {
     const restaurant = [...ctx.places].find((p) => p.type === "restaurant") as Place;
+    const context = { place: restaurant, role: "dinner" as const, ratingShown: true };
+    const old = `Dinner at a restaurant in ${restaurant.neighborhood}, close to your previous stop.`;
+    expect(displayReason(old, false, context)).toBe("Close to your previous stop.");
     const raw = ruleReason(restaurant, NO_REQUEST, "dinner", restaurant);
-    expect(raw).toContain("close to your previous stop");
-    const shown = displayReason(raw, false, {
-      place: restaurant,
-      role: "dinner",
-      ratingShown: true,
-    });
-    expect(shown).toBe("Close to your previous stop.");
+    expect(raw).toMatch(/^Close to your previous stop\./);
+    expect(displayReason(raw, false, context)).toMatch(/^Close to your previous stop\./);
   });
 
   it("hides the line when nothing new is left", () => {
     const plain = [...ctx.places].find(
-      (p) => p.type === "museum" && !p.tags.includes("local-favorite"),
+      (p) => p.type === "museum" && !p.tags.some((t) => t === "local-favorite" || t === "iconic"),
     ) as Place;
     expect(displayReason(ruleReason(plain, NO_REQUEST, "visit"), false, visit(plain))).toBeNull();
     expect(displayReason("Suggested stop.", false, visit(plain))).toBeNull();

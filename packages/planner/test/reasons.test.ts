@@ -20,46 +20,61 @@ describe("ruleReason wording", () => {
     [
       "place_003",
       { interests: ["food", "wine"], mustInclude: [] },
-      "Matches your interest in food. Rated 4.6 out of 5. A local favorite.",
+      "Matches your interest in food. Listed as a local favorite. Rated 4.6 out of 5.",
     ],
     [
       "place_010",
       { interests: [], mustInclude: ["place_010"] },
-      "You asked to include this. Museum in Borgo. Rated 4.7 out of 5.",
+      "You asked to include this. Listed as iconic. Rated 4.7 out of 5.",
     ],
-    ["place_026", none, "Museum in Piazza della Signoria. Rated 4.8 out of 5."],
-    ["place_002", none, "Neighborhood in Rome. Rated 4.7 out of 5. A local favorite."],
+    ["place_026", none, "Listed as iconic. Rated 4.8 out of 5."],
+    ["place_002", none, "Listed as a local favorite. Rated 4.7 out of 5."],
+    ["place_011", none, "Listed as iconic and a local favorite. Rated 4.3 out of 5."],
   ])("explains visit %s from its own data only", (id, request, text) => {
     expect(ruleReason(realPlace(id), request, "visit")).toBe(text);
   });
 
-  it("says a dinner is close to the previous stop only when that stop is a walk away", () => {
+  it("reads a tag as what the data lists, never as the planner's own opinion", () => {
+    const text = ruleReason(realPlace("place_002"), none, "visit");
+    expect(text).toContain("Listed as a local favorite.");
+    expect(text).not.toMatch(/(^|\. )A local favorite\./);
+  });
+
+  it("never names a tag twice when it is also a matched interest", () => {
+    const giolitti = realPlace("place_011");
+    expect(ruleReason(giolitti, { interests: ["local-favorite"], mustInclude: [] }, "visit")).toBe(
+      "Matches your interest in local favorite. Listed as iconic. Rated 4.3 out of 5.",
+    );
+  });
+
+  it("says a meal is close to the previous stop only when that stop is a walk away", () => {
     const enzo = realPlace("place_003");
     const request = { interests: ["food"], mustInclude: [] };
     expect(ruleReason(enzo, request, "dinner", realPlace("place_002"))).toBe(
-      "Dinner at a restaurant in Trastevere, close to your previous stop. Matches your interest in food. Rated 4.6 out of 5.",
+      "Close to your previous stop. Matches your interest in food. Listed as a local favorite. Rated 4.6 out of 5.",
     );
     expect(ruleReason(enzo, request, "lunch", realPlace("place_026"))).toBe(
-      "Lunch at a restaurant in Trastevere. Matches your interest in food. Rated 4.6 out of 5.",
+      "Matches your interest in food. Listed as a local favorite. Rated 4.6 out of 5.",
     );
     expect(ruleReason(enzo, request, "lunch", null)).not.toContain("close to");
+    expect(ruleReason(enzo, request, "visit", realPlace("place_002"))).not.toContain("Close to");
   });
 
-  it("names the venue for markets and says 'Dinner in' for a food walk, never 'at an experience'", () => {
+  it("never opens a meal with the meal, type and area the row already prints", () => {
     const market = { interests: ["market", "food", "budget", "morning"], mustInclude: [] };
     expect(ruleReason(realPlace("place_015"), market, "lunch")).toBe(
-      "Lunch at a market in Testaccio. Matches your interest in market, food and budget. Rated 4.7 out of 5.",
+      "Matches your interest in market, food and budget. Listed as a local favorite. Rated 4.7 out of 5.",
     );
     expect(ruleReason(realPlace("place_068"), none, "dinner", realPlace("place_075"))).toBe(
-      "Dinner in Cannaregio, close to your previous stop. Rated 4.8 out of 5.",
+      "Close to your previous stop. Listed as a local favorite. Rated 4.8 out of 5.",
     );
   });
 
-  it("never says 'Dinner at a shop' for Eataly, whose type is shop: the meal reads 'Dinner in Ostiense'", () => {
+  it("never says 'Dinner in Ostiense' for Eataly: the meal and area are on the row", () => {
     const eataly = realPlace("place_099");
     expect(eataly.type).toBe("shop");
-    expect(ruleReason(eataly, none, "dinner")).toMatch(/^Dinner in Ostiense\./);
-    expect(ruleReason(eataly, none, "lunch")).not.toContain("at a shop");
+    expect(ruleReason(eataly, none, "dinner")).toBe("Rated 4.1 out of 5.");
+    expect(ruleReason(eataly, none, "lunch")).not.toContain("Ostiense");
   });
 
   it.each([
@@ -70,14 +85,14 @@ describe("ruleReason wording", () => {
     expect(ruleReason(makePlace({ rating }), none, "visit")).toContain(sentence);
   });
 
-  it("leaves out the rating sentence when the place has no rating, instead of 'Rated null'", () => {
+  it("falls back to 'Suggested stop.' when the place has no rating and nothing else applies", () => {
     const text = ruleReason(makePlace({ rating: null }), none, "visit");
-    expect(text).toBe("Museum in Celio.");
+    expect(text).toBe("Suggested stop.");
   });
 
   it("makes no closeness claim when the previous position is not a real coordinate", () => {
     const text = ruleReason(realPlace("place_003"), none, "dinner", { lat: Number.NaN, lng: 12 });
-    expect(text).toBe("Dinner at a restaurant in Trastevere. Rated 4.6 out of 5.");
+    expect(text).toBe("Listed as a local favorite. Rated 4.6 out of 5.");
   });
 
   it("names at most three matched interests so the sentence stays readable", () => {
@@ -119,6 +134,18 @@ describe("ruleReason guarantees over the real data", () => {
       ),
       { ...FC_SETTINGS, numRuns: 200 },
     );
+  });
+
+  it("never restates the meal, type and area the row prints", () => {
+    for (const place of places) {
+      for (const role of ROLES) {
+        const request = { interests: place.tags, mustInclude: [place.id] };
+        const text = ruleReason(place, request, role, place);
+        expect(text).not.toMatch(/^(Lunch|Dinner) (at|in)\b/);
+        expect(text).not.toContain(` in ${place.city}.`);
+        if (place.neighborhood) expect(text).not.toContain(` in ${place.neighborhood}`);
+      }
+    }
   });
 
   it("stays within the length limit and passes the AI reason sanitizer for every place and role", () => {
@@ -165,11 +192,14 @@ describe("ruleReason on hostile data", () => {
     );
   });
 
-  it("skips an over-long neighborhood sentence rather than cutting a word in half", () => {
-    const place = makePlace({ neighborhood: "N".repeat(200), rating: 4 });
-    expect(ruleReason(place, none, "visit")).toBe("Rated 4 out of 5.");
-    expect(
-      ruleReason(makePlace({ neighborhood: "N".repeat(200), rating: null }), none, "lunch"),
-    ).toBe("Lunch stop.");
+  it("skips an over-long interest sentence rather than cutting a word in half", () => {
+    const tag = "n".repeat(200);
+    const request = { interests: [tag], mustInclude: [] };
+    expect(ruleReason(makePlace({ tags: [tag], rating: 4 }), request, "visit")).toBe(
+      "Rated 4 out of 5.",
+    );
+    expect(ruleReason(makePlace({ tags: [tag], rating: null }), request, "lunch")).toBe(
+      "Lunch stop.",
+    );
   });
 });
