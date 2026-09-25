@@ -134,12 +134,18 @@ Statuses:
 | T65 | Redesign: the departure board in the Goodpix language (tokens, type, board, motion) | done | cb38379; tokens, type roles, board, motion, highlights, icon; contrast tests green in both schemes |
 | T66 | Real place photos from Wikimedia Commons, credited, with city fallbacks | done | a706cb8; 73 places with their own photo, 8 city photos, 20 MB; credits link licence and source |
 | T67 | Self-hosted vector map (MapLibre, Protomaps tiles on the site's own CloudFront) | done | 1189a1c; MapLibre with a 140 MB Protomaps extract uploaded to the site bucket once (docs/deploy.md) |
-| T68 | Live AI path: Sonnet 5 exceeds the 24 s limit on the real request; Haiku 4.5 fails validation twice | todo | live-smoke 2026-09-24: both fall back to rules |
-| T69 | Next design phase: no top navbar; the trip summary, Edit trip, Copy link and the planned with or without AI line share one compact row | todo | owner feedback 2026-09-24 |
-| T70 | Edit trip opens a full-screen overlay over a softly blurred page, with its own entrance and exit motion | todo | owner feedback 2026-09-24 |
+| T68 | Live AI path: Sonnet 5 exceeds the 24 s limit on the real request; Haiku 4.5 fails validation twice | done | 418afb3 turns Sonnet 5's thinking off for the plan request; cd1c501, 7c56ecb and ee1d258 tidy what the model cannot see. On the 90 recorded first answers of 2026-09-25, 85 pass the check after tidying (7 as written); a live plan on 2026-09-25 answered in 11.8 s as ai_repaired |
+| T69 | Next design phase: no top navbar; the trip summary, Edit trip, Copy link and the planned with or without AI line share one compact row | done | d710fa4 and 09e53b9: the trip header replaces the bar; on phones Edit trip and Copy link are labelled pills in one row |
+| T70 | Edit trip opens a full-screen overlay over a softly blurred page, with its own entrance and exit motion | done | d710fa4: Edit trip and More options are native dialog sheets over a blurred page (bottom sheets on phones, the page receding), with Start a new trip |
 | T71 | About this data opens a full-screen overlay with far more detailed data | todo | owner feedback 2026-09-24 |
 | T72 | Richer colourways within the design language | todo | owner feedback 2026-09-24 |
 | T73 | A detailed per-day skeleton for the itinerary on desktop, tablet and phone | todo | owner feedback 2026-09-24 |
+| T74 | Why lines that add information: rule lines say what the stop's date means for it; AI lines that contradict the stop as timed give way to the rule line, on the server and after every edit on the page | done | ea288f1, f97d2ca, de29c77; sweeps found no false or unprovable rule line and no false AI line after about 15,300 random edits |
+| T75 | The default rules-only plan's first day can end without dinner (Rome, Fri 9 Oct 2026, balanced: a fifth visit takes the time) | done | 800d94c: a day still missing a meal gives up its least valuable visit for it; days missing a meal -1.5 points (mixed), -4.6 (must-includes) over three seeds |
+| T76 | Live AI plans fell back when the model repeated places and emptied day 3 (owner's request, 2026-09-25 12:32 UTC) | done | 6ccaa8c: shortlist sized per trip, prompt v2, repair notes, tidy moves; live fallbacks 0 of 112 (8% before), slowest request 12 s |
+| T77 | Copy link saves the exact trip (edits, AI why lines, summary, source) behind a short link, stored in DynamoDB | in progress | owner's call 2026-09-25: saved trip, short link |
+| T78 | Tricolour band and animated flag; Edit trip disabled while planning; stop details and photos in a sheet | in progress | owner's request 2026-09-25 |
+| T79 | Cache AI plans by options across instances (DynamoDB) and in the tab | todo | owner's request 2026-09-25; after T77 |
 
 ## Cut or deferred
 
