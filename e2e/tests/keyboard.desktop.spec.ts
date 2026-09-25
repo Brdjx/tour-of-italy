@@ -174,7 +174,9 @@ test("opens a stop's details and the full-screen map from the day's map with the
   await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
   await expect(page.locator("#day-heading-0")).toBeFocused();
 
-  // Expand map, then the stops in visiting order, each with its ring and its popup.
+  // Expand map, then the stops in visiting order, each with its ring and its popup. The map comes
+  // in its own chunk after the plan; on a busy machine it can still be loading when tabbing starts.
+  await expect(page.getByTestId("map-expand")).toBeVisible();
   await tabTo(page, "map-expand");
   await expectFocusKept(page, "Expand map");
   expect(await ringShows(page), "Expand map shows no focus ring").toBe(true);
