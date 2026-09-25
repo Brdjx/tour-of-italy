@@ -61,7 +61,7 @@
     gap: 8px;
   }
 
-  /* Edit trip and Copy link: outline pills. On phones they are round, with only the icon. */
+  /* Edit trip and Copy link: outline pills with an icon and words. */
   .head-pill {
     display: inline-flex;
     min-height: 44px;
@@ -117,14 +117,26 @@
     margin-top: 10px;
   }
 
+  /* Phones: the dates and pace take the full width, and the two pills share one row under
+     them, each half the width, in the order they come in the page. */
   @media (max-width: 639px) {
-    .head-pill {
-      width: 44px;
-      padding: 0;
+    .trip-head-top {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
     }
 
-    .head-pill:active {
-      transform: scale(0.94);
+    .trip-head-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .head-pill-skeleton {
+      width: auto;
+    }
+
+    .trip-head-status {
+      margin-top: 12px;
     }
   }
 

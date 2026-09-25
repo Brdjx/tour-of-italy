@@ -59,10 +59,9 @@ export function useShareLink(
 interface ShareLinkButtonProps {
   share: ShareLink;
   className?: string;
-  labelClassName?: string; // the trip header hides the words on phones, keeping them as the name
 }
 
-export function ShareLinkButton({ share, className, labelClassName }: ShareLinkButtonProps) {
+export function ShareLinkButton({ share, className }: ShareLinkButtonProps) {
   return (
     <button
       type="button"
@@ -72,7 +71,7 @@ export function ShareLinkButton({ share, className, labelClassName }: ShareLinkB
       data-copied={share.copied ? "true" : undefined}
     >
       {share.copied ? <CheckIcon size={18} /> : <LinkIcon size={18} />}
-      <span className={labelClassName}>{share.copied ? "Link copied" : "Copy link"}</span>
+      <span>{share.copied ? "Link copied" : "Copy link"}</span>
     </button>
   );
 }

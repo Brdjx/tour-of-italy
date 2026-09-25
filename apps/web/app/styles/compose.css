@@ -120,6 +120,7 @@
   .highlights-grid {
     --row-bleed: calc(50vw - 50cqw);
     display: grid;
+    grid-template-rows: repeat(4, auto);
     grid-auto-flow: column;
     grid-auto-columns: min(56vw, 220px);
     gap: 14px;
@@ -139,9 +140,23 @@
     }
   }
 
+  /* Decision: each tile's photo, name, city and credit sit on four rows the whole grid shares
+     (subgrid, through the figure and its caption), so a name that wraps to two lines moves its
+     row's cities and credits down together instead of leaving its own credit out of line. */
   .highlight {
+    display: grid;
     min-width: 0;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    row-gap: 0;
     scroll-snap-align: start;
+  }
+
+  .highlight > figure {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    row-gap: 0;
   }
 
   .highlight .place-photo--square {
@@ -154,12 +169,14 @@
   }
 
   .highlight-caption {
-    display: flex;
-    flex-direction: column;
-    margin-top: 8px;
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
   }
 
   .highlight-name {
+    margin-top: 8px;
     color: var(--fg);
     font-size: 0.9375rem;
     font-stretch: 112.5%;
@@ -177,24 +194,22 @@
     font-size: 0.75rem;
   }
 
-  /* The compact credit: "Photo: <author>, <licence>" on one line, cut with an ellipsis when the
-     tile is narrow; the paragraph's title holds the full credit. The line is a little taller than
-     the text so the clip never cuts the links' underlines. It is positioned so the link's
-     screen-reader text is clipped with it; unpositioned, that text escaped to the page and made
-     it scroll sideways from a photo scrolled out of the row. */
+  /* The compact credit: "Photo: <author>, <licence>", in the narrow width of small print so it
+     fits one line under most photos. Decision: nothing is cut. A long credit wraps, the licence
+     never breaks inside itself, and the subgrid rows above keep the row's credits level. An
+     ellipsis left the author as "Feat..." in the three-column grid, and a CC BY-SA credit needs
+     both the author and the licence. The paragraph is positioned so the author link's
+     screen-reader text stays inside it; unpositioned, that text escaped to the page and made it
+     scroll sideways from a photo scrolled out of the row. */
   .photo-credit--compact {
     position: relative;
-    overflow: hidden;
-    line-height: 1.6;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-stretch: 87.5%;
+    line-height: 1.5;
+    text-wrap: pretty;
   }
 
-  /* Decision: a keyboard focus on either link opens the credit to its full width, wrapping if it
-     must. Clipped, the licence link took focus with its ring cut off past the ellipsis. */
-  .photo-credit--compact:has(:focus-visible) {
-    overflow: visible;
-    white-space: normal;
+  .photo-credit--compact > :last-child {
+    white-space: nowrap;
   }
 
   /* In a row the sweep runs left to right: step = column. */
@@ -256,6 +271,7 @@
     /* Beside the form: a grid again, tighter than the row, with no bleed and no scrolling. */
     .highlights-grid {
       --row-bleed: 0px;
+      grid-template-rows: none;
       grid-auto-flow: row;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-auto-columns: auto;
@@ -264,7 +280,7 @@
       scroll-snap-type: none;
     }
 
-    .highlight-caption {
+    .highlight-name {
       margin-top: 6px;
     }
 
@@ -299,7 +315,7 @@
       }
 
       .highlight:nth-child(n + 5) {
-        display: block;
+        display: grid;
       }
 
       /* Three columns: step = row + column. */

@@ -669,6 +669,13 @@
     background: var(--page);
   }
 
+  /* Decision: with no summary or notes between them, the tabs follow the trip header closely.
+     The header's last line is a 44 px tap target with its own air, and the full margin on top
+     of it left a band that read as a gap, not a pause. */
+  .plan > .sr-only + .day-tabs {
+    margin-top: 0;
+  }
+
   .day-tabs::after {
     position: absolute;
     bottom: -1px;
@@ -747,6 +754,10 @@
       /* Still under the status bar: an iPad in landscape runs the installed app at this width. */
       top: var(--safe-top);
       margin: 22px 0 0;
+    }
+
+    .plan > .sr-only + .day-tabs {
+      margin-top: 8px;
     }
   }
 

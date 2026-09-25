@@ -281,7 +281,7 @@ A near-monochrome paper and ink palette with one warm gold and a caution yellow,
 
 ## Layout
 
-One centred column on every screen, kept inside the safe areas. Before a plan the column is narrow (column-compose); once a plan is on screen it widens (column-plan) and has no bar at the top. The trip header opens the plan view: the dates as the heading with the pace under them, Edit trip and Copy link at the right, then one line saying how the plan was made, with Undo at its end after an edit. Its top space steps with the gutters (16px, 24px, 32px). The form lives in the Edit trip sheet once a plan exists.
+One centred column on every screen, kept inside the safe areas. Before a plan the column is narrow (column-compose); once a plan is on screen it widens (column-plan) and has no bar at the top. The trip header opens the plan view: the dates as the heading with the pace under them, Edit trip and Copy link at the right (on phones, one row of two equal pills under the pace), then one line saying how the plan was made, with Undo at its end after an edit. With no summary or notes between them, the day tabs follow the header without the tabs' own top margin. Its top space steps with the gutters (16px, 24px, 32px). The form lives in the Edit trip sheet once a plan exists.
 
 Below 1024px the compose view's highlights follow the form as one row that scrolls sideways and snaps to each photo, bleeding to the screen edges so a cut-off photo says there is more (tiles min(56vw, 220px), 14px apart). From 1024px they sit beside the form as a grid: two columns and four photos, or three columns and six once the side column is 440px wide. Side gutters step from gutter-phone to gutter-tablet at 640px and gutter-desktop at 1024px, never less than the safe-area inset.
 
@@ -318,7 +318,7 @@ Round, calm and quick to answer a press.
 - **Shape:** full pill (999px).
 - **Primary:** "Plan my trip" is the page's one ink pill, full width at 52px, sticky at the bottom of the form while options scroll.
 - **Pill set:** filled ink, outline (strong hairline border on surface) and quiet (no border, hover wash). Round icon pills are 44px square.
-- **Trip header pills:** Edit trip and Copy link are outline pills with an icon and words from 640px, and round 44px icon pills on phones that keep their words as their accessible names. The copied check pops in on the snappy spring.
+- **Trip header pills:** Edit trip and Copy link are outline pills with an icon and words at every width; on phones they share one row under the pace, each half its width. They are the page's main actions, so they are never reduced to glyphs. The copied check pops in on the snappy spring.
 - **Hover / Focus:** fills darken to fill-hover; outline and quiet pills take the hover wash. Presses scale to 0.97 (0.94 for round pills) over 100ms. Focus is a 2px focus-colour outline 2px out. Disabled drops to 40% opacity.
 - **Text button:** ink text with a strong-hairline underline that turns gold on hover. "Start a new trip" is one, quiet at the foot of the Edit trip sheet with one muted line saying what it clears, never beside Plan my trip.
 
@@ -346,7 +346,7 @@ Times alone in the fixed left column in the time role, the place name in the tit
 - **After an edit:** only moved times flip; the edited row flashes the gold wash over 1200ms.
 
 ### Photos
-Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) and 3:2 wide photos, never rounded. A city or topic photo sits inset on a 6px warm-paper mat with a square label chip, so it is never mistaken for the place itself. Images fade in over 180ms on load, over the tile colour. Every photo carries a muted credit line. Under a highlight the credit is compact: one line ("Photo: author, licence") ending in an ellipsis when the tile is narrow, with the full credit in its title, and opening to full width when a link inside it takes keyboard focus.
+Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) and 3:2 wide photos, never rounded. A city or topic photo sits inset on a 6px warm-paper mat with a square label chip, so it is never mistaken for the place itself. Images fade in over 180ms on load, over the tile colour. Every photo carries a muted credit line. Under a highlight the credit is compact: "Photo: author, licence" in the label width (87.5), one line under most photos, with the full credit in its title. Nothing is cut: a longer credit wraps, the licence never breaks inside itself, and the highlight grid shares its photo, name, city and credit rows across each row (subgrid) so a wrapped name or credit keeps its row level.
 
 ### Map
 Stops are ink discs with paper numbers; gold stays off the map. Discs closer than 22px centre to centre are nudged apart along the line between them, never more than 12px from their place, and ease back as the map zooms in. An earlier stop draws above a later one.

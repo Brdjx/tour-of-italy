@@ -11,8 +11,8 @@ import { Skeleton } from "./skeleton/Skeleton";
 import { TRIP_SHEET_ID } from "./TripPane";
 
 // The block that opens the plan view, in place of a navigation bar. The trip's dates are the
-// page's heading, with the pace under them; Edit trip and Copy link sit on the right (icon and
-// words from 640 px, round icon pills with the same names on phones). Under it, one line says
+// page's heading, with the pace under them; Edit trip and Copy link sit on the right from 640 px,
+// and on phones they share one row under the pace, each with its icon and words. Under it, one line says
 // how the plan was made (its details open on tap), with Undo once there is an edit. While a plan
 // is on its way the parts that need it are skeletons of the same size, and while a shared or
 // saved plan loads the whole block is.
@@ -35,8 +35,9 @@ interface TripSummaryProps {
   onStatus: (message: string) => void;
 }
 
-// Decision: the words stay in the button on phones, visually hidden, so each round pill keeps
-// its full name ("Edit trip", "Copy link") for screen readers and voice control.
+// Decision: Edit trip and Copy link keep their words on phones. As round icon pills they were
+// the page's main actions shown as glyphs to guess at; the finish review flagged it. Only Undo
+// shortens there, and its hidden words stay its name for screen readers and voice control.
 const WIDE_LABEL = "max-sm:sr-only";
 
 export function TripSummary(props: TripSummaryProps) {
@@ -81,10 +82,10 @@ export function TripSummary(props: TripSummaryProps) {
             data-testid="edit-trip-button"
           >
             <EditIcon size={18} />
-            <span className={WIDE_LABEL}>Edit trip</span>
+            <span>Edit trip</span>
           </button>
           {plan ? (
-            <ShareLinkButton share={share} className="head-pill" labelClassName={WIDE_LABEL} />
+            <ShareLinkButton share={share} className="head-pill" />
           ) : (
             <Skeleton className="skeleton--button head-pill-skeleton" />
           )}

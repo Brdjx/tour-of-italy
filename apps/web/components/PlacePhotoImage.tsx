@@ -62,9 +62,9 @@ export function fullCredit(photo: PlacePhoto): string {
  * licence itself (the 2.x and 3.0 licences ask for its URL), and the source linked to the photo's
  * Commons page. A city or general photo says so first.
  *
- * `compact` fits one line under a small photo: "Photo: A. Rossi, CC BY-SA 3.0", the author linked
- * to the photo's Commons page and the licence to the licence. When the line is too long for its
- * box it ends in an ellipsis, and the title carries the full credit.
+ * `compact` fits one line under most small photos: "Photo: A. Rossi, CC BY-SA 3.0", the author
+ * linked to the photo's Commons page and the licence to the licence. A longer credit wraps
+ * rather than being cut (compose.css), and the title carries the full credit.
  */
 export function PhotoCredit({ photo, compact = false }: { photo: PlacePhoto; compact?: boolean }) {
   if (compact) return <CompactCredit photo={photo} />;
