@@ -170,7 +170,8 @@ test.describe("when the planner service fails", () => {
     });
     await reopenForm(page, press, twoPane);
     // Other options: the page would show the plan it already has for these, with no request.
-    await press(page.getByTestId("pace-field").getByRole("radio", { name: "Packed" }));
+    // The pill's words take the press; its radio is visually hidden under them.
+    await press(page.getByTestId("pace-field").getByText("Packed", { exact: true }));
     await press(page.getByTestId("plan-button"));
 
     const error = page.getByTestId("error-state");

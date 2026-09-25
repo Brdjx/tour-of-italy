@@ -131,8 +131,10 @@ test("a plan request always goes to the server, is never answered by the worker,
   await expect(page.getByTestId("plan-button")).toBeVisible();
   await planTrip(page, press);
   // Other options: the page itself shows a plan it already has for the same options, with no
-  // request at all (lib/planMemo.ts), which is not what this test is about.
-  await press(page.getByTestId("pace-field").getByRole("radio", { name: "Packed" }));
+  // request at all (lib/planMemo.ts), which is not what this test is about. With a plan on
+  // screen the form is in the Edit trip sheet, and the pill's words take the press.
+  await press(page.getByTestId("edit-trip-button"));
+  await press(page.getByTestId("pace-field").getByText("Packed", { exact: true }));
   await planTrip(page, press);
 
   expect(fromWorker.places, "the worker never served the places").toContain(true);
