@@ -24,6 +24,8 @@ locals {
   ]
   alarm_arn = "arn:aws:cloudwatch:${local.region}:${local.account}:alarm:${local.name}-*"
   topic_arn = "arn:aws:sns:${local.region}:${local.account}:${local.name}-*"
+  # DynamoDB tables of this project (today the SAM stack's italy-planner-trips).
+  tables_arn = "arn:aws:dynamodb:${local.region}:${local.account}:table/${local.name}-*"
 
   # SSM parameters. The API key is created by a human and read only by the function.
   origin_secret_param_arn = "arn:aws:ssm:${local.region}:${local.account}:parameter/${local.name}/origin-verify-secret"

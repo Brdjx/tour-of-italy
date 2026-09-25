@@ -160,7 +160,7 @@ describe("POST /api/plan", () => {
 
     expect(client.calls).toBe(1);
     expect(second).toEqual(first);
-    expect(lastRequestLog(logs).cache).toBe("hit");
+    expect(lastRequestLog(logs).cache).toBe("hit-memory");
   });
 
   it("does not share cache entries between different requests", async () => {

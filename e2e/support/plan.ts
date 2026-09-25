@@ -16,6 +16,7 @@ export const BADGE = {
   offline: "Planned without AI, offline",
   onDevice: "Planned without AI, on this device",
   shared: "Shared plan, checked against hours and distance",
+  savedAi: "Planned with AI, saved trip, checked against hours and distance",
 } as const;
 
 /** Scripted model answers the local API plays (services/api/src/llm/fixture.ts). */

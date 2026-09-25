@@ -2,7 +2,7 @@ import type { Itinerary } from "@italy/planner";
 import { addDays, buildPlannerContext, TRIP_DAYS } from "@italy/planner";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
-import { initialItineraryState, itineraryReducer } from "../lib/itineraryReducer";
+import { initialItineraryState, isEdited, itineraryReducer } from "../lib/itineraryReducer";
 import {
   type KeyValueStore,
   LAST_PLAN_KEY,
@@ -62,15 +62,35 @@ describe("saving and reading the last plan", () => {
         itinerary: plan,
         origin,
         cause: null,
+        saved: null,
+        edited: false,
         flagged: 0,
       });
     }
   });
 
+  it("keeps the saved trip a plan was opened from, so the source line says so after a reload", () => {
+    const store = new MemoryStore();
+    const plan = { ...fixturePlan(), planId: "a1B2c3D4e5" };
+    const saved = {
+      id: "Zz9Yy8Xx7W",
+      createdAt: "2026-09-20T18:30:00.000Z",
+      plannedBy: "ai_repaired" as const,
+      edited: true,
+      retimed: false,
+    };
+    saveLastPlan(store, plan, "saved", NOW, { saved });
+    const read = readLastPlan(store, ctx, NOW);
+    expect(read).toMatchObject({ status: "restored", origin: "saved", saved, itinerary: plan });
+    // A saved-trip record whose id is not a record id is not a plan this page wrote.
+    const forged = stored(record(plan, { origin: "saved", saved: { ...saved, id: "../x" } }));
+    expectDiscarded(forged, "invalid");
+  });
+
   it("keeps why a plan was built on this device, so a reopened plan is labelled the same", () => {
     const store = new MemoryStore();
     const plan = fixturePlan();
-    saveLastPlan(store, plan, "offline", NOW, "busy");
+    saveLastPlan(store, plan, "offline", NOW, { cause: "busy" });
     const read = readLastPlan(store, ctx, NOW);
     expect(read.status === "restored" && read.cause).toBe("busy");
     // Records saved before the cause was kept still open, with no cause.
@@ -89,10 +109,15 @@ describe("saving and reading the last plan", () => {
     state = itineraryReducer(state, { type: "move", day: 1, stop: 1, direction: "up" }, ctx);
     const edited = must(state.itinerary, "edited plan");
     const store = new MemoryStore();
-    saveLastPlan(store, edited, state.origin, NOW);
+    saveLastPlan(store, edited, state.origin, NOW, { edited: isEdited(state) });
     const read = readLastPlan(store, ctx, NOW);
     expect(read.status).toBe("restored");
     if (read.status === "restored") expect(read.itinerary).toEqual(edited);
+    // The edit is remembered, so the source line never claims the plan is as it arrived.
+    expect(read.status === "restored" && read.edited).toBe(true);
+    // Records saved before the flag was kept open as unedited.
+    const legacy = readLastPlan(stored(record(edited, { origin: "api" })), ctx, NOW);
+    expect(legacy.status === "restored" && legacy.edited).toBe(false);
   });
 
   it("reports nothing saved when the key is missing", () => {

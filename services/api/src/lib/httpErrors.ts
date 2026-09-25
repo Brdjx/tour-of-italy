@@ -18,6 +18,8 @@ export type ErrorCode =
   | "unknown_fixture_scenario"
   | "no_feasible_plan"
   | "plan_unavailable"
+  | "trip_not_valid"
+  | "trips_unavailable"
   | "internal_error";
 
 export interface ErrorDetail {

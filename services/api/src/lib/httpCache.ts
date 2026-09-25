@@ -3,7 +3,8 @@ import type { Context } from "hono";
 
 // HTTP caching for the read-only routes. Their bodies change only with a deploy, so they are
 // serialized once, carry a strong ETag, and tell browsers and CloudFront how long to reuse them.
-// Everything else (plans, health, errors) is sent with no-store.
+// A saved trip never changes, so it may be reused too. Everything else (plans, health, errors)
+// is sent with no-store.
 
 // Decision: browsers reuse the data for 5 minutes, then revalidate with If-None-Match (a 304 of a
 // few bytes instead of 130 KB). Shared caches such as CloudFront may keep it for an hour; a
@@ -11,6 +12,10 @@ import type { Context } from "hono";
 // /api/places, so without this each one reaches the function.
 export const CACHE_CONTROL = {
   data: "public, max-age=300, s-maxage=3600",
+  // Decision: a saved trip may be reused as is. It is written once (a conditional put under a
+  // new id) and no route changes it afterwards; it can only expire, and a copy at most 5 minutes
+  // old of a trip that just expired is harmless. Errors, a 404 included, stay no-store.
+  savedTrip: "public, max-age=300, immutable",
   never: "no-store",
 } as const;
 

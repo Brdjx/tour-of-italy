@@ -7,8 +7,8 @@
 # could make the role assumable from another account. lambda:SourceFunctionArn is set by Lambda
 # on calls from the function's execution environment and on the log writes Lambda makes for it
 # (Lambda docs, "Using source function ARN to control function access behavior"); a session
-# assumed any other way lacks it, so it gets no parameter reads and no log writes, and the
-# Anthropic key cannot leak to a role trusted from outside.
+# assumed any other way lacks it, so it gets no parameter reads, no log writes and no trips, and
+# the Anthropic key cannot leak to a role trusted from outside.
 
 locals {
   from_the_api_function = { ArnEquals = { "lambda:SourceFunctionArn" = local.lambda_function_arn } }
@@ -19,6 +19,15 @@ locals {
       Effect    = "Allow"
       Action    = ["logs:CreateLogStream", "logs:PutLogEvents"]
       Resource  = [local.lambda_log_groups[1]]
+      Condition = local.from_the_api_function
+    },
+    {
+      # The trips table: read one record and write new ones, from the function's own code only
+      # (services/api/src/trips/dynamoStore.ts). No query, scan, update or delete.
+      Sid       = "ReadAndWriteProjectTables"
+      Effect    = "Allow"
+      Action    = ["dynamodb:GetItem", "dynamodb:PutItem"]
+      Resource  = [local.tables_arn]
       Condition = local.from_the_api_function
     },
     {

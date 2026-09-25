@@ -1,6 +1,8 @@
 import type { FallbackReason, Itinerary } from "@italy/planner";
+import { dayOfTimestamp } from "./format";
 import type { PlanOrigin } from "./itineraryReducer";
 import type { FallbackCause } from "./planRequest";
+import type { SavedTrip } from "./savedTrip";
 
 // What the source badge says, and the sentences in its details. The label must never claim more
 // than the page knows: who planned it, whether it was built on this device and why, whether the
@@ -20,6 +22,7 @@ export interface SourceStatus {
   cause?: FallbackCause | null; // why it was built in the browser, when it was
   errors?: number; // error-level violations right now
   edited?: boolean; // the traveler has changed it since it arrived
+  saved?: SavedTrip | null; // the saved trip it was opened from (origin "saved")
 }
 
 const CHECKED = "Every stop was checked against opening hours, travel time, and your pace.";
@@ -63,8 +66,55 @@ interface Base {
   ai: boolean;
 }
 
-function baseFor(itinerary: Itinerary, origin: PlanOrigin, cause: FallbackCause | null): Base {
+/** Who planned a saved trip, in the words of its details. */
+const SAVED_PLANNER: Record<SavedTrip["plannedBy"], string> = {
+  ai: "The AI planner chose the places from the data.",
+  ai_repaired:
+    "The AI planner chose the places from the data; its first draft broke a rule and was fixed.",
+  rules: "Its why lines come from the rules.",
+};
+
+/**
+ * A trip opened from a saved link. Who planned it comes from the server's record of the plan,
+ * never from the link; without that record the label claims neither the AI nor the rules.
+ */
+function savedBase(saved: SavedTrip | null, edited: boolean): Base {
+  const base = { extra: null, checked: true, offline: false, ai: false };
+  if (!saved) {
+    return { ...base, who: "Saved trip", details: ["This plan came from a saved link.", CHECKED] };
+  }
+  const ai = saved.plannedBy !== "rules";
+  const day = dayOfTimestamp(saved.createdAt);
+  const when = day === "" ? "Saved" : `Saved on ${day}`;
+  // Decision: after the traveler's own edits the times are no longer the saved ones, so the
+  // details say only when it was saved; the edit sentence sourceText adds says the rest.
+  const first = saved.retimed
+    ? `${when}. The place data has changed since, so its times were worked out again and its why lines come from the rules.`
+    : edited
+      ? `${when}.`
+      : `${when}. The times and why lines are as they were saved.`;
+  // A trip timed again already says its why lines come from the rules.
+  const planner = saved.retimed && !ai ? [] : [SAVED_PLANNER[saved.plannedBy]];
+  const details = [
+    first,
+    ...planner,
+    ...(saved.edited ? ["It was edited before it was saved."] : []),
+    CHECKED,
+    ...(ai && !saved.retimed ? [MARKERS] : []),
+  ];
+  if (!ai) return { ...base, who: "Saved trip", details };
+  return { ...base, who: "Planned with AI", extra: ", saved trip", details, ai: !saved.retimed };
+}
+
+function baseFor(
+  itinerary: Itinerary,
+  origin: PlanOrigin,
+  cause: FallbackCause | null,
+  saved: SavedTrip | null,
+  edited: boolean,
+): Base {
   const base = { extra: null, checked: false, offline: false, ai: false };
+  if (origin === "saved") return savedBase(saved, edited);
   if (origin === "shared") {
     const details = [
       "This plan came from a shared link.",
@@ -105,9 +155,9 @@ export function sourceText(
   origin: PlanOrigin,
   status: SourceStatus = {},
 ): SourceText {
-  const base = baseFor(itinerary, origin, status.cause ?? null);
-  const errors = status.errors ?? 0;
   const edited = status.edited ?? false;
+  const base = baseFor(itinerary, origin, status.cause ?? null, status.saved ?? null, edited);
+  const errors = status.errors ?? 0;
   if (errors > 0) {
     const count = errors === 1 ? "1 problem" : `${errors} problems`;
     const broken = errors === 1 ? "a rule" : `${errors} rules`;
@@ -131,6 +181,6 @@ export function sourceText(
     label: parts.join(", "),
     details,
     offline: base.offline,
-    marker: base.ai && origin === "api" ? "ai" : "rules",
+    marker: base.ai && (origin === "api" || origin === "saved") ? "ai" : "rules",
   };
 }

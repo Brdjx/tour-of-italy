@@ -96,6 +96,8 @@ describe("the trip header while a plan is on its way", () => {
     await user.click(await screen.findByTestId("plan-button"));
     await screen.findAllByTestId("stop-row");
     await user.click(edit());
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(tripSheet().open).toBe(false);
     expect(waiting(edit())).toBe(true);
@@ -124,6 +126,8 @@ describe("the trip header while a plan is on its way", () => {
     await user.click(copy());
     expect(screen.getByTestId("share-link-field")).toBeTruthy();
     await user.click(edit());
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(screen.queryByTestId("share-link-field")).toBeNull();
     await act(async () => next.resolve(aiPlan({ pace: "relaxed" })));

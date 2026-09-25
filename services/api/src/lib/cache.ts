@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
+import { planRequestKey, type TripRequest } from "@italy/planner";
 
-// A small in-memory LRU cache for AI plans, per Lambda instance. Entries are stored and returned
-// as deep copies, so a caller that edits a returned plan can never change what the next caller
-// gets.
+// A small in-memory LRU cache, per Lambda instance: the first layer of the AI plan cache
+// (plan/planCache.ts). Entries are stored and returned as deep copies, so a caller that edits a
+// returned plan can never change what the next caller gets.
 
 export class LruCache<V> {
   readonly #entries = new Map<string, V>();
@@ -35,6 +36,11 @@ export class LruCache<V> {
     }
   }
 
+  /** Removes the entry, if there is one. */
+  delete(key: string): void {
+    this.#entries.delete(key);
+  }
+
   get size(): number {
     return this.#entries.size;
   }
@@ -44,33 +50,28 @@ export class LruCache<V> {
 export const PLAN_CACHE_ENTRIES = 100;
 
 /**
- * JSON with object keys sorted at every level, so two requests that differ only in key order
- * share a cache key. Array order is kept: it can matter to the plan.
- */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeys(value)) ?? "null";
-}
-
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (value === null || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort()) {
-    out[key] = sortKeys((value as Record<string, unknown>)[key]);
-  }
-  return out;
-}
-
-/**
  * The cache key for a plan: SHA-256 of the prompt version, the model client's identity (model id,
- * or the fixture scenario), and the canonical request. A prompt or model change never serves a
- * plan made under the old one.
+ * or the fixture scenario), the deployed commit, the place data's fingerprint, and the request's
+ * key (planRequestKey in the planner, which the page's in-tab cache uses too). A prompt, model,
+ * code or data change never serves a plan made under the old one.
  */
+// Decision: the commit is part of the key. The table keeps plans across deploys, and a cached
+// plan is served without the planner, the validator or the text checks running again, so a
+// deploy that fixes or tightens one of them would otherwise keep serving plans made without it
+// for up to 7 days. A deploy starts the shared cache empty, as it always did each instance's.
 export function planCacheKey(parts: {
   promptVersion: string;
   model: string;
-  request: unknown;
+  codeVersion: string; // GIT_SHA
+  dataVersion: string;
+  request: TripRequest;
 }): string {
-  const text = [parts.promptVersion, parts.model, canonicalJson(parts.request)].join("\n");
+  const text = [
+    parts.promptVersion,
+    parts.model,
+    parts.codeVersion,
+    parts.dataVersion,
+    planRequestKey(parts.request),
+  ].join("\n");
   return createHash("sha256").update(text).digest("hex");
 }

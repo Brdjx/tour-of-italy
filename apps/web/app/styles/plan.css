@@ -107,6 +107,16 @@
     outline-offset: 2px;
   }
 
+  /* Saving before the copy: the pill keeps its shape and words, only its link mark fades. */
+  .head-pill[aria-busy="true"] {
+    cursor: progress;
+  }
+
+  .head-pill[aria-busy="true"] svg {
+    opacity: 0.4;
+    transition: opacity var(--dur-color) ease;
+  }
+
   /* Copied: the check pops in where the link was. */
   .head-pill[data-copied] svg {
     animation: copied-pop var(--dur-spring) var(--spring-snappy);

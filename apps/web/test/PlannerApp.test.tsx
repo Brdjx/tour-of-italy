@@ -80,11 +80,77 @@ describe("PlannerApp", () => {
     await planOnce(user);
     const before = screen.getAllByTestId("stop-row").length;
     await user.click(screen.getByTestId("edit-trip-button"));
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     const error = await screen.findByTestId("error-state");
     expect(error.textContent).toContain("Check the pace, then try again.");
     expect(within(error).queryByTestId("retry-button")).toBeNull();
     expect(screen.getAllByTestId("stop-row")).toHaveLength(before);
+  });
+
+  it("shows a plan for options this tab already planned at once, with no request and the same words", async () => {
+    // The API answers the request it was sent, as the memo's plans always do.
+    const post = vi.fn<Post>(async (request) => aiPlan(request));
+    const { user } = setup(post);
+    await planOnce(user);
+    const first = screen.getAllByTestId("stop-row").map((row) => row.dataset.placeId);
+    const badge = screen.getByTestId("source-badge").textContent;
+    await user.click(screen.getByTestId("edit-trip-button"));
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
+    await user.click(screen.getByTestId("plan-button"));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    await screen.findAllByTestId("stop-row");
+
+    await user.click(screen.getByTestId("edit-trip-button"));
+    await user.click(screen.getByRole("radio", { name: "Balanced" }));
+    await user.click(screen.getByTestId("plan-button"));
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId("stop-row").map((row) => row.dataset.placeId)).toEqual(first),
+    );
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("source-badge").textContent).toBe(badge);
+    expect(screen.getByTestId("live-region").textContent).toBe("Your plan is ready.");
+    expect(screen.queryByTestId("share-notice")).toBeNull();
+    // Focus lands on the day heading, as after a plan from the API.
+    expect(document.activeElement).toBe(document.getElementById("day-heading-0"));
+  });
+
+  it("shows the plan as the API sent it, not as it was edited, when the same options are planned again", async () => {
+    const post = vi.fn<Post>(async (request) => aiPlan(request));
+    const { user } = setup(post);
+    await planOnce(user);
+    const first = screen.getAllByTestId("stop-row").map((row) => row.dataset.placeId);
+    await user.click(
+      within(screen.getAllByTestId("stop-row")[0] as HTMLElement).getByTestId("remove-button"),
+    );
+    expect(screen.getAllByTestId("stop-row")).toHaveLength(first.length - 1);
+
+    await user.click(screen.getByTestId("edit-trip-button"));
+    await user.click(screen.getByTestId("plan-button"));
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId("stop-row").map((row) => row.dataset.placeId)).toEqual(first),
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("source-badge").textContent).not.toContain("edited by you");
+    expect(screen.getByTestId("source-badge").textContent).not.toContain("to fix");
+  });
+
+  it("asks the API again for options whose plan fell back to rules", async () => {
+    const fallback = {
+      ...fixturePlan(),
+      meta: { ...fixturePlan().meta, fallbackReason: "timeout" as const },
+    };
+    const post = vi.fn<Post>(async () => fallback);
+    const { user } = setup(post);
+    await planOnce(user);
+
+    await user.click(screen.getByTestId("edit-trip-button"));
+    await user.click(screen.getByTestId("plan-button"));
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
   });
 
   it("builds the plan in the browser and labels it offline when the API is unreachable", async () => {

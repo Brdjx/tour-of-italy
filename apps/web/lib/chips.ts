@@ -132,6 +132,18 @@ export function violationsForStop(
   return violations.filter((item) => item.day === day && item.stopIndex === stopIndex);
 }
 
+/** How many stops have an error on them: the rows the board marks as flagged. */
+export function flaggedStopCount(violations: readonly Violation[]): number {
+  const stops = new Set<string>();
+  for (const item of violations) {
+    if (item.severity !== "error" || item.day === undefined || item.stopIndex === undefined) {
+      continue;
+    }
+    stops.add(`${item.day}:${item.stopIndex}`);
+  }
+  return stops.size;
+}
+
 /** Violations about a whole day, not one stop. */
 export function violationsForDay(violations: readonly Violation[], day: number): Violation[] {
   return violations.filter((item) => item.day === day && item.stopIndex === undefined);

@@ -13,9 +13,11 @@ import {
   reopenForm,
 } from "../support/plan";
 
-// Share links. A copied link must reopen the same plan on another device, and a link a
-// stranger edited (damaged, from another version, stale, or carrying markup) must end in a
-// visible note and a usable page, never a crash or injected content.
+// Share links. Copy link saves the trip and copies its short ?t= link, which must reopen the same
+// plan on another device exactly as it was saved. When saving fails it copies the ?p= link that
+// rebuilds the trip from its places, and a ?p= link a stranger edited (damaged, from another
+// version, stale, or carrying markup) must end in a visible note and a usable page, never a
+// crash or injected content.
 
 const DAMAGED = "This shared link is damaged and could not be opened.";
 
@@ -52,6 +54,16 @@ async function copyLink(page: Page, press: Press): Promise<string> {
   return page.evaluate(() => (window as unknown as { __copiedText?: string }).__copiedText ?? "");
 }
 
+/** Copy link while saving fails: the ?p= link that rebuilds the trip from its places. */
+async function copyRebuildLink(page: Page, press: Press): Promise<string> {
+  await page.route("**/api/trips", (route) =>
+    route.fulfill({ status: 503, contentType: "application/json", body: "{}" }),
+  );
+  const link = await copyLink(page, press);
+  await page.unroute("**/api/trips");
+  return link;
+}
+
 /** Opens a link as another device would: nothing saved, a fresh page. */
 async function openOnAnotherDevice(page: Page, link: string): Promise<Page> {
   await page.evaluate(() => localStorage.clear());
@@ -69,15 +81,45 @@ test.describe("share links", () => {
     await planTrip(page, press);
     const original = await readTrip(page, press);
     const link = await copyLink(page, press);
-    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?p=[A-Za-z0-9_-]+$/);
+    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?t=[0-9A-Za-z]{10}$/);
 
     // A second device: nothing saved, only the link. The watchdog covers this page too.
+    const other = await openOnAnotherDevice(page, link);
+    await expect(other.getByTestId("plan-view")).toBeVisible();
+    await expect(other.getByTestId("source-badge")).toContainText(BADGE.savedAi);
+    await expect(other.getByTestId("share-notice")).toHaveCount(0);
+    expect(new URL(other.url()).searchParams.has("t"), "?t= left in the address bar").toBe(false);
+    expect(await readTrip(other, press)).toEqual(original);
+  });
+
+  test("copies the rebuild-from-places link when the trip cannot be saved, and says so", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
+    const original = await readTrip(page, press);
+    const link = await copyRebuildLink(page, press);
+    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?p=[A-Za-z0-9_-]+$/);
+    await expect(page.getByTestId("share-note")).toContainText("the saved link could not be made");
+
     const other = await openOnAnotherDevice(page, link);
     await expect(other.getByTestId("plan-view")).toBeVisible();
     await expect(other.getByTestId("source-badge")).toContainText(BADGE.shared);
     await expect(other.getByTestId("share-notice")).toContainText("Opened a shared plan.");
     expect(new URL(other.url()).searchParams.has("p"), "?p= left in the address bar").toBe(false);
     expect(await readTrip(other, press)).toEqual(original);
+  });
+
+  test("a saved trip link that does not exist shows a note over a usable form", async ({
+    page,
+  }) => {
+    await openPlanner(page, "/?t=0000000000");
+    await expect(page.getByTestId("share-notice")).toContainText(
+      "This saved trip could not be found.",
+    );
+    await expect(page.getByTestId("plan-view")).toHaveCount(0);
+    await expect(page.getByTestId("plan-button")).toBeEnabled();
   });
 
   test("a link copied after an edit opens the edited plan, never the plan as it first arrived", async ({
@@ -103,7 +145,7 @@ test.describe("share links", () => {
   }) => {
     await openPlanner(page);
     await planTrip(page, press);
-    const payload = readParam(await copyLink(page, press));
+    const payload = readParam(await copyRebuildLink(page, press));
     const skipped = payload.days[0]?.ids[0] ?? "";
     payload.request.exclude = [skipped];
 
@@ -124,7 +166,7 @@ test.describe("share links", () => {
   }) => {
     await openPlanner(page);
     await planTrip(page, press);
-    const payload = readParam(await copyLink(page, press));
+    const payload = readParam(await copyRebuildLink(page, press));
     const first = payload.days[0];
     if (!first) throw new Error("the copied link has no days");
     const stranger = await placeFromAnotherBase(page, first.anchorId);

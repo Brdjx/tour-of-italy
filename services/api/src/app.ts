@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import type { Itinerary } from "@italy/planner";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import packageJson from "../package.json" with { type: "json" };
@@ -13,13 +12,28 @@ import { sendError } from "./lib/httpErrors";
 import { createLogger, type Logger } from "./lib/logger";
 import { embeddedMetrics } from "./lib/metrics";
 import { originVerify } from "./lib/originVerify";
-import { createTokenBucket, PLAN_RATE_LIMIT, type RateLimiter } from "./lib/rateLimit";
+import {
+  createTokenBucket,
+  PLAN_RATE_LIMIT,
+  type RateLimiter,
+  TRIP_RATE_LIMIT,
+} from "./lib/rateLimit";
 import { REQUEST_ID_HEADER, resolveRequestId, safeRequestId } from "./lib/requestId";
 import { type SecretSource, staticSecret } from "./lib/secrets";
 import { createLlmProvider, type LlmProvider } from "./llm/provider";
+import type { CachedPlan } from "./plan/planCache";
 import type { PlanTiming } from "./plan/planTrip";
 import { registerPlanRoute } from "./routes/plan";
-import { buildDataIssuesPayload, buildMeta, buildPlacesPayload } from "./routes/readPayloads";
+import {
+  buildDataIssuesPayload,
+  buildMeta,
+  buildPlacesPayload,
+  dataVersionOf,
+} from "./routes/readPayloads";
+import { registerTripRoutes } from "./routes/trips";
+import { createDynamoStore } from "./trips/dynamoStore";
+import type { RandomSource } from "./trips/ids";
+import { createMemoryStore, type TripStore } from "./trips/store";
 
 // The Hono app and its routes. No platform code lives here: local.ts serves it with Node and
 // lambda.ts wraps it for AWS Lambda, so tests call app.request() with fakes for every dependency.
@@ -32,9 +46,12 @@ export interface AppDeps {
   now?: () => number; // clock for dates, deadlines, and latencies
   originSecret?: SecretSource | null; // production: the CloudFront origin secret
   rateLimiter?: RateLimiter;
-  planCache?: LruCache<Itinerary>;
+  planCache?: LruCache<CachedPlan>; // the plan cache's memory layer
   timing?: PlanTiming; // plan deadline tuning, for tests
   emitMetrics?: boolean; // CloudWatch metrics on the request log line; on in production
+  tripStore?: TripStore | null; // saved trips, AI plan records, cached plans; from TRIPS_TABLE
+  tripRateLimiter?: RateLimiter;
+  random?: RandomSource; // record ids, for tests
 }
 
 const WEB_DEV_ORIGIN = "http://localhost:3000";
@@ -46,7 +63,21 @@ const ROUTE_METHODS: Record<string, string> = {
   "/places": "GET, HEAD",
   "/data-issues": "GET, HEAD",
   "/plan": "POST",
+  "/trips": "POST",
+  "/trips/:id": "GET, HEAD",
 };
+
+/**
+ * The store for saved trips: DynamoDB when TRIPS_TABLE is set, else memory outside production
+ * and none in production.
+ */
+// Decision: no in-memory fallback in production. Each Lambda instance would keep its own trips,
+// so a link saved on one instance would not open on another. Without the table the trip routes
+// answer 503 and the page copies its rebuild-from-ids link instead.
+export function defaultTripStore(config: Config, now: () => number): TripStore | null {
+  if (config.tripsTable !== undefined) return createDynamoStore(config.tripsTable, { now });
+  return config.isProduction ? null : createMemoryStore(now);
+}
 
 export function createApp(deps: AppDeps) {
   const { config } = deps;
@@ -138,14 +169,27 @@ export function createApp(deps: AppDeps) {
   app.get("/meta", (c) => sendPreparedJson(c, meta));
   app.get("/places", (c) => sendPreparedJson(c, places));
   app.get("/data-issues", (c) => sendPreparedJson(c, dataIssues));
+  const tripStore = deps.tripStore === undefined ? defaultTripStore(config, now) : deps.tripStore;
+  const dataVersion = dataVersionOf(data);
   registerPlanRoute(app, {
     config,
     data,
     llm,
     now,
     rateLimiter: deps.rateLimiter ?? createTokenBucket({ ...PLAN_RATE_LIMIT, now }),
-    cache: deps.planCache ?? new LruCache<Itinerary>(PLAN_CACHE_ENTRIES),
+    cache: deps.planCache ?? new LruCache<CachedPlan>(PLAN_CACHE_ENTRIES),
+    dataVersion,
     ...(deps.timing === undefined ? {} : { timing: deps.timing }),
+    store: tripStore,
+    random: deps.random,
+  });
+  registerTripRoutes(app, {
+    data,
+    now,
+    store: tripStore,
+    rateLimiter: deps.tripRateLimiter ?? createTokenBucket({ ...TRIP_RATE_LIMIT, now }),
+    dataVersion,
+    random: deps.random,
   });
 
   for (const [path, allow] of Object.entries(ROUTE_METHODS)) {

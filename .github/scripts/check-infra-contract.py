@@ -5,7 +5,8 @@ Usage: python3 .github/scripts/check-infra-contract.py [repo-root]
 deploy.yml reads these after it has already changed AWS, and the pinning step in
 docs/deploy.md reads the pinned-id outputs after the first deploy has created the resources. A
 missing name there means a half-finished deploy, so this runs in CI (iac job) and fails the pull
-request instead.
+request instead. It also checks the one setting the deploy role's rights depend on: the trips
+table is never deleted by CloudFormation.
 Standard library only: the SAM template is scanned by indentation, not parsed, because it uses
 CloudFormation tags (!Ref, !Sub) that a plain YAML loader rejects.
 """
@@ -32,6 +33,24 @@ TERRAFORM_OUTPUTS = sorted(set(DEPLOY_OUTPUTS + PINNED_OUTPUTS))
 # The GitSha parameter must reach the function as GIT_SHA (services/api/src/config.ts), or the
 # health check can never report the deployed commit.
 GIT_SHA_ENV = re.compile(r"GIT_SHA:[^\n]*GitSha|GIT_SHA:[ \t]*\n[ \t]+(Ref|!Ref):?[ \t]*GitSha")
+# The smoke test opens an unknown trip and expects 404, which needs the function to reach the
+# trips table: TRIPS_TABLE set from the TripsTable resource (services/api/src/config.ts). Without
+# it the API refuses to save trips in production, and the smoke test fails after the deploy.
+TRIPS_TABLE_ENV = re.compile(
+    r"TRIPS_TABLE:[^\n]*TripsTable|TRIPS_TABLE:[ \t]*\n[ \t]+(Ref|!Ref):?[ \t]*TripsTable"
+)
+SAM_RESOURCES = ["TripsTable"]
+# The deploy role holds no dynamodb:DeleteTable (infra/terraform/bootstrap/deploy-api.tf), so the
+# trips table must never be one CloudFormation deletes: Retain on delete and on replacement, and
+# deletion protection on. Without them removing or renaming the resource would fail mid-deploy
+# with AccessDenied, or, if the right were ever added back, delete every saved trip.
+TRIPS_TABLE_SETTINGS = {
+    "DeletionPolicy: Retain": re.compile(r"^\s+DeletionPolicy:\s*Retain\s*$", re.M),
+    "UpdateReplacePolicy: Retain": re.compile(r"^\s+UpdateReplacePolicy:\s*Retain\s*$", re.M),
+    "DeletionProtectionEnabled: true": re.compile(
+        r"^\s+DeletionProtectionEnabled:\s*true\s*$", re.M
+    ),
+}
 
 
 def section_keys(template: str, section: str) -> set[str]:
@@ -57,18 +76,42 @@ def section_keys(template: str, section: str) -> set[str]:
     return keys
 
 
+def resource_block(template: str, name: str) -> str:
+    """The lines of one resource under Resources, up to the next resource or section."""
+    lines: list[str] = []
+    inside = False
+    for line in template.splitlines():
+        indent = len(line) - len(line.lstrip(" "))
+        if line.strip() and not line.lstrip().startswith("#") and indent <= 2:
+            inside = line == f"  {name}:"
+            continue
+        if inside:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def check_sam(root: Path) -> list[str]:
     path = root / "infra/sam/template.yaml"
     if not path.is_file():
         return [f"{path} is missing"]
     template = path.read_text(encoding="utf-8")
     errors = []
-    for section, wanted in (("Parameters", SAM_PARAMETERS), ("Outputs", SAM_OUTPUTS)):
+    for section, wanted in (
+        ("Parameters", SAM_PARAMETERS),
+        ("Resources", SAM_RESOURCES),
+        ("Outputs", SAM_OUTPUTS),
+    ):
         missing = sorted(set(wanted) - section_keys(template, section))
         if missing:
             errors.append(f"{path}: {section} is missing {', '.join(missing)}")
     if not GIT_SHA_ENV.search(template):
         errors.append(f"{path}: no function environment variable GIT_SHA set from GitSha")
+    if not TRIPS_TABLE_ENV.search(template):
+        errors.append(f"{path}: no function environment variable TRIPS_TABLE set from TripsTable")
+    table = resource_block(template, "TripsTable")
+    for wanted, setting in TRIPS_TABLE_SETTINGS.items():
+        if not setting.search(table):
+            errors.append(f"{path}: TripsTable needs {wanted} (the deploy role cannot delete it)")
     return errors
 
 

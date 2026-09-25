@@ -196,6 +196,8 @@ describe("Start a new trip", () => {
     await user.click(await screen.findByTestId("plan-button"));
     await screen.findAllByTestId("stop-row");
     await user.click(screen.getByTestId("edit-trip-button"));
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(await screen.findByTestId("error-state")).toBeTruthy();
     await startOver(user);

@@ -2,12 +2,14 @@
 
 // Decision: first import, before anything that builds a Zod schema (see lib/zodSetup.ts).
 import "../lib/zodSetup";
-import type { TripRequest } from "@italy/planner";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { privateAiText, summaryForTrip, type TripRequest } from "@italy/planner";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flaggedStopCount } from "../lib/chips";
 import { useEditFocus } from "../lib/editFocus";
-import { undoLabel } from "../lib/itineraryReducer";
+import { isEdited, undoLabel } from "../lib/itineraryReducer";
 import { restoredNote } from "../lib/lastPlan";
 import type { PlanDeps } from "../lib/planRequest";
+import { type FetchTrip, SAVED_NOTES } from "../lib/savedTrip";
 import { defaultFormValues, valuesFromRequest } from "../lib/tripForm";
 import { useItinerary } from "../lib/useItinerary";
 import { type RestoredPlan, useLastPlan } from "../lib/useLastPlan";
@@ -15,6 +17,7 @@ import { usePageFocus } from "../lib/usePageFocus";
 import { usePlanEdits } from "../lib/usePlanEdits";
 import { usePlanExpected } from "../lib/usePlanExpected";
 import { type PlanPhase, usePlanTrip } from "../lib/usePlanTrip";
+import { useSavedTripOnLoad } from "../lib/useSavedTrip";
 import { useSharedLinkOnLoad } from "../lib/useSharedLink";
 import { type TripDataLoader, useTripData } from "../lib/useTripData";
 import { AlternativesPanel } from "./AlternativesPanel";
@@ -24,6 +27,7 @@ import { Highlights } from "./Highlights";
 import { OfflineBanner } from "./OfflineBanner";
 import { AppFooter, AppHeader, type PlanContent, PlanPane } from "./PlanPane";
 import { PlanView } from "./PlanView";
+import type { SaveTrip } from "./ShareButton";
 import { LiveRegion, Toast } from "./StatusRegion";
 import { TricoloreBand } from "./Tricolore";
 import { type PageView, TripPane } from "./TripPane";
@@ -43,10 +47,18 @@ export const STARTED_OVER = "Started a new trip. Your last plan is cleared from 
 export interface PlannerAppProps {
   loader?: TripDataLoader; // injected in tests
   post?: PlanDeps["post"]; // injected in tests
+  saveTrip?: SaveTrip; // POST /api/trips; injected in tests
+  fetchTrip?: FetchTrip; // GET /api/trips/:id; injected in tests
   today?: () => Date;
 }
 
-export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAppProps) {
+export function PlannerApp({
+  loader,
+  post,
+  saveTrip,
+  fetchTrip,
+  today = () => new Date(),
+}: PlannerAppProps) {
   const { state: dataState, retry: retryData } = useTripData(loader);
   const data = dataState.status === "ready" ? dataState.data : null;
   const ctx = data?.ctx ?? null;
@@ -90,14 +102,15 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     onEdit: () => setAnimateDay(-1),
   });
 
-  const restore = ({ itinerary, origin, cause, flagged }: RestoredPlan) => {
-    dispatch({ type: "plan", itinerary, origin, cause, message: "Showing your last plan." });
+  const restore = ({ itinerary, origin, cause, saved, edited, flagged }: RestoredPlan) => {
+    const message = "Showing your last plan.";
+    dispatch({ type: "plan", itinerary, origin, cause, saved, edited, message });
     setForm((current) => ({ key: current.key + 1, values: valuesFromRequest(itinerary.request) }));
     setNotice(restoredNote(flagged));
   };
   const forgetLastPlan = useLastPlan(ctx, plan, restore, { now: today });
 
-  useSharedLinkOnLoad(ctx, (result) => {
+  const dropSharedLink = useSharedLinkOnLoad(ctx, (result) => {
     if (result.status === "plan") {
       dispatch({
         type: "plan",
@@ -119,8 +132,48 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     setNotice(result.note);
   });
 
-  // After the two hooks above, so a restored or shared plan replaces the skeleton in one step.
-  const expected = usePlanExpected(dataState.status !== "loading");
+  // A saved trip shows exactly as it was saved (or timed again when the place data changed); a
+  // trip that cannot be opened leaves its note over the form.
+  const savedLink = useSavedTripOnLoad(
+    ctx,
+    (result) => {
+      if (result.status === "plan") {
+        dispatch({
+          type: "plan",
+          itinerary: result.itinerary,
+          origin: "saved",
+          saved: result.saved,
+          message: result.note ?? SAVED_NOTES.opened,
+        });
+        setAnimateDay(0);
+      }
+      const request =
+        result.status === "plan"
+          ? result.itinerary.request
+          : result.status === "request"
+            ? result.request
+            : null;
+      if (request) {
+        setForm((current) => ({ key: current.key + 1, values: valuesFromRequest(request) }));
+      }
+      setNotice(result.note);
+    },
+    fetchTrip,
+  );
+  const savedPending = savedLink.pending;
+
+  // A saved trip opened while the API is down waits for the places, which "Try again" brings;
+  // until then the note over the form says it will open, and the trip replaces the note when it
+  // does (or the note that says why it could not).
+  useEffect(() => {
+    if (dataState.status === "error" && savedPending) setNotice(SAVED_NOTES.waiting);
+  }, [dataState.status, savedPending]);
+
+  // After the hooks above, so a restored, shared or saved plan replaces the skeleton in one step.
+  // A saved trip may arrive after the places, so the skeleton waits for it too.
+  const expected = usePlanExpected(
+    dataState.status === "error" || (dataState.status === "ready" && !savedPending),
+  );
   const setFocusNext = usePageFocus({
     phase,
     planId: plan.planId,
@@ -152,6 +205,12 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     setForm((current) => ({ key: current.key, values: valuesFromRequest(request) }));
     setFormOpen(false);
     setFocusNext("plan");
+    // Decision: a shared or saved-trip link still on its way is given up. The traveler's own
+    // request is the newer one, so the link must not open over the plan they asked for, and its
+    // note ("will open once the connection is back") would no longer be true.
+    const droppedShared = dropSharedLink();
+    const droppedSaved = savedLink.drop();
+    if (droppedShared || droppedSaved) setNotice(null);
     void planTrip(request);
   };
 
@@ -186,6 +245,14 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
         : "skeleton";
   const summaryRequest = planning ? phase.request : (plan.itinerary?.request ?? null);
   const shownPlan = content === "plan" ? plan.itinerary : null;
+  // What a saved trip of the plan leaves out, counted on the summary as the page shows it.
+  const privateText = useMemo(
+    () =>
+      shownPlan && ctx
+        ? privateAiText({ ...shownPlan, summary: summaryForTrip(shownPlan, ctx) })
+        : { summary: false, reasons: 0 },
+    [shownPlan, ctx],
+  );
   const noticeBanner = notice ? (
     <Notice message={notice} onDismiss={() => setNotice(null)} testId="share-notice" />
   ) : null;
@@ -220,14 +287,18 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
                       itinerary: shownPlan,
                       origin: plan.origin,
                       cause: plan.cause,
+                      saved: plan.saved,
                       errors: plan.errors.length,
-                      edited: plan.history.length > 0,
+                      flaggedStops: flaggedStopCount(plan.errors),
+                      edited: isEdited(plan),
+                      privateText,
                     }
                   : null
               }
               undoLabel={undoLabel(plan)}
               onUndo={edits.undo}
               onStatus={(text) => announce(text)}
+              {...(saveTrip ? { saveTrip } : {})}
             />
           ) : null}
           <TripPane

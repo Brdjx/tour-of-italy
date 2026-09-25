@@ -197,6 +197,9 @@ export const ID_MAX_CHARS = 64;
 export const DETAIL_MAX_CHARS = 500;
 export const MAX_TRAVEL_MINUTES = 1440; // any single leg, transfer, or trip back to the base
 
+/** Length of a record id: an AI plan the API keeps, or a saved trip (RecordIdSchema). */
+export const RECORD_ID_LENGTH = 10;
+
 // Data-cleaning policy (visit lengths, hours, notes, locations, reviewed tables) lives in
 // dataPolicy.ts and is re-exported here. The greedy planner's own tunables (how it walks a day
 // and picks bases) live in planPolicy.ts, because only the rules-only planner reads them.

@@ -55,6 +55,14 @@ describe("SAM template: alarms on the function's own metrics", () => {
     expect(props.AlarmActions).toEqual([{ Ref: "AlarmTopic" }]);
   });
 
+  it("alarms when the trips table fails, which otherwise only costs plans their saved why lines", () => {
+    const props = alarm("TripStoreFailuresAlarm");
+    expect(props.MetricName).toBe(METRIC_NAMES.tripStoreFailures);
+    expect(props.Statistic).toBe("Sum");
+    expect(props.TreatMissingData).toBe("notBreaching");
+    expect(props.AlarmActions).toEqual([{ Ref: "AlarmTopic" }]);
+  });
+
   it("alarms when most AI plans fall back because the model call fails, as with a revoked key", () => {
     const props = alarm("ModelFailuresAlarm");
     const names = metricsOf(props).map((metric) => metric.MetricName);

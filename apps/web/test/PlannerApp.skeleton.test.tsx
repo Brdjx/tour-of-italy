@@ -109,6 +109,8 @@ describe("while a plan is on its way", () => {
     expect(planArea().getAttribute("aria-busy")).toBe("false");
 
     await user.click(screen.getByTestId("edit-trip-button"));
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(planArea().getAttribute("aria-busy")).toBe("true");
     expect(within(planArea()).getByTestId("planning-state").textContent).toContain(
@@ -142,6 +144,8 @@ describe("while a plan is on its way", () => {
     await screen.findAllByTestId("stop-row");
     const before = stopIds();
     await user.click(screen.getByTestId("edit-trip-button"));
+    // Other options: the tab would show the first plan again from its memory, with no request.
+    await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(screen.getByTestId("plan-button"));
     expect(screen.queryByTestId("stop-row")).toBeNull();
 

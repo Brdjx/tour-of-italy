@@ -2,12 +2,13 @@ import {
   type ClaimDay,
   type ClaimKind,
   contradictedClaim,
+  namesPlaceOutside,
   type PlannerContext,
   REASON_MAX_CHARS,
   type Stop,
 } from "@italy/planner";
 import type { LlmSelection } from "../llm/client";
-import { namesPlaceOutside, unknownProperNoun } from "./placeMentions";
+import { unknownProperNoun } from "./placeMentions";
 import {
   cleanText,
   echoesPrompt,

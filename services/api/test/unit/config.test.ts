@@ -15,6 +15,14 @@ describe("loadConfig", () => {
     expect(config.port).toBe(8787);
   });
 
+  it("reads the trips table name, and refuses one DynamoDB would not accept", () => {
+    expect(loadConfig({}).tripsTable).toBeUndefined();
+    expect(loadConfig({ TRIPS_TABLE: "italy-planner-trips" }).tripsTable).toBe(
+      "italy-planner-trips",
+    );
+    expect(() => loadConfig({ TRIPS_TABLE: "trips table" })).toThrow(/TRIPS_TABLE/);
+  });
+
   it("keeps the plan deadline under the API Gateway 30 s cap by default", () => {
     expect(loadConfig({}).planDeadlineMs).toBeLessThan(30_000);
   });

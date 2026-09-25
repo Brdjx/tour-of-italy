@@ -9,6 +9,7 @@ import {
   validationErrors,
 } from "@italy/planner";
 import type { FallbackCause } from "./planRequest";
+import type { SavedTrip } from "./savedTrip";
 
 // Plan state and every edit the traveler can make: a new plan, swap, remove, move up or down,
 // and undo. Each edit rebuilds only the affected day with the planner's rescheduleDay (which
@@ -16,7 +17,7 @@ import type { FallbackCause } from "./planRequest";
 // over the whole trip. An edit that breaks a rule is kept and flagged, never hidden, and undo
 // is always one tap away.
 
-export type PlanOrigin = "api" | "offline" | "shared";
+export type PlanOrigin = "api" | "offline" | "shared" | "saved";
 export type EditKind = "swap" | "remove" | "move";
 
 export interface HistoryEntry {
@@ -30,6 +31,8 @@ export interface ItineraryState {
   itinerary: Itinerary | null;
   origin: PlanOrigin;
   cause: FallbackCause | null; // why the browser built it, when it did
+  saved: SavedTrip | null; // the saved trip it was opened from (origin "saved")
+  editedBefore: boolean; // changed by the traveler before this page load (the last-plan record)
   errors: Violation[]; // error-level violations of the current plan; empty for a clean plan
   checked: boolean; // `errors` came from this browser's validator (false until places load)
   history: HistoryEntry[]; // most recent last, at most HISTORY_LIMIT
@@ -44,6 +47,8 @@ export type ItineraryAction =
       itinerary: Itinerary;
       origin: PlanOrigin;
       cause?: FallbackCause | null;
+      saved?: SavedTrip | null;
+      edited?: boolean; // a restored plan the traveler had already changed
       message?: string;
     }
   | { type: "swap"; day: number; stop: number; placeId: string }
@@ -67,6 +72,8 @@ export function initialItineraryState(): ItineraryState {
     itinerary: null,
     origin: "api",
     cause: null,
+    saved: null,
+    editedBefore: false,
     errors: [],
     checked: false,
     history: [],
@@ -88,6 +95,8 @@ export function itineraryReducer(
         itinerary: action.itinerary,
         origin: action.origin,
         cause: action.cause ?? null,
+        saved: action.saved ?? null,
+        editedBefore: action.edited ?? false,
         errors: ctx ? validationErrors(action.itinerary, ctx) : [],
         checked: ctx !== null,
         history: [],
@@ -209,6 +218,16 @@ function undo(state: ItineraryState): ItineraryState {
     changed: last.at,
     message: "Undid the last change.",
   };
+}
+
+/**
+ * True when the traveler has changed the plan: an edit still in the undo history, or one made
+ * before a reload (kept in the last-plan record, lib/lastPlan.ts).
+ */
+// Decision: undoing every edit made since the plan arrived makes it unedited again, since it is
+// then the plan as it arrived. After a reload the undo history is gone, so the flag stays.
+export function isEdited(state: Pick<ItineraryState, "history" | "editedBefore">): boolean {
+  return state.editedBefore || state.history.length > 0;
 }
 
 /** The label for the undo button, or null when there is nothing to undo. */

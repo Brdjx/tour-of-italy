@@ -3,7 +3,7 @@
 A trip planner that turns a list of 103 places in Italy into a three-day itinerary with times that respect opening hours, meals, and travel.
 
 - Web app: https://italy-planner.brdjx.com
-- Public API: https://api.italy-planner.brdjx.com (for example `/health`, `/places`, `POST /plan`; see [docs/deploy.md](docs/deploy.md#why-two-hostnames))
+- Public API: https://api.italy-planner.brdjx.com (for example `/health`, `/places`, `POST /plan`, `POST /trips`, `GET /trips/<id>`; see [docs/deploy.md](docs/deploy.md#why-two-hostnames))
 
 ## Quickstart
 
@@ -77,8 +77,10 @@ The source file `data/italy.json` is never edited. The normalizer keeps all 103 
 | Rules-only plan for every other outcome, and a final guard on every response | `services/api/src/plan/outcome.ts` |
 | Traveler notes escaped as data, reasons and summary sanitized | `llm/prompt.ts`, `plan/reasons.ts`, `plan/summary.ts`, `plan/textGuards.ts` |
 | 24 s deadline, 15 s per call, 29 s function timeout under API Gateway's 30 s | `plan/planTrip.ts`, `infra/sam/template.yaml` |
-| Cost limits: WAF per-IP limits, gateway throttles, 10 reserved instances, per-client limit, cache | `infra/terraform/platform/waf.tf`, `infra/sam/template.yaml`, `services/api/src/lib` |
+| Cost limits: WAF per-IP limits, gateway throttles, 10 reserved instances, per-client limit, a plan cache in the tab, the instance and the table | `infra/terraform/platform/waf.tf`, `infra/sam/template.yaml`, `services/api/src/lib`, `services/api/src/plan/planCache.ts`, `apps/web/lib/planMemo.ts` |
 | The browser re-validates every API plan and every edit | `apps/web/lib/planRequest.ts`, `apps/web/lib/itineraryReducer.ts` |
+| A saved trip's why lines and summary come only from the API's records of the AI plan, checked again when saved; the save takes ids only | `services/api/src/routes/trips.ts`, `trips/rebuild.ts` |
+| A saved trip of a plan made with notes keeps none of the AI's text (no summary, rule why lines on every stop), and Copy link says so | `packages/planner/src/privateText.ts`, `services/api/src/trips/records.ts` |
 
 The default model is `claude-sonnet-5`, with `claude-haiku-4-5-20251001` as the faster comparison.
 

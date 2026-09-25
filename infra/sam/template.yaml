@@ -6,7 +6,8 @@ Description: >-
 
 # Deploy from this directory: sam deploy (settings in samconfig.toml). CI runs
 # .github/scripts/deploy-api.sh, which passes GitSha. infra/test/sam-template.test.ts checks the
-# guardrails below (timeout, concurrency, runtime, log retention, throttling, environment).
+# guardrails below (timeout, concurrency, runtime, log retention, throttling, environment, the
+# trips table and the function's rights on it).
 
 Parameters:
   GitSha:
@@ -53,6 +54,42 @@ Resources:
       LogGroupName: /aws/lambda/italy-planner-api
       RetentionInDays: 14
 
+  # Saved trips (a year), the AI content of recent plans (90 days) and AI plans cached for the
+  # options they answer (7 days), one item each, removed by time to live on expiresAt (epoch
+  # seconds). services/api/src/trips/store.ts reads and writes it.
+  # Decision: on-demand billing. Saves are rare and bursty, so provisioned capacity would sit idle
+  # and still need autoscaling rights the deploy role does not have.
+  # Decision: Retain on delete and on replacement, so removing or renaming this resource in the
+  # template can never delete travelers' saved trips; an admin removes the table by hand.
+  # Decision: deletion protection on as well, so no caller (a console slip, a script with an
+  # admin's rights) can delete the table either; an admin turns it off first, on purpose. It is a
+  # CreateTable and UpdateTable setting, which the deploy role already has.
+  # Decision: no SSESpecification. DynamoDB encrypts every table at rest, with an AWS owned key
+  # unless told otherwise (SSEEnabled true would switch to a KMS key). A KMS key would need key
+  # rights the deploy role deliberately lacks (its guardrails deny kms:Decrypt), and the table
+  # holds no personal data: trip requests are stored without the traveler's notes, AI text that
+  # may repeat them is left out, and a plan made with notes is never cached here. (trivy reports
+  # this as AVD-AWS-0025, LOW, below the HIGH and CRITICAL that fail CI.)
+  TripsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: italy-planner-trips
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      DeletionProtectionEnabled: true
+
   ApiFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -86,6 +123,15 @@ Resources:
                 Resource: !Sub "arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*"
                 Condition:
                   StringEquals: { "kms:ViaService": !Sub "ssm.${AWS::Region}.amazonaws.com" }
+        # Read one record and write new ones: no query, scan, update or delete.
+        - PolicyName: trips-table
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadAndWriteTrips
+                Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem]
+                Resource: !GetAtt TripsTable.Arn
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -123,13 +169,21 @@ Resources:
           LLM_EFFORT: low
           LOG_LEVEL: info
           GIT_SHA: !Ref GitSha
+          TRIPS_TABLE: !Ref TripsTable
       Events:
-        # A route of its own, so POST /api/plan gets a tighter throttle than the read routes.
+        # Routes of their own, so POST /api/plan and POST /api/trips get tighter throttles than
+        # the read routes. GET /api/trips/{id} stays on the proxy route with the reads.
         Plan:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
             Path: /api/plan
+            Method: POST
+        SaveTrip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/trips
             Method: POST
         Api:
           Type: HttpApi
@@ -150,6 +204,10 @@ Resources:
       # always leaves instances for the read routes. Those answer in milliseconds, and every page
       # load needs two of them, so they get 50 per second with a burst of 100. The WAF adds a
       # per-IP limit on plan calls at the edge (/api/plan on the site, /plan on the API host).
+      # Decision: saving a trip (POST /api/trips) gets 2 per second with a burst of 10. A save is
+      # one press of Copy link, so real use is far below that, and it caps what a flood can write
+      # (each saved trip is kept a year) at about 170,000 items a day, without taking the read
+      # routes' share. Opening a trip (GET) stays with the reads, so links open as fast as pages.
       DefaultRouteSettings:
         ThrottlingBurstLimit: 100
         ThrottlingRateLimit: 50
@@ -157,6 +215,9 @@ Resources:
         "POST /api/plan":
           ThrottlingBurstLimit: 6
           ThrottlingRateLimit: 1
+        "POST /api/trips":
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 2
       # Decision: no API access logs. HTTP API access logging needs an account-wide CloudWatch Logs
       # resource policy, and this account is shared. Throttled and failed calls still show in the
       # API's 4xx and 5xx metrics, and every call that reaches the function is logged by it.
@@ -265,6 +326,26 @@ Resources:
       Period: 300
       EvaluationPeriods: 1
       Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  TripStoreFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: italy-planner-api-trip-store
+      AlarmDescription: >-
+        Reads or writes of the trips table failed (missing IAM rights, throttling, a DynamoDB
+        outage). Plans still go out, but without the record that lets them be saved with AI why
+        lines, and Copy link falls back to the rebuild-from-ids link.
+      Namespace: italy-planner
+      MetricName: TripStoreFailures
+      Dimensions: [{ Name: Service, Value: italy-planner-api }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]

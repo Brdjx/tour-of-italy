@@ -75,6 +75,74 @@ describe("sourceText", () => {
     );
   });
 
+  describe("a trip opened from a saved link", () => {
+    const saved = {
+      id: "a1B2c3D4e5",
+      createdAt: "2026-09-20T12:00:00.000Z",
+      plannedBy: "ai" as const,
+      edited: false,
+      retimed: false,
+    };
+
+    it("says how it was planned and that it is a saved trip, with the AI's mark", () => {
+      const text = sourceText(aiPlan(), "saved", { saved });
+      expect(text.label).toBe("Planned with AI, saved trip, checked against hours and distance");
+      expect(text.marker).toBe("ai");
+      expect(text.details[0]).toBe(
+        "Saved on 20 September 2026. The times and why lines are as they were saved.",
+      );
+      expect(text.details).toContain("The AI planner chose the places from the data.");
+      expect(text.details.at(-1)).toContain("A filled dot marks a reason written by the AI");
+    });
+
+    it("says a fixed draft was fixed and an edited trip was edited before saving", () => {
+      const text = sourceText(aiPlan(), "saved", {
+        saved: { ...saved, plannedBy: "ai_repaired", edited: true },
+      });
+      expect(text.details[1]).toContain("first draft broke a rule and was fixed");
+      expect(text.details).toContain("It was edited before it was saved.");
+    });
+
+    it("claims neither the AI nor the rules without an AI plan on record", () => {
+      const text = sourceText(fixturePlan(), "saved", { saved: { ...saved, plannedBy: "rules" } });
+      expect(text.label).toBe("Saved trip, checked against hours and distance");
+      expect(text.marker).toBe("rules");
+      expect(text.details[1]).toBe("Its why lines come from the rules.");
+      expect(text.label).not.toContain("without AI");
+    });
+
+    it("says a trip timed again with newer place data has the rules' why lines", () => {
+      const ai = sourceText(fixturePlan(), "saved", { saved: { ...saved, retimed: true } });
+      expect(ai.label).toBe("Planned with AI, saved trip, checked against hours and distance");
+      expect(ai.marker).toBe("rules");
+      expect(ai.details[0]).toContain("its times were worked out again");
+      expect(ai.details.join(" ")).not.toContain("filled dot");
+      const rules = sourceText(fixturePlan(), "saved", {
+        saved: { ...saved, plannedBy: "rules", retimed: true },
+      });
+      expect(rules.details.filter((line) => line.includes("why lines come from"))).toHaveLength(1);
+    });
+
+    it("stays honest without the saved details, or with an unreadable date, and after edits", () => {
+      expect(sourceText(aiPlan(), "saved").label).toBe(
+        "Saved trip, checked against hours and distance",
+      );
+      expect(
+        sourceText(aiPlan(), "saved", { saved: { ...saved, createdAt: "garbage" } }).details[0],
+      ).toBe("Saved. The times and why lines are as they were saved.");
+      expect(sourceText(aiPlan(), "saved", { saved, edited: true }).label).toBe(
+        "Planned with AI, saved trip, edited by you, still checked against hours and distance",
+      );
+    });
+
+    it("stops saying the times are as saved once the traveler edits the trip", () => {
+      const details = sourceText(aiPlan(), "saved", { saved, edited: true }).details;
+      expect(details[0]).toBe("Saved on 20 September 2026.");
+      expect(details.join(" ")).not.toContain("as they were saved");
+      expect(details.at(-1)).toBe("You changed this plan, and every change was checked again.");
+    });
+  });
+
   it("explains every fallback reason in plain words without jargon", () => {
     for (const reason of FALLBACK_REASONS) {
       const text = FALLBACK_TEXT[reason];

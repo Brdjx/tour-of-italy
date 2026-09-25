@@ -1,45 +1,8 @@
-import type { PlannerContext } from "@italy/planner";
-import { normalizeWords } from "./textGuards";
+import { normalizeWords, type PlannerContext } from "@italy/planner";
 
-// The dataset-aware text checks: which places a piece of model text names (by full name or by a
-// common short form), and whether it uses a proper noun the dataset never mentions (an invented
-// place such as "the Eiffel Tower in Paris").
-
-interface Lexicon {
-  forms: Map<string, string[]>; // place id -> normalized name forms that count as naming it
-  words: Set<string>; // every normalized word the dataset uses, plus a few safe extras
-}
-
-// Decision: a short form must have two words or six letters, so a qualifier such as "(Exterior)"
-// or a one-word stub never counts as a place name. Full names always count.
-function isUsableForm(normal: string): boolean {
-  return normal.split(" ").length >= 2 || normal.length >= 6;
-}
-
-/**
- * Name forms that count as naming a place: the full name, the part before the first comma
- * ("Ferrari Museum"), the part before a parenthesis ("Accademia Gallery"), a parenthetical of two
- * or more words ("Villa Borghese"), and each without a leading "the" ("Last Supper").
- */
-export function nameForms(name: string): string[] {
-  const forms = new Set<string>();
-  const full = normalizeWords(name);
-  if (full.length >= 3) forms.add(full);
-  const shorter = [name.split(",")[0] ?? "", name.split("(")[0] ?? ""];
-  for (const match of name.matchAll(/\(([^)]*)\)/g)) {
-    const inner = normalizeWords(match[1] ?? "");
-    if (inner.split(" ").length >= 2) shorter.push(inner);
-  }
-  for (const text of shorter) {
-    const normal = normalizeWords(text);
-    if (isUsableForm(normal)) forms.add(normal);
-  }
-  for (const form of [...forms]) {
-    const rest = form.replace(/^the /, "");
-    if (rest !== form && isUsableForm(rest)) forms.add(rest);
-  }
-  return [...forms];
-}
+// The dataset-aware check only the API runs: whether model text uses a proper noun the dataset
+// never mentions (an invented place such as "the Eiffel Tower in Paris"). Which places a text
+// names is the planner's namesPlaceOutside, which the page also runs on the summary after an edit.
 
 // Capitalized words that are fine without appearing in the data: the country, days, and months.
 const EXTRA_WORDS =
@@ -53,50 +16,24 @@ const SENTENCE_OPENERS = new Set(
   ),
 );
 
-const lexicons = new WeakMap<PlannerContext, Lexicon>();
+const lexicons = new WeakMap<PlannerContext, Set<string>>();
 
-function lexiconFor(ctx: PlannerContext): Lexicon {
+/** Every normalized word the dataset uses, plus a few safe extras. */
+function knownWords(ctx: PlannerContext): Set<string> {
   const known = lexicons.get(ctx);
   if (known) return known;
-  const forms = new Map<string, string[]>();
   const words = new Set(EXTRA_WORDS.split(" "));
   const addWords = (text: string | null) => {
     for (const word of normalizeWords(text ?? "").split(" ")) if (word) words.add(word);
   };
   for (const place of ctx.places) {
-    forms.set(place.id, nameForms(place.name));
     for (const text of [place.name, place.city, place.region, place.neighborhood]) addWords(text);
     addWords(place.description);
     addWords(place.tags.join(" "));
   }
   for (const anchor of ctx.anchors) addWords(`${anchor.name} ${anchor.region}`);
-  const lexicon = { forms, words };
-  lexicons.set(ctx, lexicon);
-  return lexicon;
-}
-
-const containsWords = (outer: string, inner: string) => ` ${outer} `.includes(` ${inner} `);
-
-/**
- * True when the text names a dataset place outside `allowed`. A name that is part of an allowed
- * place's own name does not count: "Trevi Fountain" inside "Trevi Fountain by Night".
- */
-export function namesPlaceOutside(
-  text: string,
-  allowed: ReadonlySet<string>,
-  ctx: PlannerContext,
-): boolean {
-  const { forms } = lexiconFor(ctx);
-  const haystack = normalizeWords(text);
-  const allowedForms = [...allowed].flatMap((id) => forms.get(id) ?? []);
-  for (const [id, placeForms] of forms) {
-    if (allowed.has(id)) continue;
-    for (const form of placeForms) {
-      if (!containsWords(haystack, form)) continue;
-      if (!allowedForms.some((own) => containsWords(own, form))) return true;
-    }
-  }
-  return false;
+  lexicons.set(ctx, words);
+  return words;
 }
 
 const isCapitalized = (token: string) => /^\p{Lu}/u.test(token);
@@ -123,7 +60,7 @@ function unknownInSentence(sentence: string, words: ReadonlySet<string>): string
  * skipped (capitalized by grammar), unless it starts a run of capitalized words ("Eiffel Tower").
  */
 export function unknownProperNoun(text: string, ctx: PlannerContext): string | null {
-  const { words } = lexiconFor(ctx);
+  const words = knownWords(ctx);
   for (const sentence of text.split(/(?<=[.!?:;])\s+/)) {
     const found = unknownInSentence(sentence, words);
     if (found !== null) return found;

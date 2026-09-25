@@ -82,6 +82,16 @@ export function longDate(date: string): string {
   return `${WEEKDAY_LONG[weekdayOf(date)]} ${parsed.day} ${MONTH_LONG[parsed.month - 1] ?? ""}`;
 }
 
+/**
+ * "25 September 2026" for an ISO timestamp, on the reader's own calendar (a trip saved late in
+ * the evening in Rome is the day the reader saw it saved). Empty for an unreadable timestamp.
+ */
+export function dayOfTimestamp(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getDate()} ${MONTH_LONG[date.getMonth()] ?? ""} ${date.getFullYear()}`;
+}
+
 /** "€€" for level 2; empty for unknown (the chip says "Price unknown" instead). */
 export function priceSymbols(level: PriceLevel | null): string {
   return level === null ? "" : "€".repeat(level);

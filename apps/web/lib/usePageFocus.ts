@@ -35,10 +35,6 @@ export function usePageFocus({ phase, planId, dayHeading, startHeading }: PageFo
   const [next, setNext] = useState<FocusTarget | null>(null);
 
   useEffect(() => {
-    if (planId > 0) dayHeading.current?.focus({ preventScroll: false });
-  }, [planId, dayHeading]);
-
-  useEffect(() => {
     if (!next) return;
     setNext(null);
     if (next === "plan") {
@@ -51,6 +47,13 @@ export function usePageFocus({ phase, planId, dayHeading, startHeading }: PageFo
       toTop();
     } else document.querySelector<HTMLElement>('[data-testid="edit-trip-button"]')?.focus();
   }, [next, startHeading]);
+
+  // Decision: after the effect above, so the day heading wins when a plan arrives in the same
+  // render as the form is sent. That happens when the tab's plan memo answers at once
+  // (lib/planMemo.ts); the traveler then lands where any other new plan puts them.
+  useEffect(() => {
+    if (planId > 0) dayHeading.current?.focus({ preventScroll: false });
+  }, [planId, dayHeading]);
 
   useEffect(() => {
     if (phase.kind !== "error") return;

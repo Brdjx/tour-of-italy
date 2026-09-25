@@ -61,7 +61,7 @@ describe("replay of the committed recordings", () => {
     const second = await buildLatest({ cases: CASES, ctx, recordingsDir: PATHS.recordings });
     expect(second.markdown).toBe(first.markdown);
     expect(JSON.stringify(second.groups)).toBe(JSON.stringify(first.groups));
-  });
+  }, 60_000); // a second full replay of every recording: seconds alone, longer under load
 
   it("marks every offline recording as such in its file name", () => {
     for (const { path } of filesUnder(PATHS.recordings)) {

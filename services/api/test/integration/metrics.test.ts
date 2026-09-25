@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { METRIC_NAMES, METRIC_NAMESPACE } from "../../src/lib/metrics";
 import { LlmError } from "../../src/llm/errors";
 import type { LlmProvider } from "../../src/llm/provider";
+import type { TripStore } from "../../src/trips/store";
 import { lastRequestLog, makeApp, postPlan, tripBody } from "../helpers/app";
 import { ScriptedClient } from "../helpers/fakeClients";
 
@@ -78,12 +79,49 @@ describe("metrics on the request log line", () => {
     });
   });
 
+  it("counts a plan once, when it is made, not again when the cache serves it", async () => {
+    const { app, logs } = makeApp({ emitMetrics: true });
+    await postPlan(app, tripBody(), { scenario: "valid" });
+
+    await postPlan(app, tripBody(), { scenario: "valid" });
+
+    const line = lastRequestLog(logs);
+    expect(line.cache).toBe("hit-memory");
+    expect(metricsOf(line).declared).not.toContain(METRIC_NAMES.aiPlans);
+  });
+
   it("never counts a rules-only plan the caller asked for as an AI plan", async () => {
     const { app, logs } = makeApp({ emitMetrics: true });
 
     await postPlan(app, tripBody(), { query: "mode=deterministic" });
 
     expect(metricsOf(lastRequestLog(logs)).declared).not.toContain(METRIC_NAMES.aiPlans);
+  });
+
+  it("counts store use on plans and trips only, and a failed write as a failure", async () => {
+    const { app, logs } = makeApp({ emitMetrics: true });
+    const failing: TripStore = {
+      kind: "memory",
+      putNew: async () => {
+        throw new Error("ThrottlingException");
+      },
+      get: async () => null,
+    };
+    const broken = makeApp({ emitMetrics: true, tripStore: failing });
+
+    await app.request("/api/health");
+    const health = metricsOf(lastRequestLog(logs)).declared;
+    await postPlan(app, tripBody(), { scenario: "valid" });
+    const kept = lastRequestLog(logs);
+    await postPlan(broken.app, tripBody(), { scenario: "valid" });
+
+    expect(health).not.toContain(METRIC_NAMES.tripStoreFailures);
+    expect(kept).toMatchObject({ [METRIC_NAMES.tripStoreFailures]: 0 });
+    expect(lastRequestLog(broken.logs)).toMatchObject({
+      tripStore: "error",
+      [METRIC_NAMES.tripStoreFailures]: 1,
+      [METRIC_NAMES.serverErrors]: 0,
+    });
   });
 
   it("keeps metrics off local and test log lines unless asked", async () => {

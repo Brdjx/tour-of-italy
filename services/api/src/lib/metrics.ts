@@ -17,6 +17,7 @@ export const METRIC_NAMES = {
   aiPlans: "AiPlans", // plans computed where the model was expected to help
   aiFallbacks: "AiPlanFallbacks", // of those, plans that fell back to rules-only for any reason
   modelFailures: "AiPlanModelFailures", // of those, fallbacks because the model call failed or no key
+  tripStoreFailures: "TripStoreFailures", // requests whose read or write of the trips table failed
 } as const;
 
 // Decision: "requested" (?mode=deterministic) and "disabled" (kill switch) are choices, not
@@ -31,12 +32,19 @@ export function metricValues(status: number, fields: LogFields): Record<string, 
     [METRIC_NAMES.requests]: 1,
     [METRIC_NAMES.serverErrors]: status >= 500 ? 1 : 0,
   };
-  const planned = typeof fields.source === "string" && fields.cache !== "hit";
+  // A plan from the cache (hit-memory or hit-store) was counted when it was made.
+  const cached = typeof fields.cache === "string" && fields.cache.startsWith("hit");
+  const planned = typeof fields.source === "string" && !cached;
   const reason = typeof fields.fallbackReason === "string" ? fields.fallbackReason : undefined;
   if (planned && !(reason !== undefined && NOT_AI.has(reason))) {
     values[METRIC_NAMES.aiPlans] = 1;
     values[METRIC_NAMES.aiFallbacks] = reason === undefined ? 0 : 1;
     values[METRIC_NAMES.modelFailures] = reason !== undefined && MODEL_FAILURE.has(reason) ? 1 : 0;
+  }
+  // Decision: counted only on requests that used the trips table. A failed write of a plan's
+  // record is otherwise silent (the plan still goes out, without a planId).
+  if (fields.tripStore !== undefined) {
+    values[METRIC_NAMES.tripStoreFailures] = fields.tripStore === "error" ? 1 : 0;
   }
   return values;
 }

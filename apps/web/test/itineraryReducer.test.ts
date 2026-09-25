@@ -10,6 +10,7 @@ import {
   HISTORY_LIMIT,
   type ItineraryState,
   initialItineraryState,
+  isEdited,
   itineraryReducer,
   undoLabel,
 } from "../lib/itineraryReducer";
@@ -217,6 +218,38 @@ describe("edits", () => {
   });
 });
 
+describe("edited", () => {
+  it("is edited while an edit is in the undo history, and not once every edit is undone", () => {
+    const first = planned();
+    expect(isEdited(first)).toBe(false);
+    const removed = itineraryReducer(first, { type: "remove", day: 1, stop: 2 }, ctx);
+    expect(isEdited(removed)).toBe(true);
+    expect(isEdited(itineraryReducer(removed, { type: "undo" }, ctx))).toBe(false);
+  });
+
+  it("stays edited after a reload, when the undo history is gone, until a new plan arrives", () => {
+    const restored = itineraryReducer(
+      initialItineraryState(),
+      { type: "plan", itinerary: fixturePlan(), origin: "api", edited: true },
+      ctx,
+    );
+    expect(restored.history).toEqual([]);
+    expect(isEdited(restored)).toBe(true);
+    const moved = itineraryReducer(
+      restored,
+      { type: "move", day: 1, stop: 1, direction: "up" },
+      ctx,
+    );
+    expect(isEdited(itineraryReducer(moved, { type: "undo" }, ctx))).toBe(true);
+    const fresh = itineraryReducer(
+      restored,
+      { type: "plan", itinerary: fixturePlan(), origin: "api" },
+      ctx,
+    );
+    expect(isEdited(fresh)).toBe(false);
+  });
+});
+
 describe("undo", () => {
   it("restores the exact previous plan and its flags, one step at a time", () => {
     const first = planned();
@@ -266,6 +299,31 @@ describe("undo", () => {
       ctx,
     );
     expect(next.cause).toBeNull();
+  });
+
+  it("keeps the saved trip a plan was opened from through edits, and forgets it on the next plan", () => {
+    const saved = {
+      id: "a1B2c3D4e5",
+      createdAt: "2026-09-20T12:00:00.000Z",
+      plannedBy: "ai" as const,
+      edited: false,
+      retimed: false,
+    };
+    const opened = itineraryReducer(
+      initialItineraryState(),
+      { type: "plan", itinerary: fixturePlan(), origin: "saved", saved },
+      ctx,
+    );
+    const edited = itineraryReducer(opened, { type: "remove", day: 0, stop: 0 }, ctx);
+    const undone = itineraryReducer(edited, { type: "undo" }, ctx);
+    expect([opened.saved, edited.saved, undone.saved]).toEqual([saved, saved, saved]);
+    const next = itineraryReducer(
+      undone,
+      { type: "plan", itinerary: fixturePlan(), origin: "api" },
+      ctx,
+    );
+    expect(next.saved).toBeNull();
+    expect(itineraryReducer(undone, { type: "clear" }, ctx).saved).toBeNull();
   });
 
   it("keeps a bounded history so long sessions cannot grow memory without limit", () => {

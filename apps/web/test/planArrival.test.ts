@@ -84,6 +84,8 @@ describe("the head script that holds back the form", () => {
   it("marks the page for a shared link and for a saved plan, and not otherwise", () => {
     expect(run("?p=abc", null)).toBe(true);
     html.removeAttribute(EXPECT_PLAN_ATTR);
+    expect(run("?t=a1B2c3D4e5", null)).toBe(true);
+    html.removeAttribute(EXPECT_PLAN_ATTR);
     expect(run("", "{}")).toBe(true);
     html.removeAttribute(EXPECT_PLAN_ATTR);
     expect(run("?mode=deterministic", null)).toBe(false);

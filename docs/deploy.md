@@ -14,6 +14,7 @@ the ids pinned after the first deploy. A few read-only calls have no resource sc
 browser -> CloudFront site distribution (italy-planner.brdjx.com)
              /*      -> S3 bucket italy-planner-web-388773186626 (private, origin access control)
              /api/*  -> HTTP API italy-planner-api -> Lambda italy-planner-api
+                                                        -> DynamoDB table italy-planner-trips
 
 smoke test, scripts, tools -> CloudFront API distribution (api.italy-planner.brdjx.com)
              /*      -> the same HTTP API with origin path /api (/health reaches /api/health)
@@ -27,7 +28,8 @@ names, and the x-origin-verify header (the function answers 403 to calls without
 The web app stays same-origin: it calls `/api/*` on its own host, so there is no CORS preflight,
 the CSP needs no second host (`connect-src 'self'`; the map's tiles are served from the site too), and one WAF path covers
 every browser call. The public API host serves the post-deploy smoke test, curl and scripts, and
-future tool clients with plain paths (`/health`, `/meta`, `/places`, `/data-issues`, `POST /plan`)
+future tool clients with plain paths (`/health`, `/meta`, `/places`, `/data-issues`, `POST /plan`,
+`POST /trips`, `GET /trips/<id>`)
 through the same WAF rules and the same origin secret, so it opens no way around either. It sends
 no CORS headers, so it is not meant for other websites. The evals use neither host: they run the
 production pipeline in-process.
@@ -49,7 +51,7 @@ leading `/../` cannot dodge it), and the AWS common rule set blocks requests wit
 | Layer | Path | Applied by | State |
 |---|---|---|---|
 | Bootstrap: CI roles, permissions boundary, SAM artifacts bucket, budget | `infra/terraform/bootstrap` | an admin | `fortissimo-terraform-state`, `tour-of-italy/bootstrap.tfstate` |
-| API: Lambda, HTTP API, log group, alarms | `infra/sam` (stack `italy-planner-api`) | an admin once, then CI | CloudFormation |
+| API: Lambda, HTTP API, trips table, log group, alarms | `infra/sam` (stack `italy-planner-api`) | an admin once, then CI | CloudFormation |
 | Platform: certificate, DNS, web bucket, both CloudFront distributions, WAF, origin secret | `infra/terraform/platform` | an admin once, then CI | `tour-of-italy/platform.tfstate` |
 
 CI updates; an admin creates. The deploy role cannot create or delete the HTTP API, either
@@ -196,8 +198,9 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
 - Push to `main`: when CI passes, `deploy.yml` builds without credentials, then the `production`
   job assumes the deploy role and runs `deploy-api.sh`, `apply-platform.sh`, `publish-web.sh` and
   `smoke-test.sh`. The smoke test requires `/api/health` on the site and `/health` on the API host
-  to report the new commit, HTTPS redirects and security headers on both hosts, and 403 from both
-  the direct execute-api URL and the direct S3 URL.
+  to report the new commit, HTTPS redirects and security headers on both hosts, 403 from both
+  the direct execute-api URL and the direct S3 URL, and 404 for an unknown saved trip on the API
+  host (the function read the trips table; 503 means it could not).
 - An automatic deploy only moves production forward (`deploy-guard.sh`), so re-running an old
   CI run never rolls back by accident.
 - A change that would replace a pinned resource (for example a new certificate domain) fails in
@@ -206,6 +209,63 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
   `infra/terraform/platform` (`infra/test/hostnames.test.ts` fails if they differ), plus
   `SITE_URL` or `API_URL` in `deploy.yml`. Apply the bootstrap first (the deploy role's Route 53
   rights follow the names), then the platform by hand (the certificate is replaced), then step 7.
+
+## Saved trips table
+
+Copy link saves the trip on the server and copies a short link (`?t=<id>`). The API keeps three
+kinds of record in one DynamoDB table, `italy-planner-trips` (`TripsTable` in
+`infra/sam/template.yaml`): the AI content of each AI plan (90 days, key `plan#<planId>`), each
+saved trip (a year, key `trip#<id>`), and AI plans cached for the options they answer (7 days,
+key `cache#<hash>`, never for a request with notes). Each item is `pk`, the record as JSON text in
+`body`, and `expiresAt` in epoch seconds, which the table's time to live uses. The table bills per
+request, has point-in-time recovery, and is encrypted at rest with DynamoDB's AWS owned key. Its
+`DeletionPolicy` and `UpdateReplacePolicy` are `Retain` and deletion protection is on, so no
+template change, `sam delete` or stray `delete-table` removes saved trips
+(`check-infra-contract.py` fails CI if any of the three goes). The function gets `TRIPS_TABLE`
+and may call only `dynamodb:GetItem` and `dynamodb:PutItem` on that table; it never queries,
+scans, updates or deletes. `POST /api/trips` has its own gateway route and throttle (2 a second,
+burst 10); opening a trip stays on the proxy route with the other reads. The WAF has no rule of
+its own for `/api/trips` yet, only its overall per-IP limit: adding one in
+`infra/terraform/platform/waf.tf` is a follow-up. That rule has to match every spelling of the
+path that reaches the handler, not only the literal one: the path is percent-decoded before the
+function routes it, so `POST /api/trip%73` is saved like `POST /api/trips` (seen in review). Match
+it as the plan limit does, on `uri_path` after `URL_DECODE`, `NORMALIZE_PATH_WIN` and `LOWERCASE`,
+and for both hosts (`/api/trips` on the site, `/trips` on the API host, and any path ending in
+`/trips`), and test it with an encoded path before relying on it.
+
+IAM changes in `infra/terraform/bootstrap`:
+
+- the deploy role (`deploy-api.tf`, statement `ProjectTables`) may create, update, describe
+  and tag tables named `italy-planner-*` in this account and region, set their time to live and
+  point-in-time recovery, and make the three read calls CloudFormation's table handler makes
+  after each change (`DescribeContributorInsights`, `DescribeKinesisStreamingDestination`,
+  `GetResourcePolicy`). Deletion protection is a `CreateTable` and `UpdateTable` setting, so it
+  needs nothing more. It gets no item rights and cannot delete a table: CI cannot read, write
+  or remove saved trips.
+- the permissions boundary (`boundary.tf`, statement `ReadAndWriteProjectTables`) allows
+  `GetItem` and `PutItem` on those tables, only from the `italy-planner-api` function's own code
+  (`lambda:SourceFunctionArn`), like its parameter reads.
+
+The bootstrap change is applied once by an admin before the API deploy that adds the table.
+CI cannot apply the bootstrap, and without it the stack update fails with AccessDenied on
+`dynamodb:CreateTable`:
+
+```sh
+terraform -chdir=infra/terraform/bootstrap plan -out=bootstrap.tfplan  # 2 policies updated in place
+terraform -chdir=infra/terraform/bootstrap apply bootstrap.tfplan
+```
+
+Then merge; the deploy creates the table. Because the table is retained, a deploy that creates
+it and then rolls back leaves it behind, and the next deploy fails because the name is taken.
+Turn off its deletion protection and delete the empty table by hand, then deploy again:
+
+```sh
+aws dynamodb update-table --table-name italy-planner-trips --no-deletion-protection-enabled
+aws dynamodb delete-table --table-name italy-planner-trips
+```
+ If the table exists but the function cannot use it (the boundary was not
+applied), plans still work without a `planId`, Copy link falls back to the `?p=` link, the
+`italy-planner-api-trip-store` alarm fires, and the smoke test's saved-trip check fails with 503.
 
 ## Roll back
 
@@ -240,8 +300,10 @@ As an admin, platform first (it reads the SAM stack's output). Empty the web buc
 old versions and delete markers (`aws s3api list-object-versions`, then `delete-objects`, at most
 1000 keys per call), then run `terraform -chdir=infra/terraform/platform destroy` (both
 distributions),
-`sam delete --stack-name italy-planner-api --region us-east-1` (from `infra/sam`) and
-`aws ssm delete-parameter --name /italy-planner/anthropic-api-key`. Empty
+`sam delete --stack-name italy-planner-api --region us-east-1` (from `infra/sam`),
+`aws dynamodb update-table --table-name italy-planner-trips --no-deletion-protection-enabled`
+then `aws dynamodb delete-table --table-name italy-planner-trips` (the stack retains the table,
+with every saved trip, and protects it from deletion) and `aws ssm delete-parameter --name /italy-planner/anthropic-api-key`. Empty
 `italy-planner-artifacts-388773186626` the same way, destroy the bootstrap, delete
 `deployed-ids.auto.tfvars`, and remove the GitHub variables and the `ANTHROPIC_API_KEY` secret.
 
@@ -276,14 +338,19 @@ Known exposures, accepted:
 At demo traffic the AWS bill is about $10 to $13 a month, almost all of it the WAF ($5 per web
 ACL plus $1 per rule, five rules, plus $0.60 per million requests). One web ACL protects both
 distributions, and a CloudFront distribution has no fixed monthly cost, so the API host adds only
-its requests. Six alarms cost $0.70 (the model failures alarm reads two metrics). The API's five
-custom metrics cost at most $1.50, since CloudWatch bills them only for hours that receive data.
+its requests. Seven alarms cost $0.80 (the model failures alarm reads two metrics). The API's six
+custom metrics cost at most $1.80, since CloudWatch bills them only for hours that receive data.
+The trips table costs cents: on-demand reads and writes of a few KB each, storage at $0.25 per
+GB-month, and point-in-time recovery at $0.20 per GB-month (a year of saved trips at a few KB each
+stays well under a GB). Plan records now last 90 days and cached plans 7, a few KB each; a cache
+read on every AI plan request is a fraction of a cent per thousand plans, and each hit saves a
+model call. The save route's throttle caps a flood at about 170,000 trips a day.
 Lambda, the HTTP API ($1 per million requests), CloudFront, S3 and the CloudFront function add
 cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
 The budget `italy-planner-monthly` (default $20) emails at 80% actual and 100% forecast. Claude API
 usage is billed by Anthropic, not AWS; it is capped by reserved concurrency (10), API throttling
-(plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the response
-cache. Both distributions share one web ACL and one rate rule, so one IP most likely has one count
+(plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the plan
+cache (the tab, the instance, the table). Both distributions share one web ACL and one rate rule, so one IP most likely has one count
 across both hosts, but AWS does not document that; at worst each host counts 30 separately.
 
 ## Map tiles

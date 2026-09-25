@@ -3,7 +3,9 @@ import {
   DataSummarySchema,
   ExcludedRecordSchema,
   IdSchema,
+  ItinerarySchema,
   PlaceSchema,
+  RecordIdSchema,
 } from "@italy/planner";
 import { z } from "zod";
 
@@ -29,10 +31,14 @@ export const MetaInterestSchema = z.object({
   count: z.number().int().min(0).max(10_000),
 });
 
+/** The planner's dataVersion of the place data: 16 hex characters. */
+export const DataVersionSchema = z.string().regex(/^[0-9a-f]{16}$/);
+
 /** GET /api/meta. Only the lists the form shows are required. */
 export const MetaSchema = z.object({
   anchors: z.array(MetaAnchorSchema).min(1).max(100),
   interests: z.array(MetaInterestSchema).max(500),
+  dataVersion: DataVersionSchema.optional(),
 });
 export type Meta = z.output<typeof MetaSchema>;
 
@@ -63,6 +69,27 @@ export const HealthSchema = z.object({
   commit: z.string().max(80),
 });
 export type Health = z.output<typeof HealthSchema>;
+
+/** Who chose a saved trip's places, as far as the API's records show. */
+export const PLANNED_BY = ["ai", "ai_repaired", "rules"] as const;
+export type PlannedBy = (typeof PLANNED_BY)[number];
+
+/**
+ * GET /api/trips/:id: a saved trip exactly as it was saved. The itinerary is checked like any
+ * plan; planId is refused, because a saved trip is its own record.
+ */
+export const SavedTripSchema = z.object({
+  v: z.literal(1),
+  id: RecordIdSchema,
+  itinerary: ItinerarySchema.omit({ planId: true }),
+  origin: z.object({ plannedBy: z.enum(PLANNED_BY), edited: z.boolean() }),
+  dataVersion: DataVersionSchema,
+  createdAt: z.iso.datetime(),
+});
+export type SavedTripResponse = z.output<typeof SavedTripSchema>;
+
+/** POST /api/trips: the new trip's id. */
+export const SaveTripResponseSchema = z.object({ id: RecordIdSchema });
 
 /** Every API error: `{ error: { code, message, details?, requestId } }`. */
 export const ApiErrorBodySchema = z.object({

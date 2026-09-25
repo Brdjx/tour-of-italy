@@ -9,6 +9,7 @@ import {
   PLACE_TYPES,
   PlaceSchema,
   PriceLevelSchema,
+  RecordIdSchema,
 } from "@italy/planner";
 import { z } from "zod";
 
@@ -17,6 +18,8 @@ import { z } from "zod";
 // rendering. This file imports only zod and the planner, so it is safe in the browser.
 
 const CountSchema = z.number().int().min(0);
+/** The planner's dataVersion: 16 hex characters. */
+export const DataVersionSchema = z.string().regex(/^[0-9a-f]{16}$/);
 const ClockSchema = z.string().regex(/^\d{2}:\d{2}$/);
 
 export const HealthResponseSchema = z.strictObject({
@@ -68,6 +71,7 @@ export const MetaResponseSchema = z.strictObject({
   }),
   issueCounts: z.partialRecord(z.enum(ISSUE_KINDS), CountSchema),
   dataSummary: DataSummarySchema,
+  dataVersion: DataVersionSchema, // fingerprint of /api/places (the planner's dataVersion)
 });
 
 export const PlaceNoteSchema = z.strictObject({ kind: z.string(), label: z.string() });
@@ -94,6 +98,31 @@ export const DataIssuesResponseSchema = z.strictObject({
 /** POST /api/plan answers with the itinerary itself. */
 export const PlanResponseSchema = ItinerarySchema;
 
+/** Who chose a saved trip's places, as far as the API's own records show. */
+export const PLANNED_BY = ["ai", "ai_repaired", "rules"] as const;
+
+/**
+ * A saved trip, as GET /api/trips/:id returns it: the itinerary exactly as it was saved (times,
+ * roles, why lines with their source, summary, warnings; never the traveler's notes), how it was
+ * planned, the data it was timed with, and when it was saved and expires. "rules" means no AI
+ * plan record backed it, so its why lines and times are the rules' own.
+ */
+export const TripSnapshotSchema = z.strictObject({
+  v: z.literal(1),
+  id: RecordIdSchema,
+  itinerary: ItinerarySchema.omit({ planId: true }),
+  origin: z.strictObject({
+    plannedBy: z.enum(PLANNED_BY),
+    edited: z.boolean(), // its places or their order differ from the AI plan it came from
+  }),
+  dataVersion: DataVersionSchema,
+  createdAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+});
+
+/** POST /api/trips answers with the new trip's id. */
+export const SaveTripResponseSchema = z.strictObject({ id: RecordIdSchema });
+
 export const ErrorResponseSchema = z.strictObject({
   error: z.strictObject({
     code: z.string(),
@@ -108,3 +137,5 @@ export type MetaResponse = z.infer<typeof MetaResponseSchema>;
 export type PlacesResponse = z.infer<typeof PlacesResponseSchema>;
 export type DataIssuesResponse = z.infer<typeof DataIssuesResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+export type TripSnapshot = z.infer<typeof TripSnapshotSchema>;
+export type PlannedBy = (typeof PLANNED_BY)[number];

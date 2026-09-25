@@ -77,6 +77,65 @@ run "a_role_trusted_from_outside_cannot_read_the_anthropic_key" {
   }
 }
 
+run "ci_manages_only_this_projects_tables_and_never_their_items" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.deploy_api.policy).Statement : s.Resource == ["arn:aws:dynamodb:us-east-1:388773186626:table/italy-planner-*"]
+      if length([for a in s.Action : a if startswith(a, "dynamodb:")]) > 0
+    ])
+    error_message = "CI may manage only DynamoDB tables named italy-planner-* in this account and region."
+  }
+
+  # Saved trips are travelers' data: CI creates and changes the table, never reads, writes,
+  # shares or deletes it (a resource policy could open it to another account, a stream or a
+  # backup could copy it out, and the table is retained, so CloudFormation never deletes it).
+  assert {
+    condition = alltrue(flatten([
+      for s in jsondecode(aws_iam_policy.deploy_api.policy).Statement : [
+        for a in s.Action : !contains([
+          "dynamodb:GetItem", "dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:Scan",
+          "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem",
+          "dynamodb:PartiQLSelect", "dynamodb:ExportTableToPointInTime", "dynamodb:RestoreTableToPointInTime",
+          "dynamodb:DeleteTable", "dynamodb:PutResourcePolicy", "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator", "dynamodb:CreateBackup", "dynamodb:EnableKinesisStreamingDestination",
+        ], a)
+      ]
+    ]))
+    error_message = "The deploy role must not read, write, export, restore, share or delete table items or tables."
+  }
+
+  assert {
+    condition = length([
+      for s in jsondecode(aws_iam_policy.deploy_api.policy).Statement : s
+      if contains(s.Action, "dynamodb:CreateTable") && contains(s.Action, "dynamodb:UpdateTable") && contains(s.Action, "dynamodb:UpdateTimeToLive") && contains(s.Action, "dynamodb:UpdateContinuousBackups")
+    ]) == 1
+    error_message = "CI must be able to create and update the trips table with its time to live, point-in-time recovery and deletion protection (a CreateTable and UpdateTable setting)."
+  }
+}
+
+run "the_function_may_only_read_and_add_trips" {
+  command = plan
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Action
+      if length([for a in s.Action : a if startswith(a, "dynamodb:")]) > 0
+    ]) == ["dynamodb:GetItem", "dynamodb:PutItem"]
+    error_message = "The boundary may allow only GetItem and PutItem on tables, in one statement."
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.boundary.policy).Statement :
+      s.Resource == ["arn:aws:dynamodb:us-east-1:388773186626:table/italy-planner-*"] && try(s.Condition.ArnEquals["lambda:SourceFunctionArn"], "") == "arn:aws:lambda:us-east-1:388773186626:function:italy-planner-api"
+      if length([for a in s.Action : a if startswith(a, "dynamodb:")]) > 0
+    ])
+    error_message = "Table access in the boundary must be limited to italy-planner-* tables and the italy-planner-api function's own code."
+  }
+}
+
 run "ci_cannot_change_its_own_roles_or_the_boundary" {
   command = plan
 
@@ -118,13 +177,13 @@ run "no_allow_statement_grants_a_whole_service_or_everything" {
   }
 
   # Account-wide id wildcards match other stacks' resources just like "*" does: every HTTP API
-  # and its routes, every tag, distribution, certificate, origin access control or headers
-  # policy in the shared account.
+  # and its routes, every tag, distribution, certificate, origin access control, headers policy
+  # or table in the shared account.
   assert {
     condition = alltrue(flatten([
       for doc in [aws_iam_policy.deploy_api.policy, aws_iam_policy.deploy_platform.policy, aws_iam_policy.plan_read.policy, aws_iam_policy.boundary.policy] : [
         for s in jsondecode(doc).Statement : [
-          for r in s.Resource : length(regexall("(::/apis/\\*|::/tags/\\*|:distribution/\\*|:certificate/\\*|:origin-access-control/\\*|:response-headers-policy/\\*|:role/[^:]*\\*)", r)) == 0
+          for r in s.Resource : length(regexall("(::/apis/\\*|::/tags/\\*|:distribution/\\*|:certificate/\\*|:origin-access-control/\\*|:response-headers-policy/\\*|:role/[^:]*\\*|:table/\\*)", r)) == 0
         ] if s.Effect == "Allow"
       ]
     ]))

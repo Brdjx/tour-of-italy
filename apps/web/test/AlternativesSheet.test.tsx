@@ -5,6 +5,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AlternativesSheet, EMPTY_ALTERNATIVES } from "../components/AlternativesSheet";
 import { ShareButton } from "../components/ShareButton";
+import type { SaveTripBody } from "../lib/api";
 import { readShareParam } from "../lib/shareLink";
 import { ctx, fixturePlan } from "./fixtures";
 
@@ -160,19 +161,185 @@ describe("AlternativesSheet", () => {
 });
 
 describe("ShareButton", () => {
-  it("copies a link that decodes to this plan and says so", async () => {
+  const ID = "a1B2c3D4e5";
+  const saved = () => Promise.resolve(ID);
+  const failed = () => Promise.reject(new Error("offline"));
+
+  it("saves the trip and copies its short link, and says so", async () => {
     const writeText = vi.fn(async (_text: string) => {});
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     const onStatus = vi.fn();
-    const plan = fixturePlan();
-    render(<ShareButton itinerary={plan} onStatus={onStatus} />);
+    const saveTrip = vi.fn(async (_body: SaveTripBody) => ID);
+    const plan = { ...fixturePlan({ notes: "Private." }), planId: "Zz9Yy8Xx7W" };
+    render(<ShareButton itinerary={plan} onStatus={onStatus} saveTrip={saveTrip} />);
     await act(async () => {
       screen.getByTestId("share-button").click();
     });
     expect(screen.getByTestId("share-button").textContent).toBe("Link copied");
     const link = new URL(writeText.mock.calls[0]?.[0] as string);
-    expect(readShareParam(link.search)).toBeTruthy();
+    expect(link.search).toBe(`?t=${ID}`);
+    expect(saveTrip).toHaveBeenCalledWith(expect.objectContaining({ planId: "Zz9Yy8Xx7W" }));
+    expect(saveTrip.mock.calls[0]?.[0].request.notes).toBeUndefined();
     expect(onStatus).toHaveBeenCalledWith("Link copied.");
+    expect(screen.queryByTestId("share-note")).toBeNull();
+  });
+
+  it("writes to the clipboard inside the press, with the link still on its way (Safari)", async () => {
+    let answer: (id: string) => void = () => {};
+    const written: Promise<Blob>[] = [];
+    class FakeItem {
+      constructor(items: Record<string, Promise<Blob>>) {
+        written.push(items["text/plain"] as Promise<Blob>);
+      }
+    }
+    vi.stubGlobal("ClipboardItem", FakeItem);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { write: async () => {} } });
+    render(
+      <ShareButton
+        itinerary={fixturePlan()}
+        saveTrip={() => new Promise<string>((resolve) => (answer = resolve))}
+      />,
+    );
+    act(() => {
+      screen.getByTestId("share-button").click();
+    });
+    expect(written).toHaveLength(1);
+    await act(async () => answer(ID));
+    expect(new URL((await (await written[0])?.text()) ?? "").search).toBe(`?t=${ID}`);
+    expect(screen.getByTestId("share-button").textContent).toBe("Link copied");
+  });
+
+  it("shows a quiet busy state while saving and ignores a second press", async () => {
+    let answer: (id: string) => void = () => {};
+    const saveTrip = vi.fn(() => new Promise<string>((resolve) => (answer = resolve)));
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: async () => {} } });
+    render(<ShareButton itinerary={fixturePlan()} saveTrip={saveTrip} />);
+    const button = screen.getByTestId("share-button");
+    act(() => button.click());
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toBe("Copy link");
+    act(() => button.click());
+    expect(saveTrip).toHaveBeenCalledTimes(1);
+    await act(async () => answer(ID));
+    expect(button.hasAttribute("aria-busy")).toBe(false);
+  });
+
+  it("names the saved trip a plan was opened from, so saving it again keeps its why lines", async () => {
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: async () => {} } });
+    const saveTrip = vi.fn(saved);
+    render(<ShareButton itinerary={fixturePlan()} saveTrip={saveTrip} savedFrom="Zz9Yy8Xx7W" />);
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect(saveTrip).toHaveBeenCalledWith(expect.objectContaining({ tripId: "Zz9Yy8Xx7W" }));
+  });
+
+  it("copies the link that rebuilds the plan from its places when saving fails, and says so", async () => {
+    const writeText = vi.fn(async (_text: string) => {});
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const onStatus = vi.fn();
+    render(<ShareButton itinerary={fixturePlan()} onStatus={onStatus} saveTrip={failed} />);
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    const link = new URL(writeText.mock.calls[0]?.[0] as string);
+    expect(readShareParam(link.search)).toBeTruthy();
+    expect(screen.getByTestId("share-button").textContent).toBe("Link copied");
+    const note =
+      "Copied a link that rebuilds this trip from its places; the saved link could not be made.";
+    expect(screen.getByTestId("share-note").textContent).toBe(note);
+    expect(onStatus).toHaveBeenCalledWith(note);
+  });
+
+  it("says nothing about a copy that finished after the plan changed", async () => {
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      clipboard: { writeText: async () => Promise.reject(new Error("denied")) },
+    });
+    const onStatus = vi.fn();
+    let answer: (id: string) => void = () => {};
+    const saveTrip = () => new Promise<string>((resolve) => (answer = resolve));
+    const { rerender } = render(
+      <ShareButton itinerary={fixturePlan()} onStatus={onStatus} saveTrip={saveTrip} />,
+    );
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect(screen.getByTestId("share-button").getAttribute("aria-busy")).toBe("true");
+
+    rerender(
+      <ShareButton
+        itinerary={fixturePlan({ pace: "relaxed" })}
+        onStatus={onStatus}
+        saveTrip={saveTrip}
+      />,
+    );
+    await act(async () => answer(ID));
+
+    // The field and the line would be about the plan before, so neither appears.
+    expect(screen.queryByTestId("share-link-field")).toBeNull();
+    expect(screen.queryByTestId("share-note")).toBeNull();
+    expect(onStatus).not.toHaveBeenCalled();
+    expect(screen.getByTestId("share-button").getAttribute("aria-busy")).toBeNull();
+  });
+
+  it("does not save a plan with flagged stops, and says the link rebuilds it without them", async () => {
+    const writeText = vi.fn(async (_text: string) => {});
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const onStatus = vi.fn();
+    const saveTrip = vi.fn(saved);
+    render(
+      <ShareButton itinerary={fixturePlan()} onStatus={onStatus} saveTrip={saveTrip} flagged />,
+    );
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect(saveTrip).not.toHaveBeenCalled();
+    expect(readShareParam(new URL(writeText.mock.calls[0]?.[0] as string).search)).toBeTruthy();
+    const note =
+      "This plan has stops that break a rule, so it is not saved. The link rebuilds it from its places and leaves out stops that still break a rule.";
+    expect(screen.getByTestId("share-note").textContent).toBe(note);
+    expect(onStatus).toHaveBeenCalledWith(`Link copied. ${note}`);
+  });
+
+  it("says what the shared trip leaves out when the plan was made with notes", async () => {
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: async () => {} } });
+    const onStatus = vi.fn();
+    const plan = { ...fixturePlan({ notes: "Knee surgery." }), planId: "Zz9Yy8Xx7W" };
+    render(
+      <ShareButton
+        itinerary={plan}
+        onStatus={onStatus}
+        saveTrip={saved}
+        privateText={{ summary: true, reasons: 2 }}
+      />,
+    );
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    const note =
+      "To keep your notes private, the shared trip leaves out the AI's summary and why lines.";
+    expect(screen.getByTestId("share-note").textContent).toBe(note);
+    expect(onStatus).toHaveBeenCalledWith(`Link copied. ${note}`);
+  });
+
+  it("claims nothing about the notes for a plan with no AI content on record", async () => {
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: async () => {} } });
+    const onStatus = vi.fn();
+    const plan = fixturePlan({ notes: "Knee surgery." }); // no planId: saved with rule why lines
+    render(
+      <ShareButton
+        itinerary={plan}
+        onStatus={onStatus}
+        saveTrip={saved}
+        privateText={{ summary: true, reasons: 2 }}
+      />,
+    );
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect(onStatus).toHaveBeenCalledWith("Link copied.");
+    expect(screen.queryByTestId("share-note")).toBeNull();
   });
 
   it("shows the link to copy by hand when the clipboard is refused", async () => {
@@ -180,19 +347,48 @@ describe("ShareButton", () => {
       ...navigator,
       clipboard: { writeText: async () => Promise.reject(new Error("denied")) },
     });
+    const { unmount } = render(<ShareButton itinerary={fixturePlan()} saveTrip={saved} />);
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect((screen.getByTestId("share-link-field") as HTMLInputElement).value).toContain(
+      `?t=${ID}`,
+    );
+    expect(screen.getByTestId("share-button").textContent).toBe("Copy link");
+    unmount();
+
+    render(<ShareButton itinerary={fixturePlan()} saveTrip={failed} />);
+    await act(async () => {
+      screen.getByTestId("share-button").click();
+    });
+    expect((screen.getByTestId("share-link-field") as HTMLInputElement).value).toContain("?p=");
+    expect(screen.getByTestId("share-note").textContent).toContain("could not be made");
+  });
+
+  it("saves through POST /api/trips when no stand-in is given", async () => {
+    const writeText = vi.fn(async (_text: string) => {});
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const fetchStub = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(JSON.stringify({ id: ID }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchStub);
     render(<ShareButton itinerary={fixturePlan()} />);
     await act(async () => {
       screen.getByTestId("share-button").click();
     });
-    const field = screen.getByTestId("share-link-field") as HTMLInputElement;
-    expect(field.value).toContain("?p=");
-    expect(screen.getByTestId("share-button").textContent).toBe("Copy link");
+    expect(String(fetchStub.mock.calls[0]?.[0])).toMatch(/\/api\/trips$/);
+    expect(fetchStub.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(new URL(writeText.mock.calls[0]?.[0] as string).search).toBe(`?t=${ID}`);
   });
 
   it("goes back to Copy link after a moment", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: async () => {} } });
-    render(<ShareButton itinerary={fixturePlan()} />);
+    render(<ShareButton itinerary={fixturePlan()} saveTrip={saved} />);
     await act(async () => {
       screen.getByTestId("share-button").click();
     });

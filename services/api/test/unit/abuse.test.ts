@@ -1,5 +1,6 @@
+import type { TripRequest } from "@italy/planner";
 import { describe, expect, it } from "vitest";
-import { canonicalJson, LruCache, planCacheKey } from "../../src/lib/cache";
+import { LruCache, planCacheKey } from "../../src/lib/cache";
 import { createTokenBucket, PLAN_RATE_LIMIT } from "../../src/lib/rateLimit";
 
 // Failure vector F5: cost runaway. The rate limiter caps plans per client; the cache keeps a
@@ -81,29 +82,47 @@ describe("plan cache", () => {
     expect(() => new LruCache(0)).toThrow(RangeError);
   });
 
-  it("keys on prompt version, model, and the canonical request", () => {
-    const request = { pace: "balanced", interests: ["art"] };
-    const base = planCacheKey({ promptVersion: "v1", model: "m", request });
+  const request: TripRequest = {
+    startDate: "2026-10-19",
+    pace: "balanced",
+    interests: ["art", "food"],
+    maxPriceLevel: null,
+    anchors: ["rome", "florence"],
+    mustInclude: ["place_001", "place_002"],
+    exclude: ["place_009", "place_003"],
+  };
+  const key = (overrides: Partial<Parameters<typeof planCacheKey>[0]> = {}) =>
+    planCacheKey({
+      promptVersion: "v1",
+      model: "m",
+      codeVersion: "abc123",
+      dataVersion: "d1",
+      request,
+      ...overrides,
+    });
 
-    expect(planCacheKey({ promptVersion: "v2", model: "m", request })).not.toBe(base);
-    expect(planCacheKey({ promptVersion: "v1", model: "other", request })).not.toBe(base);
-    expect(
-      planCacheKey({ promptVersion: "v1", model: "m", request: { ...request, pace: "packed" } }),
-    ).not.toBe(base);
-    expect(
-      planCacheKey({
-        promptVersion: "v1",
-        model: "m",
-        request: { interests: ["art"], pace: "balanced" },
-      }),
-    ).toBe(base);
+  it("keys on prompt version, model, deployed commit, place data, and the request", () => {
+    const base = key();
+
+    expect(key({ promptVersion: "v2" })).not.toBe(base);
+    expect(key({ model: "other" })).not.toBe(base);
+    expect(key({ codeVersion: "def456" })).not.toBe(base);
+    expect(key({ dataVersion: "d2" })).not.toBe(base);
+    expect(key({ request: { ...request, pace: "packed" } })).not.toBe(base);
+    expect(key({ request: { ...request, notes: "A quiet trip" } })).not.toBe(base);
     expect(base).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("sorts object keys at every level but keeps array order", () => {
-    expect(canonicalJson({ b: 1, a: { d: [2, 1], c: null } })).toBe(
-      '{"a":{"c":null,"d":[2,1]},"b":1}',
-    );
-    expect(canonicalJson(undefined)).toBe("null");
+  it("treats interests, must-includes and exclusions as sets, but keeps the bases' order", () => {
+    const base = key();
+    const reordered = {
+      ...request,
+      interests: ["food", "art"],
+      mustInclude: ["place_002", "place_001"],
+      exclude: ["place_003", "place_009"],
+    };
+
+    expect(key({ request: reordered })).toBe(base);
+    expect(key({ request: { ...request, anchors: ["florence", "rome"] } })).not.toBe(base);
   });
 });

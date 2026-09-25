@@ -165,6 +165,8 @@ test.describe("when the planner service fails", () => {
       return route.continue({ postData: JSON.stringify(request) });
     });
     await reopenForm(page, press, twoPane);
+    // Other options: the page would show the plan it already has for these, with no request.
+    await press(page.getByTestId("pace-field").getByRole("radio", { name: "Packed" }));
     await press(page.getByTestId("plan-button"));
 
     const error = page.getByTestId("error-state");

@@ -25,7 +25,8 @@ await build({
   sourcesContent: false,
   minify: false,
   // Decision: bundle every dependency, including the AWS SDK, so the deployed code is exactly
-  // what was tested instead of whatever SDK version the runtime happens to ship.
+  // what was tested instead of whatever SDK version the runtime happens to ship. That holds for
+  // the DynamoDB client too (about 350 KB of the bundle), although nodejs24.x ships SDK v3.
   // Some bundled CommonJS packages call require(); ESM output has no require, so recreate it.
   banner: {
     js: [

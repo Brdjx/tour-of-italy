@@ -1,19 +1,11 @@
+import { normalizeWords } from "@italy/planner";
 import { REPAIR_INSTRUCTION, SYSTEM_PROMPT } from "../llm/prompt";
 
 // Shared checks for model-written text (stop reasons and the trip summary). The model is told the
 // rules; these make them true regardless of what it wrote. Every check errs toward dropping: a
 // dropped reason falls back to the rule reason, and a dropped summary sentence is not shown.
-// placeMentions.ts holds the checks that need the dataset (place names and known words).
-
-/** Lowercase words without accents or punctuation, for name and phrase matching. */
-export function normalizeWords(text: string): string {
-  return text
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
+// The checks that need the dataset are in placeMentions.ts (words the data never uses) and in
+// the planner (namesPlaceOutside, place names), which also provides normalizeWords.
 
 /** Control and invisible format characters removed, whitespace collapsed, trimmed. */
 export function cleanText(text: string): string {

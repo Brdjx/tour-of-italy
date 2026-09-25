@@ -31,10 +31,13 @@ function configKeys(): string[] {
   return [...body.matchAll(/^ {4}([A-Z][A-Z0-9_]+):/gm)].map((match) => match[1] as string);
 }
 
-// Resolves { Ref: Param } to the parameter's default, the value a plain `sam deploy` would use.
+// Resolves { Ref: Param } to the parameter's default, the value a plain `sam deploy` would use,
+// and { Ref: Table } to the table's name, which is what Ref returns for a DynamoDB table.
 function resolveDefault(value: unknown): string {
   if (typeof value === "string") return value;
   const ref = (value as { Ref?: string }).Ref;
+  const tableName = ref ? template.Resources[ref]?.Properties.TableName : undefined;
+  if (typeof tableName === "string") return tableName;
   const parameter = ref ? template.Parameters[ref] : undefined;
   if (parameter?.Default === undefined) throw new Error(`cannot resolve ${JSON.stringify(value)}`);
   return String(parameter.Default);
@@ -87,6 +90,16 @@ describe("SAM template: timeouts and capacity", () => {
     );
     expect(plan.ThrottlingRateLimit as number).toBeLessThan(reads.ThrottlingRateLimit as number);
   });
+
+  it("throttles saving trips on its own route, so a flood of saves cannot fill the table or starve reads", () => {
+    const routes = resource("HttpApi").RouteSettings as Record<string, Props>;
+    const reads = resource("HttpApi").DefaultRouteSettings as Props;
+    expect(routes["POST /api/trips"]).toEqual({ ThrottlingBurstLimit: 10, ThrottlingRateLimit: 2 });
+    const save = routes["POST /api/trips"] as Props;
+    expect(save.ThrottlingRateLimit as number).toBeLessThan(reads.ThrottlingRateLimit as number);
+    // Opening a saved trip is a read: no route setting of its own, so it keeps the reads' limits.
+    expect(Object.keys(routes).filter((key) => key.startsWith("GET"))).toEqual([]);
+  });
 });
 
 describe("SAM template: runtime and logs", () => {
@@ -137,6 +150,13 @@ describe("SAM template: environment matches services/api/src/config.ts", () => {
     expect(config.isProduction).toBe(true);
     expect(config.originVerifyParam).toBe("/italy-planner/origin-verify-secret");
     expect(config.anthropicKeyParam).toBe("/italy-planner/anthropic-api-key");
+    expect(config.tripsTable).toBe("italy-planner-trips");
+  });
+
+  it("points the function at the trips table, so saved trips are shared by every instance", () => {
+    // Without it the API refuses to save trips in production (an in-memory store per instance
+    // would hand out links that other instances cannot open).
+    expect(env.TRIPS_TABLE).toEqual({ Ref: "TripsTable" });
   });
 
   it("reports the deployed commit, so the smoke test can prove the new code is live", () => {
@@ -146,6 +166,57 @@ describe("SAM template: environment matches services/api/src/config.ts", () => {
 
   it("enables source maps so production stack traces point at real lines", () => {
     expect(env.NODE_OPTIONS).toBe("--enable-source-maps");
+  });
+});
+
+describe("SAM template: the trips table", () => {
+  const table = template.Resources.TripsTable as unknown as {
+    Type: string;
+    DeletionPolicy?: string;
+    UpdateReplacePolicy?: string;
+    Properties: Props;
+  };
+
+  it("is a DynamoDB table named inside the italy-planner-* scope the deploy role may manage", () => {
+    expect(table.Type).toBe("AWS::DynamoDB::Table");
+    expect(table.Properties.TableName).toBe("italy-planner-trips");
+  });
+
+  it("keeps travelers' saved trips when the resource is removed or replaced in a template change", () => {
+    expect(table.DeletionPolicy).toBe("Retain");
+    expect(table.UpdateReplacePolicy).toBe("Retain");
+  });
+
+  it("cannot be deleted by anyone until an admin turns deletion protection off", () => {
+    expect(table.Properties.DeletionProtectionEnabled).toBe(true);
+  });
+
+  it("bills per request and has one string key, so no capacity or autoscaling rights are needed", () => {
+    expect(table.Properties.BillingMode).toBe("PAY_PER_REQUEST");
+    expect(table.Properties.KeySchema).toEqual([{ AttributeName: "pk", KeyType: "HASH" }]);
+    expect(table.Properties.AttributeDefinitions).toEqual([
+      { AttributeName: "pk", AttributeType: "S" },
+    ]);
+  });
+
+  it("expires records on expiresAt, the attribute services/api/src/trips/dynamoStore.ts writes", () => {
+    const source = readFileSync(repoFile("services/api/src/trips/dynamoStore.ts"), "utf8");
+    expect(table.Properties.TimeToLiveSpecification).toEqual({
+      AttributeName: "expiresAt",
+      Enabled: true,
+    });
+    expect(source).toContain("expiresAt: { N: String(expiresAt) }");
+  });
+
+  it("can be restored to any point in the last 35 days after a bad write or delete", () => {
+    expect(table.Properties.PointInTimeRecoverySpecification).toEqual({
+      PointInTimeRecoveryEnabled: true,
+    });
+  });
+
+  it("is encrypted at rest with DynamoDB's AWS owned key, which needs no KMS rights", () => {
+    // SSEEnabled true would switch to a KMS key, and CI is denied kms:Decrypt.
+    expect(table.Properties.SSESpecification).toBeUndefined();
   });
 });
 
@@ -169,6 +240,15 @@ describe("SAM template: least privilege for the function", () => {
       const actions = ([] as unknown[]).concat(statement.Action);
       for (const action of actions) expect(String(action)).not.toMatch(/(^\*$|:\*$)/);
     }
+  });
+
+  it("lets the function read one trip and write new ones, on the trips table only", () => {
+    const trips = statements.filter((statement) =>
+      JSON.stringify(statement.Action).includes("dynamodb:"),
+    );
+    expect(trips).toHaveLength(1);
+    expect(trips[0]?.Action).toEqual(["dynamodb:GetItem", "dynamodb:PutItem"]);
+    expect(trips[0]?.Resource).toEqual({ "Fn::GetAtt": ["TripsTable", "Arn"] });
   });
 
   it("lets the function read only its two SSM parameters, both under /italy-planner/", () => {
@@ -198,12 +278,16 @@ describe("SAM template: contract with CI and the platform", () => {
     expect(template.Outputs.HttpApiId?.Value).toEqual({ Ref: "HttpApi" });
   });
 
-  it("routes only /api/* to the function, with the plan route separate for its throttle", () => {
+  it("routes only /api/* to the function, with the plan and save routes separate for their throttles", () => {
     const events = fn.Events as Record<string, { Type: string; Properties: Props }>;
     const routes = Object.values(events).map(
       (event) => `${event.Type} ${event.Properties.Method} ${event.Properties.Path}`,
     );
-    expect(routes.sort()).toEqual(["HttpApi ANY /api/{proxy+}", "HttpApi POST /api/plan"]);
+    expect(routes.sort()).toEqual([
+      "HttpApi ANY /api/{proxy+}",
+      "HttpApi POST /api/plan",
+      "HttpApi POST /api/trips",
+    ]);
     // A route setting for a route that does not exist fails the deploy.
     const keys = Object.values(events).map((e) => `${e.Properties.Method} ${e.Properties.Path}`);
     for (const key of Object.keys(resource("HttpApi").RouteSettings as Props)) {
@@ -215,6 +299,7 @@ describe("SAM template: contract with CI and the platform", () => {
     expect(fn.FunctionName).toBe("italy-planner-api");
     expect(resource("HttpApi").Name).toBe("italy-planner-api");
     expect(resource("AlarmTopic").TopicName).toMatch(/^italy-planner-/);
+    expect(resource("TripsTable").TableName).toMatch(/^italy-planner-/);
     for (const [name, value] of Object.entries(template.Resources)) {
       if (value.Type === "AWS::CloudWatch::Alarm") {
         expect(String(value.Properties.AlarmName), name).toMatch(/^italy-planner-/);

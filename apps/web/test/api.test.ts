@@ -4,7 +4,9 @@ import {
   fetchHealth,
   fetchMeta,
   fetchPlaces,
+  fetchTrip,
   postPlan,
+  postTrip,
   requestJson,
   resolveApiBase,
 } from "../lib/api";
@@ -226,5 +228,68 @@ describe("successful calls", () => {
     });
     expect(clear).toHaveBeenCalled();
     clear.mockRestore();
+  });
+});
+
+describe("saved trips", () => {
+  const trip = () => {
+    const { planId: _planId, ...itinerary } = aiPlan();
+    return {
+      v: 1,
+      id: "a1B2c3D4e5",
+      itinerary,
+      origin: { plannedBy: "ai", edited: false },
+      dataVersion: "0123456789abcdef",
+      createdAt: "2026-09-20T12:00:00.000Z",
+      expiresAt: "2027-09-20T12:00:00.000Z",
+    };
+  };
+
+  it("posts the trip as ids and reads back its id", async () => {
+    const fetchImpl = fetchReturning(jsonResponse({ id: "a1B2c3D4e5" }, 201));
+    const body = { request: baseRequest, days: [], planId: "Zz9Yy8Xx7W" };
+
+    expect(await postTrip(body, { fetchImpl, base: "" })).toBe("a1B2c3D4e5");
+    const [url, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(url).toBe("/api/trips");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(body);
+  });
+
+  it("refuses a save reply without a well-formed id", async () => {
+    const fetchImpl = fetchReturning(jsonResponse({ id: "../x" }, 201));
+    const error = await caught(
+      postTrip({ request: baseRequest, days: [] }, { fetchImpl, base: "" }),
+    );
+    expect(error.kind).toBe("schema");
+  });
+
+  it("reads a saved trip, tolerating fields added later", async () => {
+    const fetchImpl = fetchReturning(jsonResponse({ ...trip(), addedLater: true }));
+
+    const read = await fetchTrip("a1B2c3D4e5", { fetchImpl, base: "" });
+
+    expect(read.id).toBe("a1B2c3D4e5");
+    expect(read.origin.plannedBy).toBe("ai");
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("/api/trips/a1B2c3D4e5");
+  });
+
+  it("refuses a saved trip whose itinerary carries a planId or whose origin is unknown", async () => {
+    const withPlanId = { ...trip(), itinerary: { ...trip().itinerary, planId: "Zz9Yy8Xx7W" } };
+    const unknown = { ...trip(), origin: { plannedBy: "magic", edited: false } };
+    for (const body of [withPlanId, unknown]) {
+      const error = await caught(
+        fetchTrip("a1B2c3D4e5", { fetchImpl: fetchReturning(jsonResponse(body)), base: "" }),
+      );
+      expect(error.kind).toBe("schema");
+    }
+  });
+
+  it("reports a missing trip as a 404, even when it arrives as the site's HTML 404 page", async () => {
+    const page = new Response("<html>Not found</html>", { status: 404 });
+    const error = await caught(
+      fetchTrip("a1B2c3D4e5", { fetchImpl: fetchReturning(page), base: "" }),
+    );
+    expect(error).toMatchObject({ kind: "http", status: 404 });
   });
 });

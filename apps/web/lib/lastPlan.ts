@@ -3,12 +3,15 @@ import {
   type Itinerary,
   ItinerarySchema,
   type PlannerContext,
+  RecordIdSchema,
   TRIP_DAYS,
   validationErrors,
 } from "@italy/planner";
 import { z } from "zod";
+import { PLANNED_BY } from "./apiSchemas";
 import type { PlanOrigin } from "./itineraryReducer";
 import type { FallbackCause } from "./planRequest";
+import type { SavedTrip } from "./savedTrip";
 import { localIsoDate } from "./tripForm";
 
 // The last plan, kept in localStorage so a reopened app (or an offline reload) shows it at once.
@@ -28,9 +31,22 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const StoredPlanSchema = z.strictObject({
   v: z.literal(LAST_PLAN_VERSION),
   savedAt: z.iso.datetime(),
-  origin: z.enum(["api", "offline", "shared"]),
+  origin: z.enum(["api", "offline", "shared", "saved"]),
   // Why a browser-built plan was built there; absent in records saved before it was kept.
   cause: z.enum(["offline", "timeout", "busy", "server", "unreadable", "invalid"]).optional(),
+  // True once the traveler has changed the plan on this device, so after a reload the source
+  // line still says so and never claims the plan is as it arrived. Absent in older records.
+  edited: z.boolean().optional(),
+  // The saved trip a plan was opened from, so the source line still says so after a reload.
+  saved: z
+    .strictObject({
+      id: RecordIdSchema,
+      createdAt: z.iso.datetime(),
+      plannedBy: z.enum(PLANNED_BY),
+      edited: z.boolean(),
+      retimed: z.boolean(),
+    })
+    .optional(),
   itinerary: ItinerarySchema,
 });
 
@@ -46,6 +62,8 @@ export type LastPlanRead =
       itinerary: Itinerary;
       origin: PlanOrigin;
       cause: FallbackCause | null;
+      saved: SavedTrip | null;
+      edited: boolean;
       flagged: number;
     };
 
@@ -58,6 +76,13 @@ export function browserStore(): KeyValueStore | null {
   }
 }
 
+/** What the page knows about the plan beyond the itinerary, kept with it. */
+export interface LastPlanExtra {
+  cause?: FallbackCause | null; // why the browser built it
+  saved?: SavedTrip | null; // the saved trip it was opened from
+  edited?: boolean; // the traveler has changed it on this device
+}
+
 // Decision: the trip notes are kept with the plan. They never leave this device (share links
 // drop them), and without them "Edit trip" would come back with the notes box emptied.
 /** Saves the plan. Returns false when storage is full or blocked; never throws. */
@@ -66,13 +91,15 @@ export function saveLastPlan(
   itinerary: Itinerary,
   origin: PlanOrigin,
   now: Date,
-  cause: FallbackCause | null = null,
+  { cause = null, saved = null, edited = false }: LastPlanExtra = {},
 ): boolean {
   const record = {
     v: LAST_PLAN_VERSION,
     savedAt: now.toISOString(),
     origin,
     ...(cause ? { cause } : {}),
+    ...(edited ? { edited } : {}),
+    ...(saved ? { saved } : {}),
     itinerary,
   };
   try {
@@ -133,13 +160,21 @@ function checkStored(raw: string, ctx: PlannerContext, now: Date): LastPlanRead 
   }
   const parsed = StoredPlanSchema.safeParse(json);
   if (!parsed.success) return { status: "discarded", reason: "invalid" };
-  const { itinerary, origin, savedAt, cause } = parsed.data;
+  const { itinerary, origin, savedAt, cause, saved, edited } = parsed.data;
   if (isStale(itinerary, savedAt, now)) return { status: "discarded", reason: "stale" };
   if (!knownToData(itinerary, ctx)) return { status: "discarded", reason: "data-changed" };
   // Rule breaks are kept and flagged, as after an edit: the traveler sees what changed and can
   // swap or remove the stop.
   const flagged = validationErrors(itinerary, ctx).length;
-  return { status: "restored", itinerary, origin, cause: cause ?? null, flagged };
+  return {
+    status: "restored",
+    itinerary,
+    origin,
+    cause: cause ?? null,
+    saved: saved ?? null,
+    edited: edited ?? false,
+    flagged,
+  };
 }
 
 /** Saved too long ago, saved "in the future" (a changed clock or an edited value), or the trip is over. */

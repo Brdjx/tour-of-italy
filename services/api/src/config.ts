@@ -47,6 +47,11 @@ const EnvSchema = z
     LLM_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("low"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     GIT_SHA: z.string().min(1).default("local"),
+    // The DynamoDB table for saved trips and AI plan records (TripsTable in the SAM template).
+    TRIPS_TABLE: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]{3,255}$/)
+      .optional(),
   })
   .superRefine((env, ctx) => {
     // Decision: in production the origin-verify check is not optional. Failing at cold start
@@ -98,6 +103,7 @@ export type Config = {
   llmEffort: Env["LLM_EFFORT"];
   logLevel: Env["LOG_LEVEL"];
   gitSha: string;
+  tripsTable: string | undefined; // unset: an in-memory store outside production, none in it
 };
 
 export class ConfigError extends Error {
@@ -179,6 +185,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     llmEffort: values.LLM_EFFORT,
     logLevel: values.LOG_LEVEL,
     gitSha: values.GIT_SHA,
+    tripsTable: values.TRIPS_TABLE,
   };
 }
 

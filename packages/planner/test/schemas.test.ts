@@ -3,7 +3,12 @@ import { TRIP_DAYS } from "../src/config";
 import { DataSummarySchema } from "../src/dataSchemas";
 import { buildDataset } from "../src/normalize/index";
 import { planDeterministic } from "../src/plan";
-import { ItinerarySchema, TripRequestSchema, tripRequestSchemaFor } from "../src/schemas";
+import {
+  ItinerarySchema,
+  RecordIdSchema,
+  TripRequestSchema,
+  tripRequestSchemaFor,
+} from "../src/schemas";
 import { addDays, tripDates } from "../src/time";
 import type { Itinerary } from "../src/types";
 import { rawData } from "./helpers";
@@ -164,6 +169,13 @@ describe("ItinerarySchema", () => {
     expect(ItinerarySchema.safeParse(validItinerary).success).toBe(true);
   });
 
+  it("accepts the planId the API gives an AI plan it keeps for saving", () => {
+    const kept = { ...validItinerary, planId: "a1B2c3D4e5" };
+    expect(ItinerarySchema.parse(kept).planId).toBe("a1B2c3D4e5");
+    expect(RecordIdSchema.safeParse("a1B2c3D4e").success).toBe(false);
+    expect(RecordIdSchema.safeParse("a1B2c3D4e5f").success).toBe(false);
+  });
+
   it("never rejects a plan that states each day's trip back to the base", () => {
     const withReturn = {
       ...validItinerary,
@@ -215,6 +227,7 @@ describe("ItinerarySchema", () => {
     ["a summary over 300 characters", (plan) => ({ ...plan, summary: "x".repeat(301) })],
     ["a missing generatedAt", (plan) => ({ ...plan, meta: { attempts: 0, latencyMs: 1 } })],
     ["an extra top-level field", (plan) => ({ ...plan, debug: "prompt text" })],
+    ["a planId that is not a record id", (plan) => ({ ...plan, planId: "../trip#x" })],
   ])("rejects %s so the web app never renders it", (_label, corrupt) => {
     expect(ItinerarySchema.safeParse(corrupt(structuredClone(validItinerary))).success).toBe(false);
   });

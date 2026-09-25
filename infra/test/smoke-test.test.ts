@@ -32,6 +32,7 @@ case "$url" in
   "${SITE}/api/health") health "$FAKE_SITE_COMMIT" ;;
   "${API}/health") health "$FAKE_API_COMMIT"; headers="$FAKE_API_HEADERS" ;;
   "${API}/api/health") code=404 ;;
+  "${API}/trips/0000000000") code="$FAKE_TRIPS_CODE" ;;
   "${SITE}/") code=200 body="<html></html>" ;;
   "http://site.test/") code=301 location="${SITE}/" ;;
   "http://api.test/health") code="$FAKE_API_HTTP_CODE" location="$FAKE_API_HTTP_LOCATION" ;;
@@ -91,6 +92,7 @@ function runSmoke(overrides: Record<string, string | undefined> = {}): Run {
     FAKE_API_HEADERS: "all",
     FAKE_API_HTTP_CODE: "301",
     FAKE_API_HTTP_LOCATION: `${API}/health`,
+    FAKE_TRIPS_CODE: "404",
   };
   for (const [key, value] of Object.entries(overrides)) {
     if (value === undefined) delete env[key];
@@ -121,6 +123,7 @@ describe("smoke-test.sh", () => {
       "security headers on the API host",
       "direct execute-api URL refused",
       "direct S3 object URL refused",
+      "trips table answers (unknown trip is 404)",
     ]) {
       expect(row(run, check), check).toContain("| pass |");
     }
@@ -149,6 +152,12 @@ describe("smoke-test.sh", () => {
     expect(run.status).toBe(1);
     expect(row(run, "security headers on the API host")).toContain("missing hsts");
     expect(row(run, "security headers on the site")).toContain("| pass |");
+  });
+
+  it("fails when the trips table cannot be read, as when the bootstrap change was not applied", () => {
+    const run = runSmoke({ FAKE_TRIPS_CODE: "503" });
+    expect(run.status).toBe(1);
+    expect(row(run, "trips table answers (unknown trip is 404)")).toContain("got 503, want 404");
   });
 
   it("refuses to run without the API host, instead of silently skipping its checks", () => {

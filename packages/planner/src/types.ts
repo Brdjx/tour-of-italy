@@ -231,6 +231,7 @@ export interface Itinerary {
   warnings: Violation[]; // warnings only; a plan with errors never reaches the traveler
   summary?: string; // short AI summary, sanitized
   meta: ItineraryMeta;
+  planId?: string; // the API's record of this AI plan, sent back when the trip is saved
 }
 
 /** A base (anchor): a city with enough places, plus the nearby places it serves as day trips. */

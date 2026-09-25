@@ -1,5 +1,6 @@
 import {
   addDays,
+  dataVersion,
   formatClock,
   type IssueKind,
   MAX_ANCHORS_PER_TRIP,
@@ -112,7 +113,24 @@ export function buildMeta(data: AppData): MetaResponse {
     },
     issueCounts: issueCounts(data),
     dataSummary: data.dataset.summary,
+    dataVersion: dataVersionOf(data),
   };
+}
+
+const versions = new WeakMap<AppData, string>();
+
+/**
+ * The fingerprint of the places /api/places serves, as the browser computes it over the places it
+ * loaded (the planner's dataVersion). A saved trip carries it, so the page can tell whether the
+ * trip's times still hold with its data. Computed once per dataset.
+ */
+export function dataVersionOf(data: AppData): string {
+  let version = versions.get(data);
+  if (version === undefined) {
+    version = dataVersion(buildPlacesPayload(data).places);
+    versions.set(data, version);
+  }
+  return version;
 }
 
 export function buildPlacesPayload(data: AppData): PlacesResponse {

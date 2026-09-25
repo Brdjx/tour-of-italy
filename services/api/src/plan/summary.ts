@@ -1,5 +1,10 @@
-import { type PlannerContext, SUMMARY_MAX_CHARS } from "@italy/planner";
-import { namesPlaceOutside, unknownProperNoun } from "./placeMentions";
+import {
+  namesPlaceOutside,
+  type PlannerContext,
+  SUMMARY_MAX_CHARS,
+  summarySentences,
+} from "@italy/planner";
+import { unknownProperNoun } from "./placeMentions";
 import {
   cleanText,
   echoesPrompt,
@@ -14,18 +19,14 @@ import {
 // never mentions. What is left is cut to whole sentences within SUMMARY_MAX_CHARS. Nothing left,
 // no summary.
 
+// The sentence split and the place check are the planner's (summaryText.ts), which the page and
+// the trip save run on the cleaned summary, so all three agree on what a sentence is.
+
 // Decision: no exemption for sentences that explain a skip ("X was left out"). Wording such as
 // "no rush" or "not to be missed" made any exemption easy to trip, and the rule reasons and the
 // plan warnings already explain what was left out.
 
 const MIN_SENTENCE_WORDS = 3;
-
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-}
 
 /** Why a sentence is dropped, or null to keep it. Exported for tests. */
 export function summarySentenceProblem(
@@ -53,7 +54,7 @@ export function sanitizeSummary(
 ): string | undefined {
   const kept: string[] = [];
   let length = 0;
-  for (const sentence of splitSentences(cleanText(raw))) {
+  for (const sentence of summarySentences(cleanText(raw))) {
     if (summarySentenceProblem(sentence, planPlaceIds, ctx) !== null) continue;
     const added = length === 0 ? sentence.length : length + 1 + sentence.length;
     // Decision: whole sentences only. A sentence cut mid-way reads as a bug in the UI.

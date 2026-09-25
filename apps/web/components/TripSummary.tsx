@@ -1,11 +1,12 @@
 "use client";
 
-import type { Itinerary, TripRequest } from "@italy/planner";
+import type { Itinerary, PrivateAiText, TripRequest } from "@italy/planner";
 import type { PlanOrigin } from "../lib/itineraryReducer";
 import type { FallbackCause } from "../lib/planRequest";
+import type { SavedTrip } from "../lib/savedTrip";
 import { tripDateRange, tripPaceText } from "../lib/tripSummary";
 import { EditIcon, UndoIcon } from "./icons";
-import { ShareLinkButton, ShareLinkField, useShareLink } from "./ShareButton";
+import { type SaveTrip, ShareLinkButton, ShareLinkField, useShareLink } from "./ShareButton";
 import { SourceBadge } from "./SourceBadge";
 import { Skeleton } from "./skeleton/Skeleton";
 import { TRIP_SHEET_ID } from "./TripPane";
@@ -21,8 +22,11 @@ export interface HeaderPlan {
   itinerary: Itinerary;
   origin: PlanOrigin;
   cause: FallbackCause | null;
+  saved: SavedTrip | null; // the saved trip it was opened from
   errors: number; // error-level violations right now
+  flaggedStops: number; // stops with one of them
   edited: boolean;
+  privateText: PrivateAiText; // what a saved trip of it leaves out to keep the notes private
 }
 
 interface TripSummaryProps {
@@ -34,6 +38,7 @@ interface TripSummaryProps {
   undoLabel: string | null;
   onUndo: () => void;
   onStatus: (message: string) => void;
+  saveTrip?: SaveTrip; // POST /api/trips by default; injected in tests
 }
 
 // Decision: Edit trip and Copy link keep their words on phones. As round icon pills they were
@@ -49,7 +54,13 @@ const WIDE_LABEL = "max-sm:sr-only";
 // plan before would be stale.
 export function TripSummary(props: TripSummaryProps) {
   const { request, plan, planning } = props;
-  const share = useShareLink(plan?.itinerary ?? null, props.onStatus);
+  const share = useShareLink(plan?.itinerary ?? null, props.onStatus, {
+    savedFrom: plan?.saved?.id ?? null,
+    flagged: (plan?.errors ?? 0) > 0,
+    flaggedStops: plan?.flaggedStops ?? 0,
+    ...(plan ? { privateText: plan.privateText } : {}),
+    ...(props.saveTrip ? { saveTrip: props.saveTrip } : {}),
+  });
   if (!request) {
     return (
       <div className="trip-head" aria-hidden="true" data-testid="trip-summary-skeleton">
@@ -101,6 +112,7 @@ export function TripSummary(props: TripSummaryProps) {
             itinerary={plan.itinerary}
             origin={plan.origin}
             cause={plan.cause}
+            saved={plan.saved}
             errors={plan.errors}
             edited={plan.edited}
           />

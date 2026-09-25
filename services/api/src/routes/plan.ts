@@ -1,9 +1,4 @@
-import {
-  type Itinerary,
-  NoFeasiblePlanError,
-  REQUEST_LIMITS,
-  type TripRequest,
-} from "@italy/planner";
+import { NoFeasiblePlanError, REQUEST_LIMITS, type TripRequest } from "@italy/planner";
 import type { Context, Hono } from "hono";
 import type { Config } from "../config";
 import type { AppData } from "../data";
@@ -19,12 +14,19 @@ import { PROMPT_VERSION } from "../llm/prompt";
 import { FIXTURE_HEADER, type LlmProvider, type LlmSession } from "../llm/provider";
 import type { PlanTrace } from "../plan/outcome";
 import { PlanGuardError } from "../plan/outcome";
+import { type CachedPlan, cachePlan, readCachedPlan } from "../plan/planCache";
 import { type PlanTiming, planTrip } from "../plan/planTrip";
 import { planRequestSchema } from "../plan/requestSchema";
+import type { RandomSource } from "../trips/ids";
+import { keepAiPlan } from "../trips/keepPlan";
+import { isAiItinerary } from "../trips/records";
+import type { TripStore } from "../trips/store";
 
-// POST /api/plan: rate limit, read and validate the body, then plan (from the cache when the
-// same AI plan was made recently on this instance). Every failure maps to a JSON error; model
-// failures never surface at all, they become rules-only plans.
+// POST /api/plan: rate limit, read and validate the body, then plan, from the AI plan cache when
+// the same options were planned recently (plan/planCache.ts: this instance's memory, then the
+// shared table). An AI plan's content is kept under a planId so the trip can be saved with it
+// later (trips/keepPlan.ts). Every failure maps to a JSON error; model failures never surface at
+// all, they become rules-only plans.
 
 export interface PlanRouteDeps {
   config: Config;
@@ -32,8 +34,11 @@ export interface PlanRouteDeps {
   llm: LlmProvider;
   now: () => number;
   rateLimiter: RateLimiter;
-  cache: LruCache<Itinerary>;
+  cache: LruCache<CachedPlan>; // the cache's memory layer; its shared layer is `store`
+  dataVersion: string; // the fingerprint of the places this API serves, part of the cache key
   timing?: PlanTiming;
+  store: TripStore | null; // AI plan records (trips/keepPlan.ts) and the shared plan cache
+  random?: RandomSource;
 }
 
 type Mode = "auto" | "deterministic";
@@ -89,13 +94,22 @@ async function plan(
   const key =
     client === null
       ? null
-      : planCacheKey({ promptVersion: PROMPT_VERSION, model: client.model, request });
-  const cached = key === null ? undefined : deps.cache.get(key);
+      : planCacheKey({
+          promptVersion: PROMPT_VERSION,
+          model: client.model,
+          codeVersion: deps.config.gitSha,
+          dataVersion: deps.dataVersion,
+          request,
+        });
+  const cacheDeps = { memory: deps.cache, store: deps.store, now: deps.now };
+  const cached = key === null ? undefined : await readCachedPlan(key, request, cacheDeps, fields);
   if (cached !== undefined) {
-    Object.assign(fields, { cache: "hit", source: cached.source, model: cached.meta.model });
-    return c.json(cached);
+    Object.assign(fields, { source: cached.source, model: cached.meta.model });
+    // Decision: the plan answers with this request, not the one it was made for. The key treats
+    // the two as the same trip (interests and places in another order), so the plan meets every
+    // rule for it, and the page shows the options the traveler just sent.
+    return c.json({ ...cached, request });
   }
-  if (key !== null) fields.cache = "miss";
   const { config } = deps;
   const outcome = await planTrip(
     request,
@@ -117,9 +131,10 @@ async function plan(
   // A rejected key is re-read from SSM at once (rate-limited there), so a rotated key takes
   // effect on the next plan instead of after the cache TTL.
   if (outcome.trace.llmErrors.includes("auth")) deps.llm.reportAuthFailure();
-  const source = outcome.itinerary.source;
-  if (key !== null && (source === "ai" || source === "ai_repaired")) {
-    deps.cache.set(key, outcome.itinerary);
+  // An AI plan's content is kept first, so the cached copy carries its planId too.
+  if (key !== null && isAiItinerary(outcome.itinerary)) {
+    await keepAiPlan(outcome.itinerary, deps, fields);
+    await cachePlan(key, outcome.itinerary, cacheDeps, fields);
   }
   return c.json(outcome.itinerary);
 }

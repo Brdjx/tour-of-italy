@@ -14,7 +14,7 @@ web
 
 ## Product Purpose
 
-3 Days in Italy turns 103 curated places into a three-day itinerary whose times respect opening hours on the actual dates, meal windows, travel between stops and the chosen pace. Success means the traveler trusts the plan enough to follow it, can change it (swap, remove, reorder, undo) without breaking it, and can take it along (a share link, the installed app, offline).
+3 Days in Italy turns 103 curated places into a three-day itinerary whose times respect opening hours on the actual dates, meal windows, travel between stops and the chosen pace. Success means the traveler trusts the plan enough to follow it, can change it (swap, remove, reorder, undo) without breaking it, and can take it along (a saved-trip link that opens exactly as it was saved, the installed app, offline).
 
 ## Positioning
 

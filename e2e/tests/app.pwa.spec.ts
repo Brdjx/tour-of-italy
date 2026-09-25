@@ -114,7 +114,7 @@ test("the service worker controls the page and keeps the shell and the places fo
   expect(caches[shell]?.some((entry) => entry.startsWith("GET /_next/static/"))).toBe(true);
 });
 
-test("a plan request always goes to the server, is never answered from a cache, and is never stored", async ({
+test("a plan request always goes to the server, is never answered by the worker, and is never stored", async ({
   page,
   press,
 }) => {
@@ -130,6 +130,9 @@ test("a plan request always goes to the server, is never answered from a cache, 
   await page.reload();
   await expect(page.getByTestId("plan-button")).toBeVisible();
   await planTrip(page, press);
+  // Other options: the page itself shows a plan it already has for the same options, with no
+  // request at all (lib/planMemo.ts), which is not what this test is about.
+  await press(page.getByTestId("pace-field").getByRole("radio", { name: "Packed" }));
   await planTrip(page, press);
 
   expect(fromWorker.places, "the worker never served the places").toContain(true);

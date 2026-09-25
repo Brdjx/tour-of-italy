@@ -163,6 +163,30 @@ locals {
       Resource = [local.topic_arn]
     },
     {
+      # The trips table (TripsTable in the SAM template): create, change, describe and tag it,
+      # never read or write its items. Only tables named italy-planner-* in this account and region.
+      # Decision: plus three reads the CloudFormation handler for AWS::DynamoDB::Table makes after
+      # every create and update (DescribeContributorInsights, DescribeKinesisStreamingDestination,
+      # GetResourcePolicy, from its published handler permissions); without them a deploy fails
+      # after the table already exists.
+      # Decision: no dynamodb:DeleteTable. The table is Retain on delete and on replacement, so
+      # CloudFormation never deletes it, not even when the deploy that created it rolls back; the
+      # right would only let CI delete every saved trip. An admin deletes the table by hand.
+      # Deletion protection (DeletionProtectionEnabled in the template) is a CreateTable and
+      # UpdateTable setting, so it needs no right beyond those two.
+      Sid    = "ProjectTables"
+      Effect = "Allow"
+      Action = [
+        "dynamodb:CreateTable", "dynamodb:UpdateTable",
+        "dynamodb:DescribeTable", "dynamodb:UpdateTimeToLive", "dynamodb:DescribeTimeToLive",
+        "dynamodb:UpdateContinuousBackups", "dynamodb:DescribeContinuousBackups",
+        "dynamodb:TagResource", "dynamodb:UntagResource", "dynamodb:ListTagsOfResource",
+        "dynamodb:DescribeContributorInsights", "dynamodb:DescribeKinesisStreamingDestination",
+        "dynamodb:GetResourcePolicy",
+      ]
+      Resource = [local.tables_arn]
+    },
+    {
       Sid       = "AlarmEmailSubscription"
       Effect    = "Allow"
       Action    = ["sns:Subscribe"]
@@ -176,7 +200,9 @@ locals {
 }
 
 resource "aws_iam_policy" "deploy_api" {
-  name        = "${local.name}-deploy-api"
+  name = "${local.name}-deploy-api"
+  # Decision: the description stays as first applied. IAM cannot change a managed policy's
+  # description in place, so editing it would replace the policy and its attachment.
   description = "Deploy role: SAM stack ${var.api_stack_name} (Lambda, HTTP API, logs, alarms)."
   policy      = jsonencode({ Version = "2012-10-17", Statement = local.deploy_api_statements })
 }

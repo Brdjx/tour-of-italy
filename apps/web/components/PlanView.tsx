@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlannerContext } from "@italy/planner";
+import { type PlannerContext, summaryForTrip } from "@italy/planner";
 import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
 import type { ItineraryState } from "../lib/itineraryReducer";
@@ -10,8 +10,10 @@ import { DAY_PANEL_ID, DayTabs, dayTabId } from "./DayTabs";
 import { DayTimetable } from "./DayTimetable";
 
 // The plan: the AI summary, trip-level notes, day tabs, and the active day's board and map (below
-// it on phones and tablets in portrait, beside it from 1024 px). The trip header above the plan
-// (TripSummary) holds Edit trip, Copy link, the source line and Undo. Switching days slides
+// it on phones and tablets in portrait, beside it from 1024 px). The summary is shown for the
+// places the trip has now (summaryForTrip), the same cleaning the server applies when the trip is
+// saved, so a sentence about a stop the traveler removed goes with it. The trip header above the
+// plan (TripSummary) holds Edit trip, Copy link, the source line and Undo. Switching days slides
 // the new board in from the side it was reached from; the map stays mounted so its camera can
 // move to the new day instead of starting over.
 
@@ -39,6 +41,10 @@ export function PlanView(props: PlanViewProps) {
     () => (itinerary ? buildTripView(itinerary, ctx, plan.errors) : []),
     [itinerary, ctx, plan.errors],
   );
+  const summary = useMemo(
+    () => (itinerary ? summaryForTrip(itinerary, ctx) : undefined),
+    [itinerary, ctx],
+  );
   if (!itinerary) return null;
   const day = days[activeDay] ?? days[0];
   const tripNotes = tripViolations([...plan.errors, ...itinerary.warnings]);
@@ -47,9 +53,9 @@ export function PlanView(props: PlanViewProps) {
       <h2 id="plan-title" className="sr-only">
         Your plan
       </h2>
-      {itinerary.summary ? (
+      {summary ? (
         <p className="plan-summary" data-testid="plan-summary">
-          {itinerary.summary}
+          {summary}
         </p>
       ) : null}
       {tripNotes.length > 0 ? (

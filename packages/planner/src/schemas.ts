@@ -5,6 +5,7 @@ import {
   MAX_ANCHORS_PER_TRIP,
   MAX_TRAVEL_MINUTES,
   REASON_MAX_CHARS,
+  RECORD_ID_LENGTH,
   REQUEST_LIMITS,
   SUMMARY_MAX_CHARS,
   TRIP_DAYS,
@@ -187,6 +188,14 @@ export const ItineraryMetaSchema = z.strictObject({
   generatedAt: z.iso.datetime(),
 });
 
+/**
+ * The id of a record the API keeps: an AI plan (Itinerary.planId) or a saved trip (the `t` in a
+ * saved trip's link). 10 letters and digits, from a random source.
+ */
+export const RecordIdSchema = z
+  .string()
+  .regex(new RegExp(`^[0-9A-Za-z]{${RECORD_ID_LENGTH}}$`), "Expected a record id");
+
 /** A plan as the API returns it. Errors never reach the traveler, so warnings only. */
 export const ItinerarySchema = z.strictObject({
   request: TripRequestSchema,
@@ -195,6 +204,7 @@ export const ItinerarySchema = z.strictObject({
   warnings: z.array(ViolationSchema.extend({ severity: z.literal("warning") })),
   summary: z.string().max(SUMMARY_MAX_CHARS).optional(),
   meta: ItineraryMetaSchema,
+  planId: RecordIdSchema.optional(),
 });
 
 // ---------- Compile-time agreement between schemas and types ----------

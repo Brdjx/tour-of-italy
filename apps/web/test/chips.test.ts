@@ -1,6 +1,7 @@
 import type { Violation } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import {
+  flaggedStopCount,
   stopChips,
   tripViolations,
   violationChip,
@@ -86,5 +87,23 @@ describe("chips", () => {
     expect(tripViolations(list)).toHaveLength(1);
     expect(violationsForDay(list, 1)).toHaveLength(1);
     expect(violationChip(must(list[2])).label).toBe("Above your budget");
+  });
+});
+
+describe("flaggedStopCount", () => {
+  it("counts each stop with an error once, and no day, trip or warning", () => {
+    const on = (day: number | undefined, stopIndex: number | undefined): Violation => ({
+      code: "OVERLAP",
+      severity: "error",
+      ...(day === undefined ? {} : { day }),
+      ...(stopIndex === undefined ? {} : { stopIndex }),
+      detail: "x",
+    });
+    expect(flaggedStopCount([])).toBe(0);
+    expect(flaggedStopCount([on(0, 1), { ...on(0, 1), code: "CLOSED_AT_TIME" }])).toBe(1);
+    expect(flaggedStopCount([on(0, 1), on(1, 1), on(0, undefined), on(undefined, undefined)])).toBe(
+      2,
+    );
+    expect(flaggedStopCount([{ ...on(0, 2), severity: "warning" }])).toBe(0);
   });
 });

@@ -10,6 +10,9 @@ import {
   type Meta,
   MetaSchema,
   PlacesResponseSchema,
+  type SavedTripResponse,
+  SavedTripSchema,
+  SaveTripResponseSchema,
 } from "./apiSchemas";
 
 // Client for the planner API. Every call has a deadline, every failure becomes an ApiError with
@@ -165,5 +168,34 @@ export function postPlan(request: TripRequest, options: PlanCallOptions = {}): P
     method: "POST",
     body: request,
     options: { timeoutMs: TIMEOUTS.plan, ...options },
+  });
+}
+
+/** What POST /api/trips takes: the trip as ids, and where its AI content is on record. */
+export interface SaveTripBody {
+  request: TripRequest; // without the traveler's notes
+  days: { anchorId: string; ids: string[] }[];
+  planId?: string; // the AI plan it came from
+  tripId?: string; // the saved trip it was opened from
+}
+
+/** POST /api/trips. Resolves to the new saved trip's id. */
+export async function postTrip(body: SaveTripBody, options: RequestOptions = {}): Promise<string> {
+  const reply = await requestJson({
+    path: "/api/trips",
+    schema: SaveTripResponseSchema,
+    method: "POST",
+    body,
+    options,
+  });
+  return reply.id;
+}
+
+/** GET /api/trips/:id. The id must already be a record id (lib/savedTrip.ts checks it). */
+export function fetchTrip(id: string, options: RequestOptions = {}): Promise<SavedTripResponse> {
+  return requestJson({
+    path: `/api/trips/${encodeURIComponent(id)}`,
+    schema: SavedTripSchema,
+    options,
   });
 }

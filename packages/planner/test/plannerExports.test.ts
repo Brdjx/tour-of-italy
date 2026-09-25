@@ -59,6 +59,22 @@ const PLANNER_CORE_FUNCTIONS = [
   "sunTimes",
   // orderDay.ts
   "orderDay",
+  // dataVersion.ts (the API and the page fingerprint the place data with it)
+  "dataVersion",
+  // placeMentions.ts and summaryText.ts (the API and the page clean a summary the same way)
+  "normalizeWords",
+  "nameForms",
+  "namesPlaceOutside",
+  "summarySentences",
+  "summaryForPlaces",
+  "summaryForTrip",
+  "tripPlaceIds",
+  // privateText.ts (what a saved trip leaves out to keep the notes private)
+  "hasNotes",
+  "privateAiText",
+  // requestKey.ts (the API's plan cache and the page's in-tab cache share the key)
+  "canonicalPlanRequest",
+  "planRequestKey",
   // schedule.ts, plan.ts, and validate.ts
   "scheduleDay",
   "planDeterministic",

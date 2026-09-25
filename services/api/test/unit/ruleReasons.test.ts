@@ -92,7 +92,7 @@ describe("rule reasons and the AI reason sanitizer", () => {
     }
     const all = [...seen].join(" ");
     for (const kind of SENTENCE_KINDS) expect(all).toMatch(kind);
-  }, 60_000);
+  }, 60_000); // a sweep of every place, role and weekday: seconds alone, longer under load
 
   it("passes checkAiReason on every stop of rules-only trips from each base", () => {
     let stops = 0;

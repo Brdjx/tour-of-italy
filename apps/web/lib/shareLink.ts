@@ -34,6 +34,7 @@ const SharePayloadSchema = z.strictObject({
 });
 
 export type SharePayload = z.input<typeof SharePayloadSchema>;
+export type ParsedSharePayload = z.output<typeof SharePayloadSchema>;
 
 export type ShareDecode =
   | { status: "none" } // no link in the URL
@@ -121,11 +122,22 @@ function parsePayload(param: string): z.output<typeof SharePayloadSchema> | stri
   return parsed.success ? parsed.data : SHARE_NOTES.damaged;
 }
 
-function rebuildShared(
-  payload: z.output<typeof SharePayloadSchema>,
+/** The notes a rebuild from ids ends with: opened (then what was left out), or stale. */
+export interface RebuildNotes {
+  opened: string;
+  stale: string;
+}
+
+/**
+ * Rebuilds a trip from its request and ids with the loaded places: the ?p= link's path, and a
+ * saved trip's when the place data changed since it was saved. Throws only on planner errors.
+ */
+export function rebuildShared(
+  payload: ParsedSharePayload,
   ctx: PlannerContext,
   generatedAt: string,
-): ShareDecode {
+  notes: RebuildNotes = SHARE_NOTES,
+): Extract<ShareDecode, { status: "plan" | "request" }> {
   const cleaned = cleanRequest(payload.request, ctx);
   const excluded = new Set(cleaned.request.exclude);
   const seen = new Set<string>();
@@ -140,14 +152,14 @@ function rebuildShared(
     return { anchorId: day.anchorId, placeIds };
   });
   if (selection.some((day) => !ctx.anchorById.has(day.anchorId))) {
-    return { status: "request", request: cleaned.request, note: SHARE_NOTES.stale };
+    return { status: "request", request: cleaned.request, note: notes.stale };
   }
   const rebuilt = rebuildValid(cleaned.request, selection, ctx, generatedAt);
-  if (!rebuilt) return { status: "request", request: cleaned.request, note: SHARE_NOTES.stale };
+  if (!rebuilt) return { status: "request", request: cleaned.request, note: notes.stale };
   return {
     status: "plan",
     itinerary: rebuilt.itinerary,
-    note: openedNote(droppedIds + rebuilt.dropped, cleaned.changed),
+    note: openedNote(notes.opened, droppedIds + rebuilt.dropped, cleaned.changed),
   };
 }
 
@@ -169,8 +181,8 @@ function cleanRequest(request: TripRequest, ctx: PlannerContext) {
   return { request: { ...rest, interests, mustInclude, exclude, anchors }, changed };
 }
 
-function openedNote(dropped: number, settingsChanged: boolean): string {
-  const parts: string[] = [SHARE_NOTES.opened];
+function openedNote(opened: string, dropped: number, settingsChanged: boolean): string {
+  const parts: string[] = [opened];
   if (dropped > 0) {
     const stops = dropped === 1 ? "1 stop" : `${dropped} stops`;
     parts.push(

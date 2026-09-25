@@ -1,6 +1,7 @@
-// In-memory token bucket per client, for POST /api/plan. Each Lambda instance has its own map,
-// so this is a per-instance guard; API Gateway throttling and the WAF's per-IP rule are the real
-// limits. It exists so one client cannot run up the Claude bill through a warm instance.
+// In-memory token bucket per client, for POST /api/plan and POST /api/trips. Each Lambda instance
+// has its own map, so this is a per-instance guard; API Gateway throttling and the WAF's per-IP
+// rule are the real limits. It exists so one client cannot run up the Claude bill, or fill the
+// trips table, through a warm instance.
 
 export interface RateDecision {
   allowed: boolean;
@@ -27,6 +28,11 @@ interface Bucket {
 
 /** The plan route's limit: 10 plans per minute per client. */
 export const PLAN_RATE_LIMIT = { capacity: 10, refillPerMinute: 10, maxKeys: 5000 } as const;
+
+/** Saving trips: 20 per minute per client, with a burst of 20. */
+// Decision: its own bucket, looser than plans (a save is one small write, no model call), but
+// limited all the same, because every saved trip is kept for a year.
+export const TRIP_RATE_LIMIT = { capacity: 20, refillPerMinute: 20, maxKeys: 5000 } as const;
 
 export function createTokenBucket(options: TokenBucketOptions): RateLimiter {
   const now = options.now ?? Date.now;

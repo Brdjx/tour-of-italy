@@ -125,6 +125,11 @@ if [ -n "${WEB_BUCKET:-}" ]; then
 else
   record fail "direct S3 object URL refused" "no WEB_BUCKET (Terraform output web_bucket_name)"
 fi
+# Opening a trip that does not exist reads the trips table: 404 proves the table and the
+# function's rights on it (the bootstrap boundary and the template's policy); 503 means the store
+# failed. Read only, so no deploy ever writes a trip. Any 10-character id works; this one is
+# never issued in practice (ids are random base62).
+expect_status "trips table answers (unknown trip is 404)" 404 "${API_URL}/trips/0000000000"
 if [ "${SMOKE_PLAN_CHECK:-}" = "true" ]; then check_plan; fi
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then

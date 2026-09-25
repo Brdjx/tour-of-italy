@@ -1,6 +1,7 @@
+import { nameForms } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { shippedData } from "../../src/data";
-import { nameForms, unknownProperNoun } from "../../src/plan/placeMentions";
+import { unknownProperNoun } from "../../src/plan/placeMentions";
 import { checkAiReason } from "../../src/plan/reasons";
 import { sanitizeSummary } from "../../src/plan/summary";
 

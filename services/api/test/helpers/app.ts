@@ -1,4 +1,3 @@
-import type { Itinerary } from "@italy/planner";
 import { type AppDeps, createApp } from "../../src/app";
 import { type Config, loadConfig } from "../../src/config";
 import { shippedData } from "../../src/data";
@@ -8,6 +7,7 @@ import { createTokenBucket, type RateLimiter } from "../../src/lib/rateLimit";
 import { staticSecret } from "../../src/lib/secrets";
 import type { LlmClient } from "../../src/llm/client";
 import { createLlmProvider, type LlmProvider } from "../../src/llm/provider";
+import type { CachedPlan } from "../../src/plan/planCache";
 
 // Builds the app for integration tests: the shipped data, a fixed clock, captured log lines, and
 // a fixture or fake model client. No network, no AWS, no key.
@@ -25,7 +25,7 @@ export function testConfig(env: Record<string, string> = {}): Config {
 export interface TestApp {
   app: ReturnType<typeof createApp>;
   logs: string[]; // every log line written while the app ran
-  cache: LruCache<Itinerary>;
+  cache: LruCache<CachedPlan>; // the plan cache's memory layer
 }
 
 export interface TestAppOptions extends Partial<Omit<AppDeps, "config">> {
@@ -47,7 +47,7 @@ export function makeApp(options: TestAppOptions = {}): TestApp {
   const config = testConfig({ LLM_MODE: "fixture", ...options.env });
   const logs: string[] = [];
   const data = options.data ?? shippedData();
-  const cache = options.planCache ?? new LruCache<Itinerary>(100);
+  const cache = options.planCache ?? new LruCache<CachedPlan>(100);
   const llm =
     options.llm ??
     (options.client
