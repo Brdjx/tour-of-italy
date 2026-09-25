@@ -283,6 +283,11 @@
     min-width: 0;
   }
 
+  /* "3 problems to fix" wraps as one piece, never leaving its count at the end of a line. */
+  .source-problem {
+    white-space: nowrap;
+  }
+
   .plan-summary {
     max-width: 62ch;
     margin-top: 4px;

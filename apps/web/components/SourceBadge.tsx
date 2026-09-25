@@ -49,7 +49,7 @@ export function SourceBadge({ itinerary, origin, ...status }: SourceBadgeProps) 
         <span data-testid={text.offline ? "offline-label" : undefined}>{text.claim}</span>
         {text.problem ? (
           <>
-            , <span className="text-danger">{text.problem}</span>
+            , <span className="source-problem text-danger">{text.problem}</span>
           </>
         ) : (
           // Decision: the check says "checked" to the eye; this says it to a screen reader.

@@ -76,7 +76,8 @@ describe("SourceBadge", () => {
     expect(badge.textContent).not.toContain("checked");
     expect(badge.dataset.marker).toBe("problem");
     expect(badge.querySelector("svg")).toBeNull();
-    expect(screen.getByText("2 problems to fix").className).toContain("text-danger");
+    // In danger, and one piece that wraps whole (plan.css .source-problem).
+    expect(screen.getByText("2 problems to fix").className).toBe("source-problem text-danger");
   });
 });
 

@@ -258,6 +258,12 @@ describe("the trip header while a plan is on its way", () => {
   });
 });
 
+describe("the source line", () => {
+  it("wraps the count to fix as one piece, so its number never ends a line", () => {
+    expect(block(read("styles/plan.css"), ".source-problem {")).toContain("white-space: nowrap");
+  });
+});
+
 describe("a stop's photo", () => {
   const timetable = read("styles/timetable.css");
 
