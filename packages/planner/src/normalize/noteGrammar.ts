@@ -72,6 +72,13 @@ export const CLOSED_EXCEPT = /\bclosed\b.*\bexcept\b/i;
 export const BOOKING = /\bbook|\breserv|\bsell\s+out|\bsold\s+out/i;
 // Decision: "Road closed to cars on Sundays" is about traffic, not opening, so it is information.
 export const TRAFFIC_ONLY = /\bclosed\s+to\s+(?:cars|traffic|vehicles|through\s+traffic)\b/i;
+/**
+ * A note that leaves the dates to the traveler: "check exact festival dates before planning",
+ * "dates vary". It restricts nothing the planner can apply, so it stays information; the rule
+ * reasons read it (reasons.ts) and say nothing of the date for such a place.
+ */
+export const DATES_TO_CHECK =
+  /\b(?:check|confirm|verify)\b.*\bdates?\b|\bdates?\b.*\b(?:vary|varies|change|changes|to\s+be\s+confirmed|tbc|tba)\b/i;
 /** Words that suggest a restriction. A clause with one that no rule reads is note_unread. */
 export const RESTRICTION_HINT =
   /\b(?:closed|closes|shut|only|except|not\s+open|no\s+(?:visits|entry|access|tours))\b/i;

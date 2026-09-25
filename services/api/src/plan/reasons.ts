@@ -1,7 +1,13 @@
-import { type PlannerContext, REASON_MAX_CHARS, type Stop } from "@italy/planner";
+import {
+  type ClaimDay,
+  type ClaimKind,
+  contradictedClaim,
+  type PlannerContext,
+  REASON_MAX_CHARS,
+  type Stop,
+} from "@italy/planner";
 import type { LlmSelection } from "../llm/client";
 import { namesPlaceOutside, unknownProperNoun } from "./placeMentions";
-import { type ClaimKind, contradictedClaim, type TimedDay } from "./reasonClaims";
 import {
   cleanText,
   echoesPrompt,
@@ -12,8 +18,9 @@ import {
 
 // AI reasons are kept only when they pass every check below, and when what they say about the
 // stop's meal, time of day and place in the day or trip holds for the stop as timed
-// (reasonClaims.ts); otherwise the stop keeps the rule-based reason the planner already attached
-// (ruleReason, reasonSource "rule").
+// (contradictedClaim, packages/planner/src/reasonClaims.ts, which the planner runs again when an
+// edit times the stop anew); otherwise the stop keeps the rule-based reason the planner already
+// attached (ruleReason, reasonSource "rule").
 
 export type ReasonRejection =
   | "empty"
@@ -81,7 +88,7 @@ export interface ReasonStats {
  * on them. Returns new stop arrays; the input is not changed.
  */
 export function applyAiReasons(
-  days: readonly TimedDay[],
+  days: readonly ClaimDay[],
   selection: LlmSelection,
   ctx: PlannerContext,
 ): { days: Stop[][]; stats: ReasonStats } {

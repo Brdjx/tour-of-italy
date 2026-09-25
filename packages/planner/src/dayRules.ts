@@ -38,7 +38,11 @@ export function closedForHoliday(
   date: string,
 ): boolean {
   const ticketed = place.type === "museum" || place.type === "historic_site";
-  if (!ticketed || place.hoursConfidence !== "listed") return false;
+  return ticketed && place.hoursConfidence === "listed" && isHoliday(date);
+}
+
+/** True on a date in HOLIDAY_CLOSURES (25 December, 1 January), whatever the place. */
+export function isHoliday(date: string): boolean {
   const { month, day } = monthDayOf(date);
   return HOLIDAY_CLOSURES.some((holiday) => holiday.month === month && holiday.day === day);
 }

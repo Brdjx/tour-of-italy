@@ -1,25 +1,23 @@
-import {
-  coversMeal,
-  type DayPlan,
-  LATEST_MINUTE,
-  type Meal,
-  type Place,
-  type PlannerContext,
-  parseIsoDate,
-  type Stop,
-} from "@italy/planner";
-import { normalizeWords } from "./textGuards";
+import { LATEST_MINUTE, MEALS } from "./config";
+import { coversMeal } from "./constraints";
+import type { PlannerContext } from "./context";
+import { foldText } from "./normalize/issue";
+import { parseIsoDate } from "./time";
+import type { DayPlan, Meal, Place, Stop } from "./types";
 
 // What an AI reason claims about when its stop happens, checked against the stop as timed. The
-// model writes its reasons before code has the last word on the plan: the tidy step drops and
-// moves stops, and the scheduler sets every time and meal role, so "a memorable dinner" can land
-// on the lunch stop and "to start the day" on the fifth. A reason that names a meal, a part of the
-// day, the sun, or a place in the day or the trip is kept only when that holds for this stop on
-// this date; otherwise applyAiReasons drops it and the stop keeps its rule reason.
-// Decision: here, beside applyAiReasons, not in textGuards.ts. The sanitizer reads text alone and
+// model writes its reasons before code has the last word on the plan: the API's tidy step drops
+// and moves stops, the scheduler sets every time and meal role, and an edit on the page times the
+// day again, so "a memorable dinner" can land on the lunch stop and "to start the day" on the
+// fifth. A reason that names a meal, a part of the day, the sun, or a place in the day or the trip
+// is kept only when that holds for this stop on this date; otherwise the stop gets its rule
+// reason, from the API's applyAiReasons for a new plan and from attachReasons (trip.ts) after an
+// edit.
+// Decision: in the planner, not in the API's textGuards.ts. The sanitizer reads text alone and
 // also runs over rule reasons (ruleReasons.test.ts), whose "the trip's last day" is about another
-// day. These checks need the timed stop, its day, its date and its place, and only the model's
-// text is written without them.
+// day. These checks need the timed stop, its day, its date and its place, and they must run
+// wherever a stop is timed again: the page's edits re-time a day in the browser, where the API
+// cannot see it, so both read this one copy.
 // Decision: every check errs toward dropping, like the sanitizer. A false drop costs a factual
 // rule reason; a missed one shows the traveler something untrue about this stop.
 
@@ -32,11 +30,14 @@ export interface Contradiction {
 }
 
 /** A timed day as the check reads it. */
-export type TimedDay = Pick<DayPlan, "date" | "anchorId" | "stops">;
+export type ClaimDay = Pick<DayPlan, "date" | "anchorId"> & { stops: readonly Stop[] };
 
-/** One stop in its timed trip: the days and which stop of which day. */
+/**
+ * One stop in its timed trip: the days and which stop of which day. Only that day's stops are
+ * read; the other days give their date and base (the trip's first and last day, and each base's).
+ */
 export interface StopInTrip {
-  days: readonly TimedDay[];
+  days: readonly ClaimDay[];
   day: number;
   index: number;
 }
@@ -60,6 +61,7 @@ interface Window {
 // lunch from 12:00 is not "a morning start". An hour, so a day trip from 10:50 to 18:50 is a
 // morning and an afternoon outing. Breakfast to 11:00 and aperitivo from 17:00 to 21:00 match the
 // planner's aperitivo hour (APERITIVO_EARLIEST_START, the data's 17:30 to 21:00 name window).
+// The evening and the early evening start sooner when the sun sets before 18:00 (inEvening).
 export const PARTS_OF_DAY = {
   earlyMorning: { from: at(5), to: at(10) },
   morning: { from: at(5), to: at(12) },
@@ -126,7 +128,7 @@ interface View {
   stops: readonly Stop[];
   index: number;
   day: number;
-  days: readonly TimedDay[];
+  days: readonly ClaimDay[];
   ctx: PlannerContext;
   sun: () => Sun | null;
 }
@@ -151,6 +153,23 @@ const inPart =
   (view) =>
     fills(view.stop, PARTS_OF_DAY[part]);
 
+/**
+ * The evening or the early evening: the part's window, from sunset at the place on the stop's
+ * date when the sun sets before the part's 18:00.
+ */
+// Decision: the evening starts at 18:00 or at sunset, whichever is earlier. On 20 December the
+// sun sets in Florence at about 16:40, so "an evening stroll" from 17:15 is a walk after dark
+// under the lights, and it is kept. The morning and the afternoon keep their clock lines: the
+// afternoon still runs to 18:00, so that stroll is both. On a date the sun cannot be read for,
+// the evening starts at 18:00.
+const inEvening =
+  (part: "evening" | "earlyEvening"): Test =>
+  (view) => {
+    const window = PARTS_OF_DAY[part];
+    const from = Math.min(window.from, view.sun()?.set ?? window.from);
+    return fills(view.stop, { from, to: window.to });
+  };
+
 /** A window measured from the day's sunrise or sunset; false when the sun cannot be read. */
 const bySun =
   (window: (sun: Sun) => Window, test: typeof fills = fills): Test =>
@@ -169,10 +188,51 @@ function isMeal(stop: Stop, place: Place | undefined, meal: Meal): boolean {
   );
 }
 
+/**
+ * A meal word holds for the stop: it has that meal's role, or it is a visit somewhere to eat
+ * (eatsThere) under way in the meal's window (MEALS) on a day whose other stops do not include
+ * that meal (isMeal).
+ */
+// Decision: a meal word on a visit holds when the visit overlaps that meal's window (MEALS, the
+// planner's own lunch and dinner windows), no other stop of the day is that meal, by its role or
+// as an outing under way through it, and the place is somewhere to eat. A day without a dinner
+// stop eats somewhere: Pigneto from 18:20 to 20:20 is "a local food scene for dinner", and gelato
+// at Giolitti at 13:00 is "a light lunch treat" (live answers of 2026-09-25). A day that has the
+// meal elsewhere keeps the word off the visit: Roscioli visited at 13:25, just after a lunch at
+// 12:00, is not "a delicious lunch". Nor does a day without the meal make a sight a meal: "a
+// romantic dinner spot" on the Trevi Fountain from 18:50, or "lunch among the ruins" at the
+// Colosseum until 12:10, names a meal the traveler cannot have there.
 const servesAsMeal =
   (meal: Meal): Test =>
-  (view) =>
-    isMeal(view.stop, view.place, meal);
+  (view) => {
+    if (view.stop.role !== "visit") return view.stop.role === meal;
+    const window = { from: MEALS[meal].earliestStart, to: MEALS[meal].latestStart };
+    const elsewhere = view.stops.some(
+      (other, position) => position !== view.index && isMeal(other, placeOf(view, other), meal),
+    );
+    return touches(view.stop, window) && !elsewhere && eatsThere(view, meal);
+  };
+
+/**
+ * Place types that are somewhere to eat whether or not the data marks them a meal place. Not
+ * "market": the book and antique markets sell no food, and every food market is tagged food.
+ */
+const EATING_TYPES: readonly Place["type"][] = ["restaurant", "cafe"];
+
+/**
+ * The visit's place is somewhere to eat: a meal place, a cafe or restaurant, a place the listing
+ * tags food, or an outing under way through the meal (coversMeal).
+ */
+function eatsThere(view: View, meal: Meal): boolean {
+  const place = view.place;
+  if (!place) return false;
+  return (
+    place.mealCapable ||
+    EATING_TYPES.includes(place.type) ||
+    place.tags.includes("food") ||
+    coversMeal(place, view.stop.start, view.stop.end, meal)
+  );
+}
 
 function placeOf(view: View, stop: Stop | undefined): Place | undefined {
   return stop === undefined ? undefined : view.ctx.placesById.get(stop.placeId);
@@ -454,7 +514,7 @@ const POSITION_RULES: readonly Rule[] = [
   {
     kind: "position",
     pattern: words(`(?:${START}) ${DET} (?:[a-z]+ )?evening|evening start`),
-    holds: firstIn(inPart("evening")),
+    holds: firstIn(inEvening("evening")),
   },
   {
     kind: "position",
@@ -464,6 +524,11 @@ const POSITION_RULES: readonly Rule[] = [
 ];
 
 /** Meals, parts of the day, and the sun. Every match must hold. */
+// Decision: a word that describes the place rather than the stop is still read as a claim about
+// the stop: "known for its evening atmosphere" on Trastevere from 13:35, or "a morning market" for
+// a lunch at 12:00, is dropped. The line is read beside the stop's time, where it reads as what
+// the traveler will find then, and the words alone do not tell a description from a promise. As
+// everywhere here, the check errs toward dropping (the owner's call, 2026-09-25).
 const WORD_RULES: readonly Rule[] = [
   { kind: "meal", pattern: words(LUNCH), holds: servesAsMeal("lunch") },
   { kind: "meal", pattern: words(DINNER), holds: servesAsMeal("dinner") },
@@ -471,9 +536,7 @@ const WORD_RULES: readonly Rule[] = [
     kind: "meal",
     pattern: words("meal|meals"),
     holds: (view) =>
-      view.stop.role !== "visit" ||
-      isMeal(view.stop, view.place, "lunch") ||
-      isMeal(view.stop, view.place, "dinner"),
+      view.stop.role !== "visit" || servesAsMeal("lunch")(view) || servesAsMeal("dinner")(view),
   },
   {
     kind: "meal",
@@ -507,12 +570,12 @@ const WORD_RULES: readonly Rule[] = [
   { kind: "time_of_day", pattern: words("early afternoons?"), holds: inPart("earlyAfternoon") },
   { kind: "time_of_day", pattern: words("late afternoons?"), holds: inPart("lateAfternoon") },
   { kind: "time_of_day", pattern: words("afternoons?|pomeriggio"), holds: inPart("afternoon") },
-  { kind: "time_of_day", pattern: words("early evenings?"), holds: inPart("earlyEvening") },
+  { kind: "time_of_day", pattern: words("early evenings?"), holds: inEvening("earlyEvening") },
   { kind: "time_of_day", pattern: words("late evenings?"), holds: inPart("lateEvening") },
   {
     kind: "time_of_day",
     pattern: words("evenings?|sera|serata|serale|serali"),
-    holds: inPart("evening"),
+    holds: inEvening("evening"),
   },
   {
     kind: "time_of_day",
@@ -525,7 +588,7 @@ const WORD_RULES: readonly Rule[] = [
   {
     kind: "time_of_day",
     pattern: words("(?:first|last|final|opening|date) nights?|nights? out|tonight"),
-    holds: inPart("evening"),
+    holds: inEvening("evening"),
   },
   {
     kind: "time_of_day",
@@ -625,8 +688,8 @@ const LINKING_WORDS = new Set([
 // checked against its time, and "the last stop" is still a claim at the Last Supper. Other
 // places' names never get here (names_other_place drops them first).
 export function withoutOwnName(text: string, placeName: string | undefined): string {
-  const tokens = normalizeWords(text).split(" ").filter(Boolean);
-  const name = normalizeWords(placeName ?? "")
+  const tokens = foldText(text).split(" ").filter(Boolean);
+  const name = foldText(placeName ?? "")
     .split(" ")
     .filter(Boolean);
   const masked = tokens.map(() => false);

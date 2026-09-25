@@ -146,6 +146,39 @@ describe("edits", () => {
     ).toBe(state);
   });
 
+  it("gives a moved stop the rules' reason when the AI's no longer holds, and keeps the rest", () => {
+    // Tuesday 6 October 2026: Trastevere starts the day, the Colosseum follows lunch.
+    const plan = fixturePlan();
+    const reasons: Record<string, string> = {
+      place_002: "A lively neighborhood to start the day.",
+      place_001: "Ancient Rome's great arena.",
+    };
+    const fromApi: Itinerary = {
+      ...plan,
+      source: "ai",
+      days: plan.days.map((day) => ({
+        ...day,
+        stops: day.stops.map((stop) => {
+          const reason = reasons[stop.placeId];
+          return reason === undefined ? stop : { ...stop, reason, reasonSource: "ai" as const };
+        }),
+      })),
+    };
+    const state = planned(fromApi);
+    expect(ids(state, 0)[0]).toBe("place_002");
+    const next = itineraryReducer(state, { type: "move", day: 0, stop: 0, direction: "down" }, ctx);
+    const stops = next.itinerary?.days[0]?.stops ?? [];
+    const trastevere = stops.find((stop) => stop.placeId === "place_002");
+    // The row's mark follows reasonSource (StopRow): the rules' open ring, not the AI's dot.
+    expect(stops.indexOf(trastevere as (typeof stops)[number])).toBe(1);
+    expect(trastevere?.reasonSource).toBe("rule");
+    expect(trastevere?.reason).not.toBe(reasons.place_002);
+    expect(stops.find((stop) => stop.placeId === "place_001")).toMatchObject({
+      reason: reasons.place_001,
+      reasonSource: "ai",
+    });
+  });
+
   it("answers an edit on a stop that no longer exists instead of throwing", () => {
     const state = planned();
     for (const action of [

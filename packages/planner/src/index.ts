@@ -13,6 +13,7 @@ export { ISSUE_KIND_TEXT } from "./normalize/issueText";
 export { buildDataSummary } from "./normalize/summary";
 export * from "./orderDay";
 export * from "./plan";
+export * from "./reasonClaims";
 export * from "./reasons";
 export * from "./schedule";
 export * from "./schemas";

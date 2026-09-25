@@ -1,5 +1,6 @@
 import { transferMinutes } from "./anchors";
 import type { PlannerContext } from "./context";
+import { contradictedClaim } from "./reasonClaims";
 import { isHighestRated, ruleReason, type TripDays } from "./reasons";
 import { scheduleDay } from "./schedule";
 import { addDays } from "./time";
@@ -68,11 +69,19 @@ export function scheduleTrip(
 
 /**
  * Adds a reason to every stop. A stop keeps its reason from `previous` when the same place had
- * the same role there and the reason came from the AI; every other stop gets a fresh rule reason
- * (so "close to your previous stop" stays true after an edit). With `trip` (every day's date and
- * base, and which day these stops are on) the rule reasons also say what the date means for each
- * stop; without it they say only what holds on any date.
+ * the same role there, the reason came from the AI, and what it says about the stop's meal, time
+ * of day and place in the day or trip still holds as the stop is now timed (contradictedClaim,
+ * given `trip`); every other stop gets a fresh rule reason (so "close to your previous stop"
+ * stays true after an edit). With `trip` (every day's date and base, and which day these stops
+ * are on) the rule reasons also say what the date means for each stop; without it they say only
+ * what holds on any date.
  */
+// Decision: an edit on the page (a move, a removal, a swap) times the day again in the browser,
+// so an AI reason carried over is checked again, like the API checks it on a new plan. "To start
+// the day" moved to third place, or "morning views" moved to 15:00, would otherwise follow its
+// stop. A reason that no longer holds gives way to the rule reason, and the row's mark turns from
+// the AI's to the rules' with it (reasonSource). Without `trip` the check cannot place the stop in
+// its trip or on a date, so no AI reason is carried over.
 export function attachReasons(
   stops: readonly Stop[],
   request: TripRequest,
@@ -86,7 +95,11 @@ export function attachReasons(
   const date = trip?.days[trip.index]?.date;
   return stops.map((stop, index) => {
     const kept = previous.find((old) => old.placeId === stop.placeId && old.role === stop.role);
-    if (kept?.reason !== undefined && kept.reasonSource === "ai") {
+    if (
+      kept?.reason !== undefined &&
+      kept.reasonSource === "ai" &&
+      stillHolds(kept.reason, stops, index, ctx, trip)
+    ) {
       return { ...stop, reason: kept.reason, reasonSource: "ai" };
     }
     const place = places[index];
@@ -102,4 +115,25 @@ export function attachReasons(
     const reason = ruleReason(place, request, stop.role, prevPlace, day);
     return { ...stop, reason, reasonSource: "rule" };
   });
+}
+
+/**
+ * True when the reason makes no claim that the stop at `index`, as timed, contradicts. False
+ * without the trip.
+ */
+function stillHolds(
+  reason: string,
+  stops: readonly Stop[],
+  index: number,
+  ctx: PlannerContext,
+  trip: TripDays | undefined,
+): boolean {
+  if (!trip) return false;
+  // The check reads this day's stops, and only the date and base of the others.
+  const days = trip.days.map((day, at) => ({
+    date: day.date,
+    anchorId: day.anchorId,
+    stops: at === trip.index ? stops : [],
+  }));
+  return contradictedClaim(reason, { days, day: trip.index, index }, ctx) === null;
 }

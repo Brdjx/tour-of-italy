@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { REASON_MAX_CHARS } from "../src/config";
 import { anchorOfPlace } from "../src/context";
-import { closedForHoliday } from "../src/dayRules";
+import { isHoliday } from "../src/dayRules";
 import { planDeterministic } from "../src/plan";
 import {
   EVENING_STARTS,
@@ -350,7 +350,7 @@ describe("ruleReason when the listing says more than the planner's hours", () =>
   });
 });
 
-describe("ruleReason on a date most museums close", () => {
+describe("ruleReason on a holiday", () => {
   const christmas = ["2026-12-24", "2026-12-25", "2026-12-26"];
 
   it("claims no opening for a museum or ticketed site on 25 December or 1 January", () => {
@@ -374,10 +374,74 @@ describe("ruleReason on a date most museums close", () => {
     );
   });
 
-  it("still says a restaurant starts as it reopens: the holiday closures are museums and sites", () => {
-    const daEnzo = realPlace("place_003");
-    const dinner = onDay(tripOf(["2026-12-25"], 0), at(19, 30), at(21));
-    expect(ruleReason(daEnzo, none, "dinner", null, dinner)).toContain("Starts as it reopens.");
+  it("says nothing of the date on a holiday for any place: a trattoria, a market, a class", () => {
+    // The data has no holiday hours, so an opening on 25 December or 1 January is unproven for a
+    // restaurant as much as for a museum, though only museums and sites are kept off the day.
+    const daEnzo = realPlace("place_003"); // reopens at 19:30
+    const books = realPlace("place_024"); // the book market, from 09:00, shut on Sundays
+    const cooking = realPlace("place_087"); // the Bologna cooking class, from 09:00
+    for (const date of ["2026-12-25", "2027-01-01"]) {
+      const trip = tripOf([date, addDays(date, 1), addDays(date, 2)], 0);
+      const dinner = ruleReason(daEnzo, none, "dinner", null, onDay(trip, at(19, 30), at(21)));
+      const market = ruleReason(books, none, "visit", null, onDay(trip, at(9), at(9, 45)));
+      const bologna = tripOf([date], 0, "bologna");
+      const lesson = ruleReason(cooking, none, "visit", null, onDay(bologna, at(9), at(12, 30)));
+      for (const text of [dinner, market, lesson]) {
+        expect(text).not.toMatch(/visited|Starts|opens/);
+      }
+    }
+    // The day after, the same dinner says it again.
+    const boxingDay = onDay(tripOf(["2026-12-26"], 0), at(19, 30), at(21));
+    expect(ruleReason(daEnzo, none, "dinner", null, boxingDay)).toContain("Starts as it reopens.");
+  });
+
+  it("never calls a holiday the only day a restaurant can be visited", () => {
+    // Trattoria da Cesare is shut on Sundays: 25 December 2027 is a Saturday before one.
+    const cesare = realPlace("place_042");
+    const trip = tripOf(["2027-12-25", "2027-12-26"], 0);
+    const text = ruleReason(cesare, none, "lunch", null, onDay(trip, at(13, 20), at(14, 50)));
+    expect(text).not.toMatch(/visited|Starts|opens/);
+  });
+});
+
+describe("ruleReason when the listing leaves the dates to the traveler", () => {
+  const DATE_WORDS = /visited|Starts|opens/;
+
+  it("says nothing of the date for the risotto festival: October is when it runs, not the days", () => {
+    const festival = realPlace("place_090"); // "October only, check exact festival dates ..."
+    expect(festival.dateRules.map((rule) => rule.kind)).toEqual(["season"]);
+    // 1 October after two September days: the planner's season makes it the only day.
+    const first = tripOf(["2026-09-29", "2026-09-30", "2026-10-01"], 2, "bologna");
+    const last = tripOf(["2026-10-31", "2026-11-01", "2026-11-02"], 0, "bologna");
+    for (const trip of [first, last]) {
+      const text = ruleReason(festival, none, "visit", null, onDay(trip, at(10, 20), at(15, 20)));
+      expect(text).not.toMatch(DATE_WORDS);
+    }
+  });
+
+  it("reads the note's words, not the place: any note that says to check the dates", () => {
+    const fridays = (seasonalNote: string | null) =>
+      makePlace({ hours: makeWeek([5], [{ open: at(9), close: at(19) }]), seasonalNote });
+    const trip = tripOf(weekendOf(FRI), 0);
+    const day = onDay(trip, at(9), at(10));
+    for (const note of [
+      "Check dates before you go.",
+      "Dates vary each year.",
+      "Confirm the date.",
+    ]) {
+      expect(ruleReason(fridays(note), none, "visit", null, day), note).toBe("Rated 4.5 out of 5.");
+    }
+    expect(ruleReason(fridays("Best in spring."), none, "visit", null, day)).toContain(
+      "The only day of this trip it can be visited.",
+    );
+  });
+
+  it("still names the days a season shuts when the season is the listing's whole answer", () => {
+    // Bellagio is "Open April-October only": 1 and 2 November are shut, and the note says so.
+    const bellagio = realPlace("place_063");
+    const trip = tripOf(["2026-10-31", "2026-11-01", "2026-11-02"], 0, "milan");
+    const text = ruleReason(bellagio, none, "visit", null, onDay(trip, at(11), at(17)));
+    expect(text).toContain("The only day of this trip it can be visited.");
   });
 });
 
@@ -621,7 +685,7 @@ function checkDateClaims(itinerary: Itinerary): number {
         expect(stop.role).toBe("visit");
         expect(stop.start + stop.end).toBeGreaterThanOrEqual(2 * EVENING_STARTS); // half or more after
       }
-      if (unsettled(place) || closedForHoliday(place, day.date)) {
+      if (unsettled(place) || datesToCheck(place) || isHoliday(day.date)) {
         expect(text).not.toMatch(/visited|Starts|opens/);
       }
       if (text.includes("The day's highest-rated stop.")) {
@@ -643,6 +707,11 @@ function weekdayName(date: string): string {
 function unsettled(place: Place): boolean {
   const kinds = ["note_not_applied", "note_unread", "hours_conflict"];
   return place.issues.some((issue) => kinds.includes(issue.kind));
+}
+
+/** A note that tells the traveler to check the dates. */
+function datesToCheck(place: Place): boolean {
+  return /\bcheck\b.*\bdates?\b/i.test(place.seasonalNote ?? "");
 }
 
 describe("rule reasons on real trips", () => {

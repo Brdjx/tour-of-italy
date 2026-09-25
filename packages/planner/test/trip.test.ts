@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rescheduleDay } from "../src/alternatives";
+import { moveStop, removeStop, rescheduleDay } from "../src/alternatives";
 import { transferMinutes } from "../src/anchors";
 import * as planner from "../src/index";
 import { chooseWarnings, compareViolations, planDeterministic, planWarnings } from "../src/plan";
@@ -138,6 +138,76 @@ describe("attachReasons", () => {
     const edited = rescheduleDay(plan, index, ids, ctx).itinerary;
     const stop = edited.days[index]?.stops.find((s) => s.placeId === market);
     expect(stop?.reason).toContain("It cannot be visited on Sunday, the trip's last day.");
+  });
+
+  describe("an AI reason carried through an edit", () => {
+    // Friday 9 October 2026 in Rome: the Pantheon from 09:35, the Borghese Gallery from 10:50,
+    // lunch at Roscioli, the Roman Forum, the Aventine Keyhole, and Pigneto from 18:20.
+    const plan = planDeterministic(makeRequest({ startDate: "2026-10-09" }), ctx);
+    const PANTHEON = "place_005";
+    const BORGHESE = "place_007";
+    const AI_REASONS: Record<string, string> = {
+      [PANTHEON]: "An ancient temple to start the day.",
+      [BORGHESE]: "Bernini's sculptures in a villa's rooms.",
+    };
+    const withAi: Itinerary = {
+      ...plan,
+      days: plan.days.map((day, index) =>
+        index !== 0
+          ? day
+          : {
+              ...day,
+              stops: day.stops.map((stop) => {
+                const reason = AI_REASONS[stop.placeId];
+                return reason === undefined ? stop : { ...stop, reason, reasonSource: "ai" };
+              }),
+            },
+      ),
+    };
+
+    function edited(ids: string[]) {
+      const day = rescheduleDay(withAi, 0, ids, ctx).itinerary.days[0];
+      return (placeId: string) => day?.stops.find((stop) => stop.placeId === placeId);
+    }
+
+    it("gives way to the rule reason when a move makes it untrue: no longer the day's start", () => {
+      const day = withAi.days[0] as DayPlan;
+      expect(day.stops.map((stop) => stop.placeId).slice(0, 2)).toEqual([PANTHEON, BORGHESE]);
+      const stopOf = edited(moveStop(day, 0, 2));
+      const pantheon = stopOf(PANTHEON);
+      expect(stopOf(BORGHESE)?.start).toBeLessThan(pantheon?.start ?? 0);
+      expect(pantheon?.role).toBe("visit");
+      expect(pantheon?.reasonSource).toBe("rule");
+      expect(pantheon?.reason).not.toBe(AI_REASONS[PANTHEON]);
+    });
+
+    it("keeps a reason that is still true after the edit, and one left where it was", () => {
+      const day = withAi.days[0] as DayPlan;
+      // The Borghese Gallery moves to the day's start: its reason names no time or place in the day.
+      const moved = edited(moveStop(day, 1, 0));
+      expect(moved(BORGHESE)).toMatchObject({ reason: AI_REASONS[BORGHESE], reasonSource: "ai" });
+      // Removing the Aventine Keyhole re-times the afternoon; the Pantheon still starts the day.
+      const aventine = day.stops.findIndex((stop) => stop.placeId === "place_014");
+      const removed = edited(removeStop(day, aventine));
+      expect(removed(PANTHEON)).toMatchObject({ reason: AI_REASONS[PANTHEON], reasonSource: "ai" });
+    });
+  });
+
+  it("carries no AI reason without the trip, which the check needs to place the stop", () => {
+    const stop = {
+      placeId: "place_005",
+      start: 575,
+      end: 620,
+      travelFromPrevMin: 0,
+      role: "visit" as const,
+    };
+    const old = { ...stop, reason: "A Roman temple.", reasonSource: "ai" as const };
+    const days = [{ date: "2026-10-09", anchorId: "rome" }];
+    expect(attachReasons([stop], makeRequest(), ctx, [old], { days, index: 0 })[0]).toMatchObject({
+      reason: "A Roman temple.",
+      reasonSource: "ai",
+    });
+    expect(attachReasons([stop], makeRequest(), ctx, [old])[0]?.reasonSource).toBe("rule");
   });
 
   it("leaves an unknown place without a reason rather than inventing one", () => {

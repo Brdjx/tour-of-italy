@@ -52,6 +52,9 @@ const PLANNER_CORE_FUNCTIONS = [
   // reasons.ts
   "ruleReason",
   "isHighestRated",
+  // reasonClaims.ts (the API checks AI reasons with it)
+  "contradictedClaim",
+  "sunTimes",
   // orderDay.ts
   "orderDay",
   // schedule.ts, plan.ts, and validate.ts

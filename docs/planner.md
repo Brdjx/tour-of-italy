@@ -58,7 +58,8 @@ data/italy.json
 | `reasons.ts` | Rule-based reason text per stop: the request, what the stop's date means for it (shut on the trip's other days at its base, opening later that weekday, starting as or soon after it opens), the listing's iconic and local favorite tags, the day's highest rating, the rating, the listing's morning or evening tag when at least half the visit is then, and an outing's meal. |
 | `schedule.ts` | `scheduleDay`: times a fixed order; `inferRole` decides visit, lunch, or dinner from arrival. |
 | `scheduleChecks.ts` | The problems `scheduleDay` reports while timing. |
-| `trip.ts` | `scheduleTrip`: times a whole trip from ids per day and attaches reasons, given every day's date and base so a reason can name the trip's other days. |
+| `reasonClaims.ts` | `contradictedClaim`: what an AI reason says about its stop's meal, time of day, sun, or place in the day or trip, checked against the stop as timed. The API and `trip.ts` both use it. |
+| `trip.ts` | `scheduleTrip`: times a whole trip from ids per day and attaches reasons, given every day's date and base so a reason can name the trip's other days. An AI reason carried through an edit stays only while `contradictedClaim` finds nothing. |
 | `plan.ts` | `planDeterministic` (the pipeline above) and the warning order. |
 | `planAnchors.ts` | Which arrangements of bases to try, in which tiers. |
 | `tripBuilder.ts` | `chooseTrip`: the best trip over the arrangements, transfer cost, mistimed must-includes. |

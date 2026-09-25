@@ -1,6 +1,7 @@
 import { REASON_MAX_CHARS } from "./config";
 import { coversMeal, isOpenDuring } from "./constraints";
-import { closedForHoliday } from "./dayRules";
+import { isHoliday } from "./dayRules";
+import { DATES_TO_CHECK } from "./normalize/noteGrammar";
 import { EVENING_FROM } from "./planPolicy";
 import { addDays, type OpenStatus, openStatusOn, WEEKDAY_LONG, weekdayOf } from "./time";
 import { type LatLng, travelMode } from "./travel";
@@ -131,6 +132,7 @@ export type ReasonPlace = Pick<
   | "hours"
   | "hoursConfidence"
   | "dateRules"
+  | "seasonalNote"
   | "issues"
   | "mealCapable"
   | "durationMin"
@@ -252,14 +254,28 @@ function isDated(day: ReasonDay): day is DatedDay {
 // month", which the planner does not read, so "It cannot be visited on Sunday" was false whenever
 // that Sunday was the month's last; the Brera market's "Third weekend of each month only" is read
 // as days 15 to 21, where the weekend may be the 21st and 22nd. The scheduler keeps the safe
-// reading; the line would state it as the listing's fact. Nor on a date most museums and ticketed
-// sites close (closedForHoliday): whether it opens at all that day is the open question, so the
-// line says nothing of the date ("Starts as it opens." on 25 December could not be shown true).
+// reading; the line would state it as the listing's fact.
+// Decision: nothing about the date either when the listing leaves its days to the traveler: a
+// note that says to check the dates (DATES_TO_CHECK). The risotto festival is "October only,
+// check exact festival dates before planning". The planner applies the month, so the festival is
+// never planned in September, but October is when it can run, not the days it runs: "The only
+// day of this trip it can be visited." on 1 October, and "It cannot be visited on Wednesday, the
+// trip's first day." (which says this date can be), would state days the listing tells the
+// traveler to look up. The rule reads the note's words, not the place or its type, so any listing
+// that says so is covered, while a season that names its open days ("Open April-October only",
+// Bellagio) keeps its sentences.
+// Decision: nothing about the date on a holiday the planner knows (HOLIDAY_CLOSURES, 25 December
+// and 1 January), for every place. The data has no holiday hours, so whether a place opens that
+// day, and when, is the open question: "Starts as it opens." for a cooking class on 1 January, or
+// "The only day of this trip it can be visited." for a trattoria on Christmas Day, could not be
+// shown true. The planner keeps museums and ticketed sites off those dates (closedForHoliday) and
+// plans every other place by its weekly hours, as on any date; only the line is silent.
 function dateSentences(place: ReasonPlace, role: StopRole, day: DatedDay): string[] {
   if (place.issues.some((issue) => UNSETTLED_HOURS.includes(issue.kind))) return [];
+  if (place.seasonalNote !== null && DATES_TO_CHECK.test(place.seasonalNote)) return [];
   const today = statusOn(place, day.date);
   // A stop on a day its place is shut is an error the validator shows; nothing here explains it.
-  if (today === null || today.state === "closed" || closedForHoliday(place, day.date)) return [];
+  if (today === null || today.state === "closed" || isHoliday(day.date)) return [];
   const out: string[] = [];
   const trip = tripSentence(place, day);
   if (trip) out.push(trip);
