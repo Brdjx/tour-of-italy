@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "kind": "simulated",
+  "caseId": "rome-sunday-balanced",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "simulated",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:8e80640b4352bdc2229dccea76b8752be5d7e03420e70e07859c8999c8509aaf",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": [],
+    "maxPriceLevel": null,
+    "anchors": ["rome"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_007\",\"place_022\",\"place_004\",\"place_014\",\"place_042\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_007\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_022\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_004\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_014\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_042\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_010\",\"place_099\",\"place_019\",\"place_097\",\"place_024\",\"place_008\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_010\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_099\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_019\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_097\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_024\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_008\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_003\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_020\",\"place_011\",\"place_018\",\"place_002\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_020\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_011\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_018\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_002\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_009\",\"reason\":\"A good fit for the interests in this trip.\"}]}],\"summary\":\"A trip built around your interests, with each day kept close to one base.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 2392,
+      "outputTokens": 486
+    },
+    "latencyMs": 0,
+    "model": "fixture:valid"
+  }
+}

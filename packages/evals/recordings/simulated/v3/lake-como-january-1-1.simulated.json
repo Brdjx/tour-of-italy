@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "kind": "simulated",
+  "caseId": "lake-como-january",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "simulated",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:da84ac884106c31c5e06869874e86ba70fe10276318551649e14763a5e66030a",
+  "request": {
+    "startDate": "2027-01-12",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"milan\",\"placeIds\":[\"place_094\",\"place_102\",\"place_058\",\"place_100\"],\"reasons\":[{\"placeId\":\"place_094\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_102\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_058\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_100\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_055\",\"place_082\",\"place_086\",\"place_062\"],\"reasons\":[{\"placeId\":\"place_055\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_082\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_086\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_062\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_060\",\"place_056\",\"place_061\",\"place_098\",\"place_057\"],\"reasons\":[{\"placeId\":\"place_060\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_056\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_061\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_098\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_057\",\"reason\":\"A good fit for the interests in this trip.\"}]}],\"summary\":\"A trip built around your interests, with each day kept close to one base.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 1681,
+      "outputTokens": 351
+    },
+    "latencyMs": 0,
+    "model": "fixture:valid"
+  }
+}

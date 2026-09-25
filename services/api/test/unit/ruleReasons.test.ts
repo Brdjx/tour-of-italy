@@ -70,6 +70,8 @@ const SENTENCE_KINDS = [
   /Close to your previous stop\./,
 ];
 
+// Every place, role and day of a week takes about 3 s alone and ran past Vitest's default 5 s on
+// a loaded machine, so both sweeps carry their own limit.
 describe("rule reasons and the AI reason sanitizer", () => {
   it("passes checkAiReason for every place, role and day of a week", () => {
     const seen = new Set<string>();
@@ -90,7 +92,7 @@ describe("rule reasons and the AI reason sanitizer", () => {
     }
     const all = [...seen].join(" ");
     for (const kind of SENTENCE_KINDS) expect(all).toMatch(kind);
-  });
+  }, 60_000);
 
   it("passes checkAiReason on every stop of rules-only trips from each base", () => {
     let stops = 0;
@@ -118,5 +120,5 @@ describe("rule reasons and the AI reason sanitizer", () => {
       }
     }
     expect(stops).toBeGreaterThan(150);
-  });
+  }, 60_000);
 });

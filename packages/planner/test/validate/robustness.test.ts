@@ -59,6 +59,8 @@ const itineraryArb: fc.Arbitrary<Itinerary> = fc.record({
   meta: fc.constant({ attempts: 0, latencyMs: 0, generatedAt: "2026-09-23T00:00:00.000Z" }),
 });
 
+// The two properties take about a second alone and ran past Vitest's default 5 s on a loaded
+// machine, so they carry their own limit, as the planner's other sweeps do.
 describe("validator robustness", () => {
   it("never throws on arbitrary itineraries, and every violation is well formed", () => {
     fc.assert(
@@ -75,7 +77,7 @@ describe("validator robustness", () => {
       }),
       FC_SETTINGS,
     );
-  });
+  }, 60_000);
 
   it("flags every random itinerary that has stops, so a blind validator cannot pass", () => {
     // A random plan is almost never valid; if one validates clean, the checks have gone blind.
@@ -88,7 +90,7 @@ describe("validator robustness", () => {
       }),
       FC_SETTINGS,
     );
-  });
+  }, 60_000);
 
   it("does not echo a long invented place id into the violation", () => {
     const plan = miniTrip();

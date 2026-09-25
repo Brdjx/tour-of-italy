@@ -26,7 +26,7 @@ function deps(llm: PlanDeps["llm"], overrides: Partial<PlanDeps> = {}): PlanDeps
     llm,
     ctx,
     now: () => Date.now(),
-    config: { timeoutMs: 12_000, deadlineMs: DEADLINE, maxAttempts: 2 },
+    config: { timeoutMs: 15_000, deadlineMs: DEADLINE, maxAttempts: 2 },
     ...overrides,
   };
 }

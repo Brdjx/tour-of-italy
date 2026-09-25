@@ -1,4 +1,5 @@
 import {
+  buildPlannerContext,
   type ItineraryMeta,
   NoFeasiblePlanError,
   planDeterministic,
@@ -12,7 +13,7 @@ import { validSelection } from "../../src/llm/fixtureAnswers";
 import { buildUserMessage } from "../../src/llm/promptUser";
 import { buildShortlist, type Shortlist } from "../../src/plan/candidates";
 import { materializeSelection } from "../../src/plan/materialize";
-import { tidySelection } from "../../src/plan/tidy";
+import { type MovableRule, tidySelection } from "../../src/plan/tidy";
 
 // The tidy step does to the model's answer what the model cannot see, because code assigns the
 // times: closed places, repeats, the order of a day, the visit limit, and the day's hours, and it
@@ -132,12 +133,13 @@ function errorsOf(selection: LlmSelection, request = rome()) {
 
 const idsOf = (selection: LlmSelection) => selection.days.map((day) => day.placeIds);
 
-/** The record of a place that left `day` for `toDay` (step 7). */
-const moved = (day: number, placeId: string, toDay: number) => ({
+/** The record of a place that left `day` for `toDay` (step 7), and the rule that took it off. */
+const moved = (day: number, placeId: string, toDay: number, cause: MovableRule) => ({
   rule: "moved_day",
   day,
   placeId,
   toDay,
+  cause,
 });
 
 /**
@@ -292,7 +294,7 @@ describe("tidySelection", () => {
 
     // The Aventine Keyhole, the sixth visit, leaves day 1; day 0 has room, so it moves there.
     const plain = tidy(messy);
-    expect(plain.changes).toEqual([moved(1, AVENTINE_KEYHOLE, 0)]);
+    expect(plain.changes).toEqual([moved(1, AVENTINE_KEYHOLE, 0, "over_visit_limit")]);
     expectDropsListed(messy, plain);
 
     const asked = rome({ mustInclude: [AVENTINE_KEYHOLE] });
@@ -400,7 +402,7 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, ROSCIOLI, 0)]);
+    expect(tidied.changes).toEqual([moved(1, ROSCIOLI, 0, "does_not_fit")]);
     expect(idsOf(tidied.selection)[1]).toEqual(day.slice(0, -1));
     expect(errorsOf(tidied.selection)).toEqual([]);
   });
@@ -420,7 +422,7 @@ describe("tidySelection", () => {
     const tidied = tidy(messy);
 
     // Day 0, with the Spanish Steps alone, holds the four hours of the museums: they move there.
-    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0)]);
+    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0, "does_not_fit")]);
     expect(idsOf(tidied.selection)[1]).toEqual(OVER_HOURS.slice(0, -1));
     expect(idsOf(tidied.selection)[0]).toEqual([SPANISH_STEPS, VATICAN_MUSEUMS]);
     expect(errorsOf(tidied.selection)).toEqual([]);
@@ -433,7 +435,10 @@ describe("tidySelection", () => {
     const tidied = tidy(messy, request);
 
     // The gallery is closed on the Monday, day 0, so it moves to the Wednesday.
-    expect(tidied.changes).toEqual([moved(1, BORGHESE_GALLERY, 2), { rule: "reordered", day: 1 }]);
+    expect(tidied.changes).toEqual([
+      moved(1, BORGHESE_GALLERY, 2, "does_not_fit"),
+      { rule: "reordered", day: 1 },
+    ]);
     expect(idsOf(tidied.selection)[1]).toContain(VATICAN_MUSEUMS);
     expect(errorsOf(tidied.selection, request)).toEqual([]);
   });
@@ -448,7 +453,7 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0)]);
+    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0, "does_not_fit")]);
     expect(idsOf(tidied.selection)[1]).toEqual([DA_ENZO, BORGHESE_GALLERY, AVENTINE_KEYHOLE]);
     expect(errorsOf(tidied.selection)).toEqual([]);
   });
@@ -513,7 +518,7 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0)]);
+    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0, "does_not_fit")]);
     const kept = idsOf(tidied.selection)[1] ?? [];
     for (let at = 0; at <= kept.length; at++) {
       const day = [...kept.slice(0, at), VATICAN_MUSEUMS, ...kept.slice(at)];
@@ -543,7 +548,7 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(0, VATICAN_MUSEUMS, 1)]);
+    expect(tidied.changes).toEqual([moved(0, VATICAN_MUSEUMS, 1, "does_not_fit")]);
     const made = materializeSelection(tidied.selection, rome(), shortlistFor(rome()), ctx, META);
     expect(made.errors).toEqual([]);
     expect(made.itinerary.warnings.filter((w) => w.day === 0)).toEqual([]);
@@ -589,7 +594,10 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, VATICAN_MUSEUMS, 0), { rule: "reordered", day: 1 }]);
+    expect(tidied.changes).toEqual([
+      moved(1, VATICAN_MUSEUMS, 0, "does_not_fit"),
+      { rule: "reordered", day: 1 },
+    ]);
     const made = materializeSelection(tidied.selection, rome(), shortlistFor(rome()), ctx, META);
     expect(made.errors).toEqual([]);
     const stops = made.itinerary.days[1]?.stops.map((stop) => [stop.placeId, stop.role]);
@@ -614,7 +622,10 @@ describe("tidySelection", () => {
     const tidied = tidy(messy, request);
 
     // Day 0 has no dinner, so Rasputin moves there as one.
-    expect(tidied.changes).toEqual([moved(1, RASPUTIN, 0), { rule: "reordered", day: 1 }]);
+    expect(tidied.changes).toEqual([
+      moved(1, RASPUTIN, 0, "does_not_fit"),
+      { rule: "reordered", day: 1 },
+    ]);
     const kept = idsOf(tidied.selection)[1] ?? [];
     expect(kept).toContain(BARGELLO);
     const made = materializeSelection(tidied.selection, request, shortlistFor(request), ctx, META);
@@ -651,7 +662,7 @@ describe("tidySelection", () => {
     const tidied = tidy(messy, request);
 
     // Kept out of day 0, the piazza by night moves to day 1, where it times cleanly.
-    expect(tidied.changes).toContainEqual(moved(0, PIAZZA_MAGGIORE_BY_NIGHT, 1));
+    expect(tidied.changes).toContainEqual(moved(0, PIAZZA_MAGGIORE_BY_NIGHT, 1, "does_not_fit"));
     const codes = (selection: LlmSelection) =>
       errorsOf(selection, request).map((e) => [e.code, e.placeId]);
     expect(codes(tidied.selection)).toEqual([["OUTSIDE_DAY_WINDOW", OSTERIA_FRANCESCANA]]);
@@ -713,8 +724,8 @@ describe("tidySelection", () => {
     const dropped = tidied.changes.filter((change) => change.rule !== "reordered");
     expect(dropped).toEqual([
       { rule: "same_spot", day: 2, placeId: TREVI_BY_NIGHT },
-      moved(0, VATICAN_MUSEUMS, 1),
-      moved(2, GIOLITTI, 1),
+      moved(0, VATICAN_MUSEUMS, 1, "does_not_fit"),
+      moved(2, GIOLITTI, 1, "over_visit_limit"),
     ]);
     expectDropsListed(messy, tidied);
     expect(errorsOf(tidied.selection)).toEqual([]);
@@ -732,7 +743,10 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy, request);
 
-    expect(tidied.changes).toEqual([moved(2, AVENTINE_KEYHOLE, 0), moved(2, BORGHESE_GALLERY, 1)]);
+    expect(tidied.changes).toEqual([
+      moved(2, AVENTINE_KEYHOLE, 0, "over_visit_limit"),
+      moved(2, BORGHESE_GALLERY, 1, "does_not_fit"),
+    ]);
     expect(idsOf(tidied.selection)[2]).toEqual([COLOSSEUM, VATICAN_MUSEUMS]);
     const back = [COLOSSEUM, VATICAN_MUSEUMS, AVENTINE_KEYHOLE];
     expect(errorsOf(answer([PANTHEON], [OSTERIA_FERNANDA], back), request)).toEqual([]);
@@ -903,7 +917,7 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(2, IL_SORPASSO, 0)]);
+    expect(tidied.changes).toEqual([moved(2, IL_SORPASSO, 0, "does_not_fit")]);
     expectDropsListed(messy, tidied);
     expect(idsOf(tidied.selection)[2]).toEqual([COLOSSEUM, ROSCIOLI, OSTERIA_FERNANDA]);
     expect(errorsOf(tidied.selection)).toEqual([]);
@@ -946,8 +960,8 @@ describe("tidySelection", () => {
     const tidied = tidy(messy, request);
 
     expect(tidied.changes).toEqual([
-      moved(1, ROSCIOLI, 0),
-      moved(1, IL_SORPASSO, 2),
+      moved(1, ROSCIOLI, 0, "over_visit_limit"),
+      moved(1, IL_SORPASSO, 2, "over_visit_limit"),
       { rule: "does_not_fit", day: 1, placeId: VATICAN_MUSEUMS },
       { rule: "reordered", day: 1 },
     ]);
@@ -985,7 +999,10 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(2, MERCATO_TESTACCIO, 0), { rule: "reordered", day: 2 }]);
+    expect(tidied.changes).toEqual([
+      moved(2, MERCATO_TESTACCIO, 0, "does_not_fit"),
+      { rule: "reordered", day: 2 },
+    ]);
     expectDropsListed(messy, tidied);
     expect(idsOf(tidied.selection)[2]).toEqual([TREVI_FOUNTAIN, VATICAN_MUSEUMS, DA_ENZO]);
     expect(errorsOf(tidied.selection)).toEqual([]);
@@ -1021,7 +1038,10 @@ describe("tidySelection", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, IL_SORPASSO, 0), moved(1, ROMAN_FORUM, 2)]);
+    expect(tidied.changes).toEqual([
+      moved(1, IL_SORPASSO, 0, "over_visit_limit"),
+      moved(1, ROMAN_FORUM, 2, "does_not_fit"),
+    ]);
     expectDropsListed(messy, tidied);
     const kept = idsOf(tidied.selection)[1] ?? [];
     expect(kept).toEqual([BORGHESE_GALLERY, VATICAN_MUSEUMS, AVENTINE_KEYHOLE, PANTHEON, ROSCIOLI]);
@@ -1057,7 +1077,10 @@ describe("tidySelection", () => {
 
     const tidied = tidy(withDay(day), request);
 
-    expect(tidied.changes).toEqual([moved(1, UFFIZI, 2), moved(1, OLTRARNO, 0)]);
+    expect(tidied.changes).toEqual([
+      moved(1, UFFIZI, 2, "does_not_fit"),
+      moved(1, OLTRARNO, 0, "does_not_fit"),
+    ]);
     const kept = idsOf(tidied.selection)[1] ?? [];
     expect(kept).toEqual([SAN_MINIATO, BUCA_DELL_ORAFO, PITTI_PALACE, OSTERIA_ENOTECA]);
     for (let at = 0; at <= kept.length; at++) {
@@ -1204,6 +1227,112 @@ describe("tidySelection across days", () => {
     expect(errorsOf(asked.selection, request).map((e) => e.code)).toEqual(["EMPTY_DAY"]);
   });
 
+  it("keeps a visit on a day the repeats would leave with meal places only, from a day with visits to spare", () => {
+    // Day 2 repeats the Spanish Steps from day 0 between its lunch and its dinner. Dropped there,
+    // it would leave day 2 two meals and no visit, so day 2 keeps it and day 0, with three other
+    // visits, loses it.
+    const messy = answer(
+      [PANTHEON, TREVI_FOUNTAIN, SPANISH_STEPS, DA_ENZO, PIAZZA_NAVONA],
+      [COLOSSEUM, ROMAN_FORUM, MERCATO_TESTACCIO, AVENTINE_KEYHOLE],
+      [IL_SORPASSO, SPANISH_STEPS, OSTERIA_FERNANDA],
+    );
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes.filter((c) => c.rule !== "reordered")).toEqual([
+      { rule: "duplicate", day: 0, placeId: SPANISH_STEPS },
+    ]);
+    expect(idsOf(tidied.selection)[2]).toEqual([IL_SORPASSO, SPANISH_STEPS, OSTERIA_FERNANDA]);
+    expect(errorsOf(tidied.selection)).toEqual([]);
+  });
+
+  it("never takes a day's only visit to give one to a day of meal places", () => {
+    // Day 0 has the Pantheon as its one visit, so day 2, which repeats it, stays with its meals.
+    const messy = answer(
+      [PANTHEON, DA_ENZO],
+      [COLOSSEUM, ROMAN_FORUM, TREVI_FOUNTAIN],
+      [IL_SORPASSO, PANTHEON, OSTERIA_FERNANDA],
+    );
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([{ rule: "duplicate", day: 2, placeId: PANTHEON }]);
+    expect(idsOf(tidied.selection)[0]).toEqual([PANTHEON, DA_ENZO]);
+  });
+
+  it("never keeps a repeated meal place on a day of meal places, since it gives the day no visit", () => {
+    // Day 2 repeats Roscioli from day 0, which has four visits to spare. Kept there, it would
+    // only take a meal from day 0 and leave day 2 with meal places alone all the same.
+    const messy = answer(
+      [PANTHEON, TREVI_FOUNTAIN, ROSCIOLI, SPANISH_STEPS, PIAZZA_NAVONA],
+      [COLOSSEUM, ROMAN_FORUM, DA_ENZO],
+      [IL_SORPASSO, ROSCIOLI, OSTERIA_FERNANDA],
+    );
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes.filter((c) => c.rule !== "reordered")).toEqual([
+      { rule: "duplicate", day: 2, placeId: ROSCIOLI },
+    ]);
+    expect(idsOf(tidied.selection)[0]).toContain(ROSCIOLI);
+    expect(idsOf(tidied.selection)[2]).toEqual([IL_SORPASSO, OSTERIA_FERNANDA]);
+  });
+
+  it("keeps a visit rather than a meal place on a day the repeats would empty", () => {
+    // Both of day 2's places repeat day 0, which has stops to spare either way. Roscioli comes
+    // first, but the Pantheon is a visit, so the Pantheon stays and day 0 keeps Roscioli.
+    const messy = answer(
+      [PANTHEON, TREVI_FOUNTAIN, ROSCIOLI, SPANISH_STEPS, PIAZZA_NAVONA],
+      [COLOSSEUM, ROMAN_FORUM, DA_ENZO],
+      [ROSCIOLI, PANTHEON],
+    );
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([
+      { rule: "duplicate", day: 0, placeId: PANTHEON },
+      { rule: "duplicate", day: 2, placeId: ROSCIOLI },
+    ]);
+    expect(idsOf(tidied.selection)[2]).toEqual([PANTHEON]);
+    expect(idsOf(tidied.selection)[0]).toContain(ROSCIOLI);
+    expect(errorsOf(tidied.selection)).toEqual([]);
+  });
+
+  it("never keeps a place on two days: a second day cannot keep a repeat whose first copy gave way", () => {
+    // Days 1 and 2 hold only the Pantheon, which day 0 has first. Day 1 keeps it and day 0 loses
+    // it; the copy on day 2 repeats day 0's, which is gone, so day 2 cannot take it as well.
+    const messy = answer([PANTHEON, TREVI_FOUNTAIN, SPANISH_STEPS], [PANTHEON], [PANTHEON]);
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([
+      { rule: "duplicate", day: 0, placeId: PANTHEON },
+      { rule: "duplicate", day: 2, placeId: PANTHEON },
+    ]);
+    expect(idsOf(tidied.selection)).toEqual([[TREVI_FOUNTAIN, SPANISH_STEPS], [PANTHEON], []]);
+    expect(errorsOf(tidied.selection).map((e) => [e.code, e.day])).toEqual([["EMPTY_DAY", 2]]);
+  });
+
+  it("never keeps a place at a repeated spot when another place in the trip shares its spot", () => {
+    // A chain of spots, made up for this test: the Spanish Steps share a spot with the Trevi
+    // Fountain by night but not with the fountain by day. Day 2's fountain by night repeats the
+    // fountain's spot on day 0; kept, it would stand at one spot with the Steps on day 1.
+    const places = ctx.places.map((place) =>
+      place.id === SPANISH_STEPS ? { ...place, sharedLocationWith: [TREVI_BY_NIGHT] } : place,
+    );
+    const chained = buildPlannerContext(places);
+    const request = rome();
+    const shortlist = buildShortlist(request, chained);
+    const messy = answer([TREVI_FOUNTAIN, PANTHEON], [SPANISH_STEPS, COLOSSEUM], [TREVI_BY_NIGHT]);
+
+    const tidied = tidySelection(messy, request, shortlist, chained);
+
+    expect(tidied.changes).toEqual([{ rule: "same_spot", day: 2, placeId: TREVI_BY_NIGHT }]);
+    expect(idsOf(tidied.selection)[2]).toEqual([]);
+    // Without the chain, the fountain by night stays on day 2 (the test above).
+    expect(idsOf(tidy(messy).selection)[2]).toEqual([TREVI_BY_NIGHT]);
+  });
+
   it("moves a place from its closed day to a day at its base that is open for it", () => {
     // The Borghese Gallery is closed on Mondays, and the answer has it only on the Monday.
     const messy = answer(
@@ -1214,13 +1343,14 @@ describe("tidySelection across days", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(0, BORGHESE_GALLERY, 1)]);
+    expect(tidied.changes).toEqual([moved(0, BORGHESE_GALLERY, 1, "closed")]);
     expect(idsOf(tidied.selection)[1]).toEqual([COLOSSEUM, DA_ENZO, BORGHESE_GALLERY]);
     expect(errorsOf(tidied.selection)).toEqual([]);
   });
 
   it("moves a place to the day with the fewest stops first", () => {
-    // Day 1 cannot hold the Trastevere walk. Days 0 and 2 both have room; day 2 has one stop.
+    // Day 1 has six visits, one over the limit, so the Trastevere walk goes. Days 0 and 2 both
+    // have room; day 2 has one stop.
     const messy = answer(
       [PANTHEON, TREVI_FOUNTAIN, SPANISH_STEPS],
       [COLOSSEUM, ROMAN_FORUM, GIOLITTI, AVENTINE_KEYHOLE, GIANICOLO, TRASTEVERE, DA_ENZO],
@@ -1229,7 +1359,7 @@ describe("tidySelection across days", () => {
 
     const tidied = tidy(messy);
 
-    expect(tidied.changes).toEqual([moved(1, TRASTEVERE, 2)]);
+    expect(tidied.changes).toEqual([moved(1, TRASTEVERE, 2, "over_visit_limit")]);
     expectDropsListed(messy, tidied);
     expect(errorsOf(tidied.selection)).toEqual([]);
   });
@@ -1322,7 +1452,7 @@ describe("tidySelection across days", () => {
 
     expect(tidied.changes).toEqual([
       { rule: "closed", day: 0, placeId: BORGHESE_GALLERY },
-      moved(1, TREVI_FOUNTAIN, 0),
+      moved(1, TREVI_FOUNTAIN, 0, "over_visit_limit"),
     ]);
     expect(idsOf(tidied.selection)[0]).toEqual([TREVI_FOUNTAIN]);
     expect(errorsOf(tidied.selection, request)).toEqual([]);
@@ -1341,7 +1471,7 @@ describe("tidySelection across days", () => {
 
     const tidied = tidy(messy, request);
 
-    expect(tidied.changes).toEqual([moved(0, AVENTINE_KEYHOLE, 2)]);
+    expect(tidied.changes).toEqual([moved(0, AVENTINE_KEYHOLE, 2, "over_visit_limit")]);
     expect(idsOf(tidied.selection)[2]).toEqual([TRASTEVERE, AVENTINE_KEYHOLE]);
     expect(errorsOf(tidied.selection, request)).toEqual([]);
   });

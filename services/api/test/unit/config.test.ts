@@ -9,7 +9,7 @@ describe("loadConfig", () => {
     expect(config.llmEnabled).toBe(true);
     expect(config.llmEffort).toBe("low");
     expect(config.planDeadlineMs).toBe(24_000);
-    expect(config.llmTimeoutMs).toBe(12_000);
+    expect(config.llmTimeoutMs).toBe(15_000);
     expect(config.llmMaxAttempts).toBe(2);
     expect(config.gitSha).toBe("local");
     expect(config.port).toBe(8787);

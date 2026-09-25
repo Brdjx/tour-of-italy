@@ -1,4 +1,4 @@
-import { TripRequestSchema } from "@italy/planner";
+import { addDays, TripRequestSchema } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { shippedData } from "../../src/data";
 import { parseOffered } from "../../src/llm/fixtureAnswers";
@@ -118,6 +118,83 @@ describe("buildUserMessage", () => {
     expect(offered).not.toContain("place_999");
   });
 
+  it("states each base's meal supply, and names the few meal places open on a scarce day", () => {
+    // Friday 9 to Sunday 11 October 2026 in Rome: four of the seven meal places close on the
+    // Sunday, and Osteria Fernanda serves dinner only.
+    const text = userMessage({ startDate: "2026-10-09", anchors: ["rome"] });
+
+    expect(text).toContain(
+      "Base rome:\nMeal supply: 7 meal places, each used once in the trip. Lunch: d1 6, d2 6, d3 2 (place_020, place_099). Dinner: d1 6, d2 6, d3 3 (place_009, place_020, place_099).\n",
+    );
+  });
+
+  it("names no meal place on a day that has as many as every other day", () => {
+    // Milan from Friday 9 October 2026 has three meal places, open every day: few, but no day has
+    // fewer than another. (From a Monday its risotto place is closed on day 1, which is named.)
+    const text = userMessage({ startDate: "2026-10-09", anchors: ["milan"] });
+
+    expect(text).toContain(
+      "Meal supply: 3 meal places, each used once in the trip. Lunch: d1 2, d2 2, d3 2. Dinner: d1 3, d2 3, d3 3.",
+    );
+  });
+
+  it("names no meal place on a day with more than a few, or with none", () => {
+    // From Monday 12 October 2026: Rome's Monday has fewer meal places than its other days, but
+    // more than three, and Bologna's Monday has no dinner place at all, so nothing is named.
+    const rome = userMessage({ startDate: "2026-10-12", anchors: ["rome"] });
+    const bologna = userMessage({ startDate: "2026-10-12", anchors: ["bologna"] });
+
+    expect(rome).toContain("Lunch: d1 5, d2 6, d3 6. Dinner: d1 4, d2 6, d3 6.");
+    expect(bologna).toContain("Dinner: d1 0, d2 2, d3 2.");
+  });
+
+  it("marks meal places one price level over the budget, and says in the budget line what they are for", () => {
+    // Milan has no meal place at the lowest price level, and three one level over.
+    const text = userMessage({ anchors: ["milan"], maxPriceLevel: 1 });
+    const rows = text.split("\n").filter((line) => line.includes("| meal: "));
+
+    expect(text).toContain(
+      "Budget: up to € (meal places marked over budget are one level over: use one only for a meal no meal place within budget can take)",
+    );
+    expect(rows).toHaveLength(3);
+    for (const row of rows) expect(row).toMatch(/ \| €€ \| .* \| over budget, meals only$/);
+    expect(userMessage({ anchors: ["milan"] })).not.toContain("over budget");
+  });
+
+  it("keeps the largest request under 25,000 characters, about 12,800 tokens", () => {
+    // The heaviest shape: four bases offered (a must-include in each), the packed pace, any
+    // price, and a start date each month of a year, the summer ones with the seasonal places open.
+    // Live, a request of 21,592 characters was 11,093 input tokens (prompt v2). The traveler's
+    // notes come on top: at most 500 characters, up to 2,500 once escaped (all ampersands).
+    const mustInclude = ["place_001", "place_026", "place_056", "place_067"];
+    let largest = 0;
+    for (let month = 0; month < 12; month++) {
+      const req = request({
+        startDate: addDays("2027-01-14", month * 28),
+        pace: "packed",
+        mustInclude,
+      });
+      const shortlist = buildShortlist(req, ctx);
+      expect(shortlist.options).toHaveLength(4);
+      const size = SYSTEM_PROMPT.length + buildUserMessage(req, shortlist, ctx).length;
+      largest = Math.max(largest, size);
+    }
+    expect(largest).toBeGreaterThan(20_000);
+    expect(largest).toBeLessThan(25_000);
+  });
+
+  it("names the base each must-include is listed under, so a second base is not forgotten", () => {
+    // Thursday 15 October 2026: the Borghese Gallery in Rome and the Uffizi in Florence.
+    const text = userMessage({
+      startDate: "2026-10-15",
+      interests: ["art", "historic"],
+      mustInclude: ["place_007", "place_026"],
+    });
+
+    expect(text).toContain("Must include: place_007 (rome), place_026 (florence)");
+    expect(userMessage()).toContain("Must include: none");
+  });
+
   it("lists must-include ids that cannot be placed separately, so the model leaves them out", () => {
     const req = request({ anchors: ["rome"], mustInclude: ["place_043"] });
     const shortlist = buildShortlist(req, ctx);
@@ -150,13 +227,29 @@ describe("system prompt and repair turn", () => {
 
   it("says what the tidy step does with a broken rule, so the model does not lean on it", () => {
     for (const phrase of [
-      "It removes any stop that breaks a rule",
+      "It moves a stop that breaks a rule to another day that can hold it or else removes it",
+      "a repeated place stays only on a day that would otherwise have no visit",
+      "it sends back what it cannot fix",
       "Every one of the 3 days needs at least one stop. Never leave a day empty.",
       "Use each id at most once in the whole trip",
       "This is a maximum, not a target",
       "Spread the strongest places across the days",
       "leave that meal out rather than repeat a place",
       "d1 is Day 1, d2 is Day 2, d3 is Day 3",
+    ]) {
+      expect(SYSTEM_PROMPT).toContain(phrase);
+    }
+  });
+
+  it("says how to count a day's meal places, that a meal place is only a meal, and where a must-include goes", () => {
+    for (const phrase of [
+      "Give each day one lunch place and one dinner place while meal places are left for it",
+      "count those that can take that meal that day (the base's meal supply line), less those given to other days",
+      "each meal place is used once in the trip and only for the meals it lists",
+      "keep those for that day and give the other days other meal places",
+      "A meal place is only a meal, never a sightseeing stop",
+      "put it in the day's order where its meal happens",
+      "Include every must-include id, on a day at the base it is listed under",
     ]) {
       expect(SYSTEM_PROMPT).toContain(phrase);
     }

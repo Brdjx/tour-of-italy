@@ -1,6 +1,6 @@
 {
   "id": "budget-traveler",
-  "description": "Food and history at the lowest price level from a Saturday: nothing over budget, including over a weekend and a Monday.",
+  "description": "Food and history at the lowest price level from a Saturday, over a weekend and a Monday: nothing over budget, except a meal place one level over as a lunch or dinner, marked OVER_BUDGET, which both planners may seat when nothing within budget can take that meal.",
   "request": {
     "startDate": "2026-11-07",
     "pace": "balanced",
@@ -14,6 +14,7 @@
     "maxAnchors": 2,
     "minPreferenceMatch": 0.6,
     "forbidViolationCodes": ["OVER_BUDGET", "CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "allowOnMealStops": ["OVER_BUDGET"],
     "expectWarningCodes": [],
     "forbidPlaceIds": [],
     "expectAnyPlaceIds": [],

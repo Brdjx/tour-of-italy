@@ -3,6 +3,7 @@ import {
   compareText,
   formatClock,
   isCandidate,
+  isMealFallback,
   openStatusOn,
   PACE,
   type Place,
@@ -60,6 +61,7 @@ export interface Candidate {
   score: number; // best score over the trip dates
   meal: boolean; // can be a lunch or dinner stop
   mustInclude: boolean;
+  overBudget: boolean; // a meal place one price level over the budget, offered for meals only
   statuses: DayStatus[]; // one per trip date
 }
 
@@ -86,8 +88,9 @@ function dayStatus(place: Place, date: string): DayStatus {
 }
 
 /**
- * Every place of a base that could be suggested and is not closed on all trip dates, and, unless
- * the traveler asked for it, that the scheduler can time as a day's only stop on some trip date.
+ * Every place of a base that could be suggested (or is a meal place one price level over the
+ * budget) and is not closed on all trip dates, and, unless the traveler asked for it, that the
+ * scheduler can time as a day's only stop on some trip date.
  */
 // Decision: a place that fails even alone, at its own base with no transfer, fails on every day
 // of every answer, so offering it could only cost a repair. After the shortlist was sized, 4 of 4
@@ -98,11 +101,21 @@ function dayStatus(place: Place, date: string): DayStatus {
 // dawn walks, and a morning cooking class, none of which the rules-only planner can seat either.
 // It costs one timing of a one-stop day per place and date: the default request's shortlist takes
 // 0.5 ms instead of 0.2.
+// Decision: a meal place one price level over the budget is offered as the rules-only planner
+// seats it (packages/planner/src/pools.ts, isMealFallback): only a meal place, marked in its row,
+// after every meal place within budget (trim), and the plan carries its OVER_BUDGET warning. At
+// the lowest budget Milan offered no meal place and Florence one: in 22 live plans at that budget
+// on 2026-09-25 (prompt v2), every day lacked a lunch or a dinner, at 0.38 meals a day against
+// 1.42 in the rules-only plans. Offered these places, 10 live plans of the same requests (v3) had
+// 1.33 meals a day, and every meal place over the budget was a lunch or a dinner.
 function candidatesFor(anchor: Anchor, request: TripRequest, ctx: PlannerContext, dates: string[]) {
   const out: Candidate[] = [];
   for (const id of anchor.placeIds) {
     const place = ctx.placesById.get(id);
-    if (!place || !isCandidate(place, request, anchor.id, ctx)) continue;
+    if (!place) continue;
+    const within = isCandidate(place, request, anchor.id, ctx);
+    const overBudget = !within && isMealFallback(place, request, anchor.id, ctx);
+    if (!within && !overBudget) continue;
     const statuses = dates.map((date) => dayStatus(place, date));
     if (statuses.every((status) => status.kind === "closed")) continue;
     const mustInclude = request.mustInclude.includes(id);
@@ -115,7 +128,7 @@ function candidatesFor(anchor: Anchor, request: TripRequest, ctx: PlannerContext
     for (const date of dates) {
       score = Math.max(score, scorePlace(place, request, { date, from: anchor.centroid }));
     }
-    out.push({ place, score, meal: place.mealCapable, mustInclude, statuses });
+    out.push({ place, score, meal: place.mealCapable, mustInclude, overBudget, statuses });
   }
   return out.sort((a, b) => b.score - a.score || compareText(a.place.id, b.place.id));
 }
@@ -141,7 +154,10 @@ function best(candidates: readonly Candidate[], target: number): Candidate[] {
   return out;
 }
 
-/** The best visits and meals for the pace (shortlistSize), plus every must-include, best first. */
+/**
+ * The best visits and meals for the pace (shortlistSize), plus every must-include, best first.
+ * Meal places over the budget come after every meal place within it.
+ */
 function trim(all: Candidate[], request: TripRequest): Candidate[] {
   const size = shortlistSize(request.pace);
   const visits = best(
@@ -149,16 +165,20 @@ function trim(all: Candidate[], request: TripRequest): Candidate[] {
     size.visits,
   );
   const meals = best(
-    all.filter((c) => c.meal),
+    [...all.filter((c) => c.meal && !c.overBudget), ...all.filter((c) => c.overBudget)],
     size.meals,
   );
   const kept = new Set([...visits, ...meals, ...all.filter((c) => c.mustInclude)]);
   return all.filter((c) => kept.has(c));
 }
 
-/** Sum of the scores a full day could use, the same yardstick for every base. */
+/**
+ * Sum of the scores a full day could use, the same yardstick for every base. Places within the
+ * budget only, so offering meals over it never changes which bases are offered.
+ */
 function strength(candidates: Candidate[], request: TripRequest): number {
-  const top = candidates.slice(0, PACE[request.pace].maxVisits + 2);
+  const within = candidates.filter((c) => !c.overBudget);
+  const top = within.slice(0, PACE[request.pace].maxVisits + 2);
   return top.reduce((sum, c) => sum + c.score, 0);
 }
 

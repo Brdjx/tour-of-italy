@@ -117,7 +117,7 @@ Resources:
           LLM_ENABLED: !Ref LlmEnabled
           # Real Claude API client; the API refuses to start in fixture mode in production.
           LLM_MODE: anthropic
-          LLM_TIMEOUT_MS: "12000"
+          LLM_TIMEOUT_MS: "15000"
           PLAN_DEADLINE_MS: "24000"
           LLM_MAX_ATTEMPTS: "2"
           LLM_EFFORT: low

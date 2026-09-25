@@ -167,6 +167,12 @@ function giveUpReason(problem: Problem, repaired: boolean, outOfTime: boolean): 
  * One model turn (first answer or repair), with one retry of a brief failure when time allows.
  * Returns the result, or the fallback reason when the turn failed or there was no time for it.
  */
+// Decision: each call gets the configured timeout (15 s) or what is left of the deadline after
+// the reserve, whichever is less. The first call starts with 22.5 s left, so it gets the full
+// 15 s; a repair gets what remains, which stays over its 4 s minimum even after a first answer
+// at 15 s (24 - 15 - 1.5 = 7.5 s). Live repairs on 2026-09-25 took 2.6 to 8.0 s, and one ran
+// past its 12 s limit, so a slow repair after one of the slowest first answers can still run out
+// and fall back.
 async function runTurn(
   run: Run,
   problem: Problem | null,

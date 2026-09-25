@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "budget-traveler",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:eba74c12e1313ba7e4f1b709be531d909cf5bdc3af5840d555a3da190d68e45c",
+  "request": {
+    "startDate": "2026-11-07",
+    "pace": "balanced",
+    "interests": ["food", "historic"],
+    "maxPriceLevel": 1,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "error": {
+    "kind": "rate_limited",
+    "status": 429,
+    "retryAfterMs": 30000,
+    "message": "Model API rate limit"
+  },
+  "scenario": {
+    "name": "Rate limited with a long retry-after",
+    "note": "429 asking for 30 s; waiting would outlast the deadline, so the fallback is immediate.",
+    "expectSource": "deterministic",
+    "expectFallbackReason": "rate_limited"
+  }
+}

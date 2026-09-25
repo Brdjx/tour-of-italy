@@ -26,6 +26,9 @@ export const ExpectSchema = z.strictObject({
   minPreferenceMatch: z.number().min(0).max(1), // share of visits matching an interest
   // Codes that must not appear in the final plan or in any model answer the pipeline rejected.
   forbidViolationCodes: z.array(CodeSchema).default([]),
+  // Forbidden warnings a lunch or dinner stop may carry (an extension, for the meal places one
+  // price level over a low budget that both planners may seat, marked OVER_BUDGET).
+  allowOnMealStops: z.array(WarningCodeSchema).default([]),
   expectWarningCodes: z.array(WarningCodeSchema).default([]), // warnings the plan must carry
   forbidPlaceIds: z.array(IdSchema).default([]), // places that must not be in the plan
   // At least one of these places must be in the plan (an extension of the plan's case format).

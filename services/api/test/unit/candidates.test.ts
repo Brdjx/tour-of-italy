@@ -1,5 +1,6 @@
 import {
   isCandidate,
+  isMealFallback,
   openStatusOn,
   sharesLocation,
   TRIP_DAYS,
@@ -64,15 +65,81 @@ describe("buildShortlist", () => {
     }
   });
 
-  it("never offers a place above the budget unless the traveler asked for it", () => {
+  it("never offers a place above the budget unless the traveler asked for it, or a marked meal place one level over", () => {
     const shortlist = buildShortlist(request({ maxPriceLevel: 1 }), ctx);
 
     for (const option of shortlist.options) {
       for (const candidate of option.candidates) {
         const level = candidate.place.priceLevel;
-        expect(level === null || level <= 1 || candidate.mustInclude).toBe(true);
+        const within = level === null || level <= 1 || candidate.mustInclude;
+        expect(candidate.overBudget).toBe(!within);
+        if (!within) {
+          expect(candidate.meal).toBe(true);
+          expect(level).toBe(2);
+        }
       }
     }
+  });
+
+  it("offers the meal places over the budget that the rules-only planner may seat, and no other", () => {
+    // Milan at the lowest price level has no meal place within budget: all three it offers are
+    // one level over, as the rules-only planner's pools allow (isMealFallback).
+    const req = request({ anchors: ["milan"], maxPriceLevel: 1 });
+    const milan = buildShortlist(req, ctx).options[0]?.candidates ?? [];
+    const fallbacks = (ctx.anchorById.get("milan")?.placeIds ?? []).filter((id) => {
+      const place = ctx.placesById.get(id);
+      return place !== undefined && isMealFallback(place, req, "milan", ctx);
+    });
+
+    const meals = milan.filter((c) => c.meal);
+    expect(meals.map((c) => c.place.id).sort()).toEqual([...fallbacks].sort());
+    expect(meals).toHaveLength(3);
+    expect(meals.every((c) => c.overBudget)).toBe(true);
+    expect(buildShortlist(request({ anchors: ["milan"] }), ctx).placeIds.size).toBeGreaterThan(
+      milan.length,
+    );
+  });
+
+  it("offers every meal place within the budget before any over it", () => {
+    // Rome at €€ from a Friday: five meal places within budget, three of them closed on the
+    // Sunday, so they do not count toward the seven the shortlist wants, and two at €€€ after them.
+    const req = request({ startDate: "2026-10-09", anchors: ["rome"], maxPriceLevel: 2 });
+    const rome = buildShortlist(req, ctx).options[0]?.candidates ?? [];
+    const withinBudget = (ctx.anchorById.get("rome")?.placeIds ?? []).filter((id) => {
+      const place = ctx.placesById.get(id);
+      return place?.mealCapable === true && isCandidate(place, req, "rome", ctx);
+    });
+
+    const offered = new Set(rome.map((c) => c.place.id));
+    expect(withinBudget.length).toBeGreaterThan(0);
+    for (const id of withinBudget) expect(offered.has(id), id).toBe(true);
+    expect(rome.filter((c) => c.overBudget).map((c) => c.place.priceLevel)).toEqual([3, 3]);
+  });
+
+  it("ranks the bases by places within the budget, so meal places over it never change which are offered", () => {
+    // The same request with every meal place one level over excluded offers the same bases in the
+    // same order. Counted in a base's strength, those places move Bologna ahead of Venice here.
+    const req = request({ maxPriceLevel: 1 });
+    const over = ctx.anchors.flatMap((anchor) =>
+      anchor.placeIds.filter((id) => {
+        const place = ctx.placesById.get(id);
+        return place !== undefined && isMealFallback(place, req, anchor.id, ctx);
+      }),
+    );
+    const offered = buildShortlist(req, ctx);
+    const without = buildShortlist({ ...req, exclude: over }, ctx);
+
+    expect(offered.options.flatMap((o) => o.candidates).some((c) => c.overBudget)).toBe(true);
+    expect(without.options.flatMap((o) => o.candidates).some((c) => c.overBudget)).toBe(false);
+    expect(offered.options.map((o) => o.anchor.id)).toEqual(
+      without.options.map((o) => o.anchor.id),
+    );
+  });
+
+  it("never offers a meal place over the budget for a trip with no budget", () => {
+    const shortlist = buildShortlist(request({ anchors: ["rome"] }), ctx);
+
+    expect(shortlist.options.flatMap((o) => o.candidates).some((c) => c.overBudget)).toBe(false);
   });
 
   it("never offers a place that cannot be a day's only stop on any trip date, unless asked for", () => {

@@ -28,7 +28,13 @@ const EnvSchema = z
     ANTHROPIC_MODEL: z.string().min(1).max(100).default("claude-sonnet-5"),
     LLM_ENABLED: booleanString,
     LLM_MODE: z.enum(LLM_MODES).optional(),
-    LLM_TIMEOUT_MS: positiveInt.default(12_000),
+    // Decision: 15 s for a call, so a slow first answer is used instead of a fallback. At 12 s,
+    // 1 of 166 live first calls on 2026-09-25 timed out (the slowest answer took 11.7 s), and a
+    // timeout is not retried, so its plan fell back with about 10.5 s of the deadline unused.
+    // With prompt v3, 2 of 134 live first answers took 13.8 and 14.4 s and became plans. A
+    // repair gets at most what is left of the deadline after the reserve (planTrip.ts), so a
+    // first answer at 15 s still leaves 7.5 s for it, over the 4 s minimum.
+    LLM_TIMEOUT_MS: positiveInt.default(15_000),
     // Decision: 24 s total leaves headroom under API Gateway's 30 s cap for the fallback path.
     // Anything above 26 s could not answer before that cap, so it is refused at start.
     PLAN_DEADLINE_MS: positiveInt.max(MAX_PLAN_DEADLINE_MS).default(24_000),

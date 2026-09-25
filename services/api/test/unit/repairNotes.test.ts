@@ -63,7 +63,7 @@ describe("repairNotes", () => {
     const selection = trip(["place_001"], ["place_004"], ["place_011"]);
 
     const result = notes(selection, [
-      { rule: "moved_day", day: 1, placeId: "place_011", toDay: 2 },
+      { rule: "moved_day", day: 1, placeId: "place_011", toDay: 2, cause: "over_visit_limit" },
     ]);
 
     expect(result).toEqual({

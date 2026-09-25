@@ -53,6 +53,15 @@ describe("SAM template: timeouts and capacity", () => {
     expect(deadlineMs + 3000).toBeLessThanOrEqual((fn.Timeout as number) * 1000);
   });
 
+  it("runs the model at the config defaults, the timings the plan tests prove inside the deadline", () => {
+    // services/api/test/unit/planTrip.test.ts times its slow calls at loadConfig's defaults, so a
+    // template that drifted from them (back to 12 s a call, say) would run untested timings.
+    const defaults = loadConfig({});
+    expect(Number(env.LLM_TIMEOUT_MS)).toBe(defaults.llmTimeoutMs);
+    expect(Number(env.PLAN_DEADLINE_MS)).toBe(defaults.planDeadlineMs);
+    expect(Number(env.LLM_MAX_ATTEMPTS)).toBe(defaults.llmMaxAttempts);
+  });
+
   it("caps reserved concurrency so a traffic spike cannot run up the Claude bill or starve other stacks", () => {
     expect(fn.ReservedConcurrentExecutions).toBeTypeOf("number");
     expect(fn.ReservedConcurrentExecutions as number).toBeGreaterThan(0);

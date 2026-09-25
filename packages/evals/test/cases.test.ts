@@ -139,6 +139,17 @@ describe("eval cases a model can pass", () => {
     expect(c.expect.forbidViolationCodes).toContain("MEAL_MISSING");
   });
 
+  it("lets budget-traveler seat a meal one level over, the only places over budget it is offered", () => {
+    const c = caseById("budget-traveler");
+    const offered = shortlistFor(c.request, ctx).options.flatMap((o) => o.candidates);
+    const over = offered.filter((x) => x.overBudget);
+
+    expect(c.expect.forbidViolationCodes).toContain("OVER_BUDGET");
+    expect(c.expect.allowOnMealStops).toEqual(["OVER_BUDGET"]);
+    expect(over.length).toBeGreaterThan(0);
+    expect(over.every((x) => x.meal && x.place.priceLevel === 2)).toBe(true);
+  });
+
   it("never expects a place the model is not offered", () => {
     for (const c of CASES) {
       if (c.expect.expectAnyPlaceIds.length === 0) continue;
@@ -170,6 +181,10 @@ describe("eval case schema", () => {
     [
       "an error code as an expected warning",
       { ...valid, expect: { ...valid.expect, expectWarningCodes: ["CLOSED_AT_TIME"] } },
+    ],
+    [
+      "an error code allowed on meal stops",
+      { ...valid, expect: { ...valid.expect, allowOnMealStops: ["UNKNOWN_PLACE"] } },
     ],
     [
       "a code that does not exist",

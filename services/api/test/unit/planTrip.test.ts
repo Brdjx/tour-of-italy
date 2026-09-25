@@ -1,21 +1,24 @@
 import { type TripRequest, TripRequestSchema } from "@italy/planner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadConfig } from "../../src/config";
 import { shippedData } from "../../src/data";
 import { LlmError } from "../../src/llm/errors";
 import { FIXTURE_SCENARIOS, FixtureClient, type FixtureScenario } from "../../src/llm/fixture";
 import { validSelection } from "../../src/llm/fixtureAnswers";
 import { PROMPT_VERSION } from "../../src/llm/prompt";
-import { type PlanDeps, planTrip } from "../../src/plan/planTrip";
+import { DEFAULT_TIMING, type PlanDeps, planTrip } from "../../src/plan/planTrip";
 import { START_DATE } from "../helpers/app";
-import { ScriptedClient, textResult } from "../helpers/fakeClients";
+import { delay, ScriptedClient, textResult } from "../helpers/fakeClients";
 import { expectValidItinerary } from "../helpers/validPlan";
 
 // Failure vector F2: the AI path must end in a valid plan with the right label, inside the
 // deadline, whatever the model does. Fake timers make the slow scenarios instant and exact.
 
 const { ctx } = shippedData();
-const DEADLINE = 24_000;
-const TIMEOUT = 12_000;
+// The production defaults (config.ts, infra/sam/template.yaml): 24 s a plan, 15 s a call.
+const DEFAULTS = loadConfig({});
+const DEADLINE = DEFAULTS.planDeadlineMs;
+const TIMEOUT = DEFAULTS.llmTimeoutMs;
 
 function request(overrides: Record<string, unknown> = {}): TripRequest {
   return TripRequestSchema.parse({ startDate: START_DATE, pace: "balanced", ...overrides });
@@ -116,6 +119,60 @@ describe("planTrip with every fixture scenario", () => {
     expect(elapsed).toBeLessThan(DEADLINE);
   });
 
+  it("gives the first call 15 s, so an answer at 14 s becomes the plan instead of a fallback", async () => {
+    const slow = new ScriptedClient(async (input) => {
+      await delay(14_000);
+      return textResult({ selection: validSelection(input.request, input.user, ctx) });
+    });
+
+    const { outcome, elapsed } = await run(slow);
+
+    expect(TIMEOUT).toBe(15_000);
+    expect(slow.inputs[0]?.timeoutMs).toBe(15_000);
+    expect(outcome.itinerary.source).toBe("ai");
+    expect(elapsed).toBeGreaterThanOrEqual(14_000);
+  });
+
+  it("still repairs an answer that took almost the whole first call, in what is left of the deadline", async () => {
+    // 24 s - 14.9 s - the 1.5 s reserve leaves 7.6 s for the repair, over its 4 s minimum; live
+    // repairs that answered took 2.6 to 8.0 s.
+    const client = new ScriptedClient(async (input, call) => {
+      const selection = validSelection(input.request, input.user, ctx);
+      if (call === 1) {
+        await delay(14_900);
+        selection.days[0]?.placeIds.unshift("place_999");
+      } else {
+        await delay(7_000);
+      }
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome, elapsed } = await run(client);
+
+    expect(client.inputs.map((input) => input.timeoutMs)).toEqual([
+      15_000,
+      DEADLINE - 14_900 - DEFAULT_TIMING.reserveMs,
+    ]);
+    expect(outcome.itinerary.source).toBe("ai_repaired");
+    expect(elapsed).toBeLessThan(DEADLINE - DEFAULT_TIMING.reserveMs);
+  });
+
+  it("cuts a repair after a slow first answer at what is left of the deadline, then falls back in time", async () => {
+    const client = new ScriptedClient(async (input, call) => {
+      if (call > 1) return new Promise(() => {});
+      await delay(14_900);
+      const selection = validSelection(input.request, input.user, ctx);
+      selection.days[0]?.placeIds.unshift("place_999");
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome, elapsed } = await run(client);
+
+    expect(client.inputs).toHaveLength(2);
+    expect(outcome.itinerary.meta.fallbackReason).toBe("timeout");
+    expect(elapsed).toBeLessThanOrEqual(DEADLINE - DEFAULT_TIMING.reserveMs + 100);
+  });
+
   it("still calls the model when LLM_TIMEOUT_MS is shorter than the default minimum", async () => {
     const client = new FixtureClient(ctx, "valid");
 
@@ -198,9 +255,10 @@ describe("planTrip with every fixture scenario", () => {
     expect(itinerary.source).toBe("ai_repaired");
     expect(itinerary.meta.attempts).toBe(1);
     expect(outcome.trace.violationCodes).toEqual([]);
-    // Day 0, with the Spanish Steps alone, holds the museums, so they move there.
+    // Day 0, with the Spanish Steps alone, holds the museums, so they move there, and the record
+    // keeps the rule that took them off day 1.
     expect(outcome.trace.tidied).toEqual([
-      { rule: "moved_day", day: 1, placeId: vatican, toDay: 0, answer: 1 },
+      { rule: "moved_day", day: 1, placeId: vatican, toDay: 0, cause: "does_not_fit", answer: 1 },
     ]);
     expect(itinerary.days[1]?.stops.map((stop) => stop.placeId)).toEqual(overHours.slice(0, -1));
     expect(itinerary.days[0]?.stops.map((stop) => stop.placeId)).toEqual(["place_019", vatican]);

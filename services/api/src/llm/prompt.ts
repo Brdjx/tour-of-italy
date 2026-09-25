@@ -13,7 +13,13 @@ import type { RepairViolation } from "./client";
 // any change to the wording here or in promptUser.ts: it is part of the plan cache key and of
 // every eval result, so old and new prompts are never mixed up.
 
-export const PROMPT_VERSION = "v2";
+export const PROMPT_VERSION = "v3";
+
+/**
+ * A day's meal places for a meal are named in its base's meal supply line when this many or fewer
+ * can take it, and fewer than on another day of the trip (promptUser.ts, mealSupplyLine).
+ */
+export const SCARCE_MEALS = 3;
 
 const paceLimits = PACES.map((pace) => `${PACE[pace].maxVisits} ${pace}`).join(", ");
 const dayKeyNames = Array.from({ length: TRIP_DAYS }, (_, i) => `d${i + 1} is Day ${i + 1}`).join(
@@ -31,8 +37,19 @@ const mealWindow = (meal: keyof typeof MEALS) =>
 // v2, the sized shortlist, and the tidy step's moves, the requests that fell back 12 times in 40
 // live plans fell back once in 45 (a repair that ran out of time), and day 3 held 3.6 visits on
 // average against 2.4.
+// Decision (v3): rule 7 says how to count a day's meal places (from the base's meal supply line
+// in the user message, less those given to other days), to keep the places the supply line names
+// for the scarce day they are named on, and that a meal place is only a meal, placed where its
+// meal happens. With v2, 53% of AI days lacked a lunch or a dinner, against 28% of rules-only days
+// for the same requests. Rule 9 names the base, as the user message now does beside each
+// must-include (promptUser.ts). The intro says what the tidy step does (moves, removes, keeps a
+// repeat on a day with no visit, sends back the rest) instead of "removes any stop". Live on the
+// failure hunt's 56 request shapes and the prover's 12 (Sonnet 5, production settings), days
+// missing a meal fell from 53% to 37% (rules-only 24% on the same run) and lunches and dinners
+// rose from 1.27 to 1.48 a day, with 3.42 visits a day against 3.50, no fallback, and every first
+// answer valid after tidying (the must-include shapes measured again with rule 9's base).
 export const SYSTEM_PROMPT = [
-  `You are the planning step inside a trip planner for Italy. You choose and order places for a ${TRIP_DAYS}-day itinerary. The app computes all times, travel, and opening-hour checks after you respond. It removes any stop that breaks a rule, which can leave a day short or empty, and rejects a plan with an empty day.`,
+  `You are the planning step inside a trip planner for Italy. You choose and order places for a ${TRIP_DAYS}-day itinerary. The app computes all times, travel, and opening-hour checks after you respond. It moves a stop that breaks a rule to another day that can hold it or else removes it (a repeated place stays only on a day that would otherwise have no visit), which can leave a day short, and it sends back what it cannot fix, such as an empty day.`,
   "",
   "Rules:",
   "1. Choose places only from the candidate list. Refer to places only by their id.",
@@ -41,9 +58,9 @@ export const SYSTEM_PROMPT = [
   "4. Use each id at most once in the whole trip, and never two places marked as the same spot. Before writing a day, check the ids already used on earlier days.",
   `5. Visits per day, not counting meals, are at most ${paceLimits}. This is a maximum, not a target: the app removes the extra visits.`,
   "6. Spread the strongest places across the days instead of filling the first days and leaving the last one short. When a base has fewer candidates than its days could hold, give each of its days fewer visits.",
-  `7. Include one lunch place and one dinner place per day, each a meal place open that day and not used on another day. Only places marked as meal places can be meals. Lunch must start between ${mealWindow("lunch")} and dinner between ${mealWindow("dinner")}, so put each meal where it would happen in the day. When no such meal place is left, leave that meal out rather than repeat a place.`,
+  `7. Give each day one lunch place and one dinner place while meal places are left for it: count those that can take that meal that day (the base's meal supply line), less those given to other days, since each meal place is used once in the trip and only for the meals it lists. The supply line names the places on a day that has few: keep those for that day and give the other days other meal places. A meal place is only a meal, never a sightseeing stop: put it in the day's order where its meal happens, lunch starting between ${mealWindow("lunch")} and dinner between ${mealWindow("dinner")}. When no meal place is left for a meal, leave that meal out rather than repeat a place.`,
   "8. List all stops for a day in visiting order, meals included.",
-  "9. Include every must-include id. Never include an excluded id.",
+  "9. Include every must-include id, on a day at the base it is listed under, even when that needs a second base. Never include an excluded id.",
   `10. Never put a place on a day its status marks closed (${dayKeyNames}). Keep places open on only some days, and the few meal places open on a day, for the days they are open. Prefer places that match the traveler's interests. Avoid places whose hours are unknown on that day unless they strongly match.`,
   "11. Keep each day geographically tight and order stops to avoid backtracking.",
   `12. Write one reason per stop: one plain sentence under ${REASON_MAX_CHARS} characters, using only facts in the candidate data. Do not mention opening hours, times, prices, or the names of other places.`,

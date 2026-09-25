@@ -34,7 +34,8 @@ import type { Shortlist } from "./candidates";
 //      also has it on a day it is open);
 //   2. drops a place already in the trip, and an ordinary place at the same spot (or the same
 //      experience) as one already in the trip or as a must-include, except that a day those
-//      drops would empty keeps one of its places and the day that had it first loses it;
+//      drops would empty keeps one of its places, and a day they would leave with meal places
+//      only keeps one of its visits, and the day that had it first loses it;
 //   3. puts a day whose order cannot be timed in an order the rules-only planner's day walk
 //      finds for the same places (packages/planner/src/orderDay.ts);
 //   4. drops a day's last ordinary visits until the pace's visit limit holds;
@@ -59,11 +60,15 @@ export type TidyRule =
   | "reordered"
   | "moved_day";
 
+/** The rules whose drops may move to another day (step 7). */
+export type MovableRule = "closed" | "over_visit_limit" | "does_not_fit";
+
 export interface TidyChange {
   rule: TidyRule;
   day: number; // 0-based day index
   placeId?: string; // the place taken out; absent when the day was reordered
   toDay?: number; // moved_day only: the day the place was moved to
+  cause?: MovableRule; // moved_day only: the rule that took the place off `day`
 }
 
 export interface Tidied {
@@ -213,9 +218,10 @@ function atOneSpot(a: Entry, b: Entry): boolean {
 /**
  * For each day the repeat rules would empty, one of its places stays and the entry it repeats
  * goes instead: the one whose day keeps the most stops, a visit before a meal place, then the
- * first. Only an entry that repeats a kept one on a day with another stop to keep can stay, and
- * only one with no other place in the trip at its spot; never against a must-include's spot.
- * Changes `repeats` in place.
+ * first. Then, for each day they would leave with meal places only, one of its visits stays the
+ * same way, when the day it repeats keeps another visit. Only an entry that repeats a kept one on
+ * a day with another stop to keep can stay, and only one with no other place in the trip at its
+ * spot; never against a must-include's spot. Changes `repeats` in place.
  */
 // Decision: the day that would be empty needs the place more than the day that had it first. The
 // owner's failed plan of 2026-09-25 (as rebuilt from its log) put its Sunday on places closed that
@@ -228,6 +234,13 @@ function atOneSpot(a: Entry, b: Entry): boolean {
 // days had fewer stops passed as many answers and gave day 3 more stops, but left more days with
 // under two visits or without lunch or dinner (512 of 879 against 500), and it moves more of the
 // model's choices between days.
+// Decision: a day of meal places only keeps one repeated visit too, when the day it repeats keeps
+// another visit, so the swap never empties a day of visits in turn. The empty-day rule did not
+// apply to such a day, since its meal kept it from being empty: in a live run of the everything
+// eval on 2026-09-25, day 3 was a dinner alone once St. Mark's Basilica, which day 1 also had, was
+// dropped from it, though day 1 had five visits. On the 359 recorded answers of the failure hunt
+// and the prover of that day, days of meals only fall from 3 to 1, 4 answers change, and no
+// answer that passed the check stops passing.
 function keepEveryDay(
   grid: readonly Entry[][],
   repeats: Map<Entry, Repeat>,
@@ -247,11 +260,14 @@ function keepEveryDay(
           atOneSpot(other, entry),
       );
   const isMeal = (entry: Entry) => entry.place !== undefined && isMealPlace(entry.place);
-  grid.forEach((entries, day) => {
-    if (entries.length === 0 || entries.some((entry) => !repeats.has(entry))) return;
+  const isVisit = (entry: Entry) => entry.place !== undefined && !isMealPlace(entry.place);
+  /** Keeps one repeat on `day` (a visit when `visitOnly`), or none when none may stay. */
+  const keepOne = (day: number, visitOnly: boolean) => {
     const options = [...repeats].flatMap(([entry, repeat]) => {
-      const spare = keptOn(repeat.rival.day).length;
+      const left = keptOn(repeat.rival.day);
+      const spare = left.length;
       if (entry.day !== day || repeats.has(repeat.rival) || spare < 2) return [];
+      if (visitOnly && (!isVisit(entry) || left.filter(isVisit).length < 2)) return [];
       const spot = repeat.rule === "same_spot";
       if (spot && (must.has(repeat.rival.placeId) || !lonely(entry, repeat.rival))) return [];
       return [{ entry, repeat, spare }];
@@ -266,6 +282,12 @@ function keepEveryDay(
     if (!chosen) return;
     repeats.delete(chosen.entry);
     repeats.set(chosen.repeat.rival, { rule: chosen.repeat.rule, rival: chosen.entry });
+  };
+  grid.forEach((entries, day) => {
+    if (entries.length === 0) return;
+    if (keptOn(day).length === 0) keepOne(day, false);
+    const kept = keptOn(day);
+    if (kept.length > 0 && kept.every(isMeal)) keepOne(day, true);
   });
 }
 
@@ -564,14 +586,21 @@ function insertion(placeId: string, order: readonly string[], job: DayJob): stri
 }
 
 /** The drops that may move to another day: a closure, the visit limit, or the hours. */
-const MOVABLE: ReadonlySet<TidyRule> = new Set(["closed", "over_visit_limit", "does_not_fit"]);
+const MOVABLE: ReadonlySet<TidyRule> = new Set<MovableRule>([
+  "closed",
+  "over_visit_limit",
+  "does_not_fit",
+]);
+
+const isMovable = (rule: TidyRule): rule is MovableRule => MOVABLE.has(rule);
 
 /**
  * Step 7: each place a day lost to its closed day, the visit limit, or the hours, that the model
  * was offered, and that is not in the trip or at the spot of a place that is, moved to another day
  * at its base: one open on that day's date, with the fewest stops first, then the earliest,
- * inserted as a put-back is (insertion). Its record becomes moved_day, and the record of its
- * repeat on the day it joins, if there is one, goes. `trip` is the trip after steps 1 to 6, which
+ * inserted as a put-back is (insertion). Its record becomes moved_day, with the rule that took it
+ * off its day as its cause, and the record of its repeat on the day it joins, if there is one,
+ * goes. `trip` is the trip after steps 1 to 6, which
  * each job reads and this updates; `jobs` has each day's job, or null for a day that was not
  * tidied.
  */
@@ -598,7 +627,8 @@ function withMoves(
 ): string[][] {
   for (const change of [...changes]) {
     const place = ctx.placesById.get(change.placeId ?? "");
-    if (!MOVABLE.has(change.rule) || place === undefined) continue;
+    const cause = change.rule;
+    if (!isMovable(cause) || place === undefined) continue;
     if (!shortlist.placeIds.has(place.id)) continue;
     const target = moveTarget(place, change.day, trip, jobs, ctx);
     if (target === null) continue;
@@ -607,7 +637,7 @@ function withMoves(
       (other) =>
         other.day === target.day && other.placeId === place.id && other.rule === "duplicate",
     );
-    changes[changes.indexOf(change)] = { ...change, rule: "moved_day", toDay: target.day };
+    changes[changes.indexOf(change)] = { ...change, rule: "moved_day", toDay: target.day, cause };
     if (repeat >= 0) changes.splice(repeat, 1);
   }
   return trip.map((day) => [...day.placeIds]);

@@ -33,7 +33,7 @@ export class PoolCache {
       pool = placesOfAnchor(this.ctx, anchorId).filter(
         (place) =>
           (isCandidate(place, this.request, anchorId, this.ctx) ||
-            this.isMealFallback(place, anchorId)) &&
+            isMealFallback(place, this.request, anchorId, this.ctx)) &&
           !this.twinOfMust(place),
       );
       this.strictPools.set(anchorId, pool);
@@ -58,22 +58,6 @@ export class PoolCache {
     return extras;
   }
 
-  /**
-   * True for a meal place exactly one price level over the budget that would otherwise be a
-   * candidate. The walk seats one only when no meal place within budget can still take that
-   * meal (dayBuilder.ts), and the plan shows an OVER_BUDGET warning for it.
-   */
-  // Decision: a budget traveler still eats. At the lowest budget Milan has no meal place and Rome
-  // one lunch counter, so 70% of budget days had no meal at all and 90% no dinner. One level
-  // over, marked, is the same allowance the AI shortlist makes, and only ever for a meal.
-  isMealFallback(place: Place, anchorId: string): boolean {
-    const budget = this.request.maxPriceLevel;
-    if (budget === null || budget >= 4 || !isMealPlace(place)) return false;
-    if (withinBudget(place, budget)) return false;
-    const oneOver = { ...this.request, maxPriceLevel: (budget + 1) as 2 | 3 | 4 };
-    return isCandidate(place, oneOver, anchorId, this.ctx);
-  }
-
   /** True for a place that is not a must-include but shares a spot with one. */
   private twinOfMust(place: Place): boolean {
     if (this.wanted.includes(place.id)) return false;
@@ -82,6 +66,28 @@ export class PoolCache {
       return must !== undefined && sharesLocation(must, place);
     });
   }
+}
+
+/**
+ * True for a meal place exactly one price level over the budget that would otherwise be a
+ * candidate. The walk seats one only when no meal place within budget can still take that meal
+ * (dayBuilder.ts), the AI shortlist offers it after every meal place within budget
+ * (services/api/src/plan/candidates.ts), and the plan shows an OVER_BUDGET warning for it.
+ */
+// Decision: a budget traveler still eats. At the lowest budget Milan has no meal place and Rome
+// one lunch counter, so 70% of budget days had no meal at all and 90% no dinner. One level over,
+// marked, is the same allowance the AI shortlist makes, and only ever for a meal.
+export function isMealFallback(
+  place: Place,
+  request: Pick<TripRequest, "exclude" | "mustInclude" | "maxPriceLevel">,
+  anchorId: string,
+  ctx: PlannerContext,
+): boolean {
+  const budget = request.maxPriceLevel;
+  if (budget === null || budget >= 4 || !isMealPlace(place)) return false;
+  if (withinBudget(place, budget)) return false;
+  const oneOver = { ...request, maxPriceLevel: (budget + 1) as 2 | 3 | 4 };
+  return isCandidate(place, oneOver, anchorId, ctx);
 }
 
 /**

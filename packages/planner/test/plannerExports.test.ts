@@ -44,6 +44,8 @@ const PLANNER_CORE_FUNCTIONS = [
   "isCandidate",
   "isOuting",
   "coversMeal",
+  // pools.ts (the AI shortlist offers the same meal places over budget)
+  "isMealFallback",
   // score.ts
   "interestShare",
   "scoreParts",

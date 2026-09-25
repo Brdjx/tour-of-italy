@@ -40,7 +40,10 @@ POST /api/plan
   -> rules-only plan made once (about 10 ms): the fallback, and a source of bases to offer
   -> shortlist: up to 4 bases; per base the best visits and meal places for a whole trip
        there at the pace (each day's visits plus two, two meals a day plus one), none
-       that cannot be a day's only stop on any trip date unless the traveler asked for it
+       that cannot be a day's only stop on any trip date unless the traveler asked for it;
+       under a budget, meal places one price level over it, marked, after those within it
+  -> prompt: each base's meal supply (meal places that can take lunch and dinner each day,
+       named on a scarce day), then its candidate rows
   -> Claude selects: per day a base id and ordered place ids, a reason per stop, a summary
        structured outputs (JSON schema), ids only, no times
   -> stop_reason checked (refusal, max_tokens -> fallback), then parsed with Zod
@@ -50,8 +53,9 @@ POST /api/plan
        ordinary visit a day's hours cannot hold until it times cleanly (never a must-include
        or a meal the day needs), and put each back where the day's order holds it after all;
        a restaurant timed as a visit moves to where it is the meal the day lacks; a day
-       repeats would empty keeps one of them, and what a day cannot hold moves to another
-       day at its base that holds it
+       repeats would empty keeps one of them, a day they would leave with meals only keeps
+       one of its visits, and what a day cannot hold moves to another day at its base that
+       holds it (the log keeps the rule that took it off its day)
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
@@ -67,7 +71,7 @@ POST /api/plan
   -> response: itinerary, warnings (exactly the validator's), source, meta
 ```
 
-Code: `services/api/src/routes/plan.ts` (the route), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, each model call at most 12 s, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
+Code: `services/api/src/routes/plan.ts` (the route), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. Each model call gets at most 15 s (`LLM_TIMEOUT_MS`) and never more than what is left of the deadline after the reserve: the first call gets the full 15 s, and a repair after a first answer at 15 s still gets 7.5 s. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
 
 ## Monorepo layout
 

@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "sparse-interest",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "",
+    "stopReason": "refusal",
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    "latencyMs": 0,
+    "model": "adversarial"
+  },
+  "scenario": {
+    "name": "Refusal",
+    "note": "stop_reason refusal with no text; no repair, rules-only plan.",
+    "expectSource": "deterministic",
+    "expectFallbackReason": "refusal"
+  }
+}

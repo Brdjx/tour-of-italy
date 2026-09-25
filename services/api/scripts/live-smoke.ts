@@ -49,7 +49,7 @@ async function smoke(model: string, apiKey: string) {
     ctx,
     now: Date.now,
     config: {
-      timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 12_000),
+      timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 15_000),
       deadlineMs: Number(process.env.PLAN_DEADLINE_MS ?? 24_000),
       maxAttempts: 2,
     },

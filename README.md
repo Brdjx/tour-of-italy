@@ -76,7 +76,7 @@ The source file `data/italy.json` is never edited. The normalizer keeps all 103 
 | One repair turn with the exact violations | `services/api/src/plan/planTrip.ts`, `llm/prompt.ts` |
 | Rules-only plan for every other outcome, and a final guard on every response | `services/api/src/plan/outcome.ts` |
 | Traveler notes escaped as data, reasons and summary sanitized | `llm/prompt.ts`, `plan/reasons.ts`, `plan/summary.ts`, `plan/textGuards.ts` |
-| 24 s deadline, 12 s per call, 29 s function timeout under API Gateway's 30 s | `plan/planTrip.ts`, `infra/sam/template.yaml` |
+| 24 s deadline, 15 s per call, 29 s function timeout under API Gateway's 30 s | `plan/planTrip.ts`, `infra/sam/template.yaml` |
 | Cost limits: WAF per-IP limits, gateway throttles, 10 reserved instances, per-client limit, cache | `infra/terraform/platform/waf.tf`, `infra/sam/template.yaml`, `services/api/src/lib` |
 | The browser re-validates every API plan and every edit | `apps/web/lib/planRequest.ts`, `apps/web/lib/itineraryReducer.ts` |
 

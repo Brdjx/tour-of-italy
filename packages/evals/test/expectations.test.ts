@@ -36,6 +36,28 @@ describe("expectation checks", () => {
     ).toBe("pass");
   });
 
+  it("allows a code the case allows on meal stops only on a lunch or dinner, never on a visit", () => {
+    // Milan at the lowest price level: every meal the rules-only plan seats is one level over.
+    const milan = plan({ anchors: ["milan"], maxPriceLevel: 1 });
+    const over = milan.days
+      .flatMap((day) => day.stops)
+      .filter((stop) => ctx.placesById.get(stop.placeId)?.priceLevel === 2);
+    expect(over.length).toBeGreaterThan(0);
+    expect(over.every((stop) => stop.role !== "visit")).toBe(true);
+    const forbid = { forbidViolationCodes: ["OVER_BUDGET" as const] };
+    const allow = { ...forbid, allowOnMealStops: ["OVER_BUDGET" as const] };
+
+    expect(statusOf(run(forbid, { itinerary: milan }), "forbidViolationCodes")).toBe("fail");
+    expect(statusOf(run(allow, { itinerary: milan }), "forbidViolationCodes")).toBe("pass");
+
+    // The same place timed as a visit is a sight over the budget, which the case still forbids.
+    const asVisit = structuredClone(milan);
+    for (const day of asVisit.days) {
+      for (const stop of day.stops) if (stop.placeId === over[0]?.placeId) stop.role = "visit";
+    }
+    expect(statusOf(run(allow, { itinerary: asVisit }), "forbidViolationCodes")).toBe("fail");
+  });
+
   it("fails an expected warning the plan does not carry", () => {
     expect(
       statusOf(run({ expectWarningCodes: ["MUST_INCLUDE_UNPLACEABLE"] }), "expectWarningCodes"),

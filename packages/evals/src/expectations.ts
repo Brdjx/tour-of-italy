@@ -1,4 +1,9 @@
-import { type Itinerary, type PlannerContext, validateItinerary } from "@italy/planner";
+import {
+  type Itinerary,
+  type PlannerContext,
+  type Violation,
+  validateItinerary,
+} from "@italy/planner";
 import type { Expect } from "./cases";
 
 // Per-case expectation checks (the "expect" block of a case file). Each check says pass, fail, or
@@ -33,9 +38,22 @@ function visibleText(itinerary: Itinerary): string {
   return [itinerary.summary ?? "", ...reasons].join("\n").toLowerCase();
 }
 
+/** True when the finding is about a stop the plan times as lunch or dinner on its day. */
+function onMealStop(itinerary: Itinerary, finding: Violation): boolean {
+  if (finding.day === undefined || finding.placeId === undefined) return false;
+  const stops = itinerary.days[finding.day]?.stops ?? [];
+  return stops.some((stop) => stop.placeId === finding.placeId && stop.role !== "visit");
+}
+
 function checkCodes(expect: Expect, input: CheckInput, ctx: PlannerContext): CheckResult[] {
   const out: CheckResult[] = [];
-  const planCodes = validateItinerary(input.itinerary, ctx).map((v) => v.code);
+  // Decision: a code the case allows on meal stops counts only on a visit. At the lowest budget
+  // both planners may seat a meal place one level over, with its warning, when nothing within
+  // budget can take the meal; a sight over the budget is still the mistake the case looks for.
+  const allowed = new Set(expect.allowOnMealStops);
+  const planCodes = validateItinerary(input.itinerary, ctx)
+    .filter((v) => !(allowed.has(v.code) && onMealStop(input.itinerary, v)))
+    .map((v) => v.code);
   if (expect.forbidViolationCodes.length > 0) {
     // Decision: forbidden codes are looked for in the model's answers too, not only in the final
     // plan. Error codes can never reach the final plan (the pipeline tidies or replaces it), so
