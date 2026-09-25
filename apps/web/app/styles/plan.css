@@ -152,10 +152,6 @@
     .head-pill-skeleton {
       width: auto;
     }
-
-    .trip-head-status {
-      margin-top: 12px;
-    }
   }
 
   @media (min-width: 640px) {
@@ -164,18 +160,27 @@
     }
   }
 
-  /* How the plan was made, and Undo once there is an edit: one line under the heading. */
+  /* How the plan was made, and Undo once there is an edit: one line under the heading.
+     Decision: the row is as tall as the claim's first line and 4px of air on each side, not the
+     44px of the Undo pill at its end. Undo keeps its 44px target and hangs over the row's air
+     above and below by the same amount (--status-hang), centred on the claim's first line, so
+     the line sits with the dates and pace it describes instead of floating between them and the
+     summary, and the header keeps its height when Undo comes and goes. */
   .trip-head-status {
+    --status-line: calc(0.875rem * 1.35);
+    --status-hang: calc((44px - var(--status-line) - 8px) / 2);
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
-    margin-top: 8px;
+    /* Room for Undo's hang, so its target stays clear of Copy link above it on every width. */
+    margin-top: 12px;
     animation: details-in var(--dur-move) var(--ease-content) both;
   }
 
   .head-undo {
     flex-shrink: 0;
+    margin-block: calc(-1 * var(--status-hang));
     animation: undo-in var(--dur-spring) var(--spring-snappy);
   }
 
@@ -202,17 +207,17 @@
 
   /* ----- The source line ----- */
 
-  /* Under the heading the source line is small print: the claim, not a second title.
-     Decision: the padding puts the first line's centre 22px down, the centre of the 44px Undo
-     pill at its end, and the mark sits on that line too, so the mark, the claim and Undo read as
-     one row; a claim that wraps on a phone wraps under itself, beside the mark. */
+  /* Under the heading the source line is small print: the claim, not a second title. The mark
+     sits on its first line, level with the centre of Undo at its end (.trip-head-status), so the
+     mark, the claim and Undo read as one row; a claim that wraps on a phone wraps under itself,
+     beside the mark. */
   .source-line {
     display: flex;
     min-width: 0;
     flex: 1;
     align-items: flex-start;
     gap: 10px;
-    padding-block: calc((44px - 1.35em) / 2);
+    padding-block: 4px;
     color: var(--fg);
     font-size: 0.875rem;
     line-height: 1.35;
