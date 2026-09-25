@@ -279,6 +279,18 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Decision: a heading or the plan area that takes focus only so reading starts there (the day
+ * heading when a plan arrives or a link opens, a sheet's or the first screen's title) draws no
+ * ring. Nothing there can be pressed, and a gold ring round the day's date was the first thing
+ * everyone opening a shared or saved link saw. Focus still moves, so a screen reader reads from
+ * there and the next Tab starts there. Unlayered like the rule above, which otherwise beats the
+ * outline-none these elements carry from inside the layers.
+ */
+:is(h1, h2, .plan-pane)[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 ::selection {
   background: var(--gold-soft);
   color: var(--fg);

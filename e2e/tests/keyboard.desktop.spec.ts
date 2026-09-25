@@ -66,6 +66,8 @@ test("plans, switches days, swaps, reorders, removes and undoes with the keyboar
   await page.keyboard.press("Enter");
   await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
   await expect(page.locator("#day-heading-0")).toBeFocused();
+  // Focus lands there so reading starts there; the heading is not a control and draws no ring.
+  expect(await ringShows(page)).toBe(false);
 
   // Day tabs: one tab stop, arrows move between days.
   await tabTo(page, "day-tab-1", 10, "Shift+Tab");

@@ -129,6 +129,21 @@ describe("layout rules", () => {
     expect(html).toMatch(/scroll-padding-bottom: calc\(var\(--safe-bottom\) \+ \d+px\)/);
   });
 
+  it("draws no ring round a heading or the plan area that takes focus so reading starts there", () => {
+    // Unlayered and after the global ring, or the ring wins over the outline-none on them: a
+    // shared or saved link opened with a gold ring round the day's date.
+    const ring = globals.indexOf("\n:focus-visible {");
+    const quiet = globals.indexOf('\n:is(h1, h2, .plan-pane)[tabindex="-1"]:focus-visible {');
+    expect(ring).toBeGreaterThan(0);
+    expect(quiet).toBeGreaterThan(ring);
+    expect(block(globals.slice(quiet), ":focus-visible {")).toContain("outline: none");
+    const depth = [...globals.slice(0, quiet)].reduce(
+      (open, char) => open + (char === "{" ? 1 : char === "}" ? -1 : 0),
+      0,
+    );
+    expect(depth).toBe(0);
+  });
+
   it("keeps the page still behind a sheet where the scrollbar takes room", () => {
     // A sheet stops the page scrolling, which takes a classic scrollbar away; the gutter stays.
     expect(read("styles/sheet.css")).toMatch(
