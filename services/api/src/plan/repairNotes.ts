@@ -56,6 +56,10 @@ function why(
     }
     case "over_visit_limit":
       return `day ${day + 1} had more visits than the ${request.pace} pace allows (${PACE[request.pace].maxVisits} a day, not counting meals)`;
+    case "over_budget_visit": {
+      const base = ctx.anchorIdByPlaceId.get(placeId) ?? "its base";
+      return `over budget, so only a lunch or dinner, and no day at ${base} had one free for it`;
+    }
     default:
       return `day ${day + 1}'s opening hours and travel time could not hold it`;
   }

@@ -43,6 +43,7 @@ describe("repairNotes", () => {
       { rule: "same_spot", day: 1, placeId: "place_010" },
       { rule: "over_visit_limit", day: 1, placeId: "place_014" },
       { rule: "does_not_fit", day: 2, placeId: "place_097" },
+      { rule: "over_budget_visit", day: 0, placeId: "place_020" },
       { rule: "reordered", day: 1 },
     ]);
 
@@ -54,6 +55,7 @@ describe("repairNotes", () => {
       "day 2, place_010: the same spot as another stop in the trip",
       "day 2, place_014: day 2 had more visits than the balanced pace allows (5 a day, not counting meals)",
       "day 3, place_097: day 3's opening hours and travel time could not hold it",
+      "day 1, place_020: over budget, so only a lunch or dinner, and no day at rome had one free for it",
     ]);
     expect(result.moved).toEqual([]);
     expect(result.emptyDays).toEqual([]);

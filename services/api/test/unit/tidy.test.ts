@@ -3,6 +3,7 @@ import {
   type ItineraryMeta,
   NoFeasiblePlanError,
   planDeterministic,
+  scheduleDay,
   type TripRequest,
   TripRequestSchema,
 } from "@italy/planner";
@@ -19,10 +20,12 @@ import { type MovableRule, tidySelection } from "../../src/plan/tidy";
 // times: closed places, repeats, the order of a day, the visit limit, and the day's hours, and it
 // puts back a place dropped for the hours where another position holds it, and a restaurant only
 // as a meal the day lacks. What a day cannot hold moves to another day at its base that holds it,
-// and a day that repeats would empty keeps one of its places. Each rule is pinned here on real
-// places, most in Rome and some in Florence and Bologna, and so is the promise that a valid
+// and a day that repeats would empty keeps one of its places. A day's meal places go where their
+// meals happen, a restaurant over the budget is only ever a meal, and of a restaurant and a visit
+// at one spot the restaurant stays when the trip needs its meal. Each rule is pinned here on real
+// places, most in Rome and some in Florence, Venice and Bologna, and so is the promise that a valid
 // answer passes through untouched. Most answers here have short other days, so a place one day
-// drops moves to one of them (step 7); the day's own result is what each test is about.
+// drops moves to one of them (step 8); the day's own result is what each test is about.
 
 const { ctx } = shippedData();
 
@@ -63,6 +66,7 @@ const MERCATO_CENTRALE_FOOD_HALL = "place_031"; // the same spot as the Mercato 
 const ACCADEMIA = "place_032";
 const BUCA_DELL_ORAFO = "place_033"; // lunch and dinner
 const SANTA_CROCE = "place_036";
+const BOBOLI_GARDENS = "place_034";
 const RASPUTIN = "place_037"; // dinner only
 const IL_LATINI = "place_039"; // lunch and dinner
 const SAN_MINIATO = "place_040";
@@ -75,10 +79,21 @@ const PINACOTECA = "place_051";
 const PIAZZA_MAGGIORE_BY_NIGHT = "place_052";
 const PROSCIUTTO_DI_PARMA = "place_092"; // lunch only, in Parma
 const PITTI_PALACE = "place_081";
+const PIENZA_DAY_TRIP = "place_089";
 const PONTE_VECCHIO = "place_084";
 const DUOMO_EXTERIOR = "place_093";
 const BARGELLO = "place_101"; // open 08:15 to 13:50
 const PALAZZO_VECCHIO = "place_103";
+const RIALTO_BRIDGE = "place_066"; // a Venice place
+const DOGES_PALACE = "place_067";
+const CICCHETTI_CRAWL = "place_068"; // dinner only
+const GUGGENHEIM = "place_069"; // open 10:00 to 18:00
+const DORSODURO = "place_072";
+const OSTERIA_DA_RIOBA = "place_073"; // lunch and dinner
+const ST_MARKS_BASILICA = "place_074";
+const OSTERIA_ALLA_STAFFA = "place_076"; // lunch and dinner
+const SAN_GIORGIO_CAMPANILE = "place_088";
+const AL_QUADRI = "place_096"; // lunch and dinner
 
 const META: ItineraryMeta = {
   model: "test",
@@ -133,7 +148,7 @@ function errorsOf(selection: LlmSelection, request = rome()) {
 
 const idsOf = (selection: LlmSelection) => selection.days.map((day) => day.placeIds);
 
-/** The record of a place that left `day` for `toDay` (step 7), and the rule that took it off. */
+/** The record of a place that left `day` for `toDay` (step 8), and the rule that took it off. */
 const moved = (day: number, placeId: string, toDay: number, cause: MovableRule) => ({
   rule: "moved_day",
   day,
@@ -1474,5 +1489,386 @@ describe("tidySelection across days", () => {
     expect(tidied.changes).toEqual([moved(0, AVENTINE_KEYHOLE, 2, "over_visit_limit")]);
     expect(idsOf(tidied.selection)[2]).toEqual([TRASTEVERE, AVENTINE_KEYHOLE]);
     expect(errorsOf(tidied.selection, request)).toEqual([]);
+  });
+
+  it("drops the same-spot record of a place that moves to the day that had it", () => {
+    // Sunday 25 October in Florence, packed, at the lowest budget: the market is closed on day 0,
+    // and day 1's copy gives way to the food hall at its spot. The food hall, over the budget, is
+    // a visit on day 0 and leaves, so the market moves to day 1, where the model also put it.
+    const request = rome({
+      startDate: "2026-10-25",
+      pace: "packed",
+      maxPriceLevel: 1,
+      anchors: ["florence"],
+    });
+    const florence = (...placeIds: string[]) => ({ anchorId: "florence", placeIds });
+    const messy = answer(
+      florence(BARGELLO, MERCATO_CENTRALE_FOOD_HALL, MERCATO_CENTRALE),
+      florence(MERCATO_CENTRALE, SANTA_CROCE),
+      florence(SAN_MINIATO),
+    );
+
+    const tidied = tidy(messy, request);
+
+    expect(tidied.changes).toEqual([
+      moved(0, MERCATO_CENTRALE, 1, "closed"),
+      { rule: "over_budget_visit", day: 0, placeId: MERCATO_CENTRALE_FOOD_HALL },
+    ]);
+    expect(idsOf(tidied.selection)[1]).toContain(MERCATO_CENTRALE);
+    expect(errorsOf(tidied.selection, request)).toEqual([]);
+  });
+});
+
+describe("tidySelection and meal places", () => {
+  /** Each stop of the tidied plan as [place, role], day by day, with the check's errors. */
+  function timed(selection: LlmSelection, request: TripRequest) {
+    const made = materializeSelection(selection, request, shortlistFor(request), ctx, META);
+    const roles = made.itinerary.days.map((day) => day.stops.map((s) => [s.placeId, s.role]));
+    return { errors: made.errors, roles, warnings: made.itinerary.warnings };
+  }
+
+  /** The stops the check warns are over the budget, with their roles. */
+  function overBudget(selection: LlmSelection, request: TripRequest) {
+    const { roles, warnings } = timed(selection, request);
+    return warnings
+      .filter((w) => w.code === "OVER_BUDGET")
+      .map((w) => roles[w.day ?? -1]?.find(([placeId]) => placeId === w.placeId));
+  }
+
+  // Sunday 22 November 2026, Florence, packed, food and markets, at the lowest budget: a live
+  // answer of prover 4 (2026-09-25, prompt v3), run 2. Buca dell'Orafo is one level over the
+  // budget, offered for meals only; the model put it after dinner at Rasputin.
+  const FOOD_MARKETS = rome({
+    startDate: "2026-11-22",
+    pace: "packed",
+    interests: ["food", "market"],
+    maxPriceLevel: 1,
+    anchors: ["florence"],
+  });
+  const florence = (...placeIds: string[]) => ({ anchorId: "florence", placeIds });
+  const FOOD_MARKETS_ANSWER = answer(
+    florence(
+      DUOMO_EXTERIOR,
+      BARGELLO,
+      SANTA_CROCE,
+      BUCA_DELL_ORAFO,
+      PONTE_VECCHIO,
+      PIAZZALE_MICHELANGELO,
+      RASPUTIN,
+    ),
+    florence(MERCATO_CENTRALE, SAN_MINIATO, MERCATO_CENTRALE_FOOD_HALL),
+    florence(IL_LATINI, PIENZA_DAY_TRIP),
+  );
+
+  it("seats a restaurant over the budget as the lunch its day lacks, never as a visit", () => {
+    // Tidied at 030ec00, Buca dell'Orafo was a 20:50 visit after dinner and the day had no lunch.
+    // The nearest order that makes it lunch takes it and the Bargello before the Piazzale.
+    const tidied = tidy(FOOD_MARKETS_ANSWER, FOOD_MARKETS);
+
+    const { errors, roles } = timed(tidied.selection, FOOD_MARKETS);
+    expect(errors).toEqual([]);
+    expect(roles[0]).toEqual([
+      [DUOMO_EXTERIOR, "visit"],
+      [PONTE_VECCHIO, "visit"],
+      [BARGELLO, "visit"],
+      [BUCA_DELL_ORAFO, "lunch"],
+      [PIAZZALE_MICHELANGELO, "visit"],
+      [SANTA_CROCE, "visit"],
+      [RASPUTIN, "dinner"],
+    ]);
+    expect(tidied.changes).toContainEqual({ rule: "reordered", day: 0 });
+    expect(overBudget(tidied.selection, FOOD_MARKETS).every((stop) => stop?.[1] !== "visit")).toBe(
+      true,
+    );
+    expectDropsListed(FOOD_MARKETS_ANSWER, tidied);
+  });
+
+  // Friday 9 to Sunday 11 October 2026, Rome, balanced, at the lowest budget: the reviewer's
+  // probe of 2026-09-25. Il Sorpasso, one level over the budget, comes between the Trevi Fountain
+  // and dinner at Trattoria da Cesare, at 16:30, and lunch is already Da Enzo's.
+  const BUDGET = rome({ startDate: "2026-10-09", maxPriceLevel: 1 });
+  const BUDGET_DAY = [
+    GIOLITTI,
+    DA_ENZO,
+    PANTHEON,
+    TREVI_FOUNTAIN,
+    IL_SORPASSO,
+    TRATTORIA_DA_CESARE,
+  ];
+
+  it("moves a restaurant over the budget that its day can only time as a visit to a day that lacks the meal", () => {
+    const messy = answer(
+      BUDGET_DAY,
+      [TREVI_BY_NIGHT, SPANISH_STEPS, TRASTEVERE],
+      [GIANICOLO, AVENTINE_KEYHOLE, CAMPO_DE_FIORI],
+    );
+
+    const tidied = tidy(messy, BUDGET);
+
+    expect(tidied.changes).toEqual([
+      { rule: "same_spot", day: 1, placeId: TREVI_BY_NIGHT },
+      moved(0, IL_SORPASSO, 1, "over_budget_visit"),
+    ]);
+    const { errors, roles } = timed(tidied.selection, BUDGET);
+    expect(errors).toEqual([]);
+    expect(roles[1]).toEqual([
+      [SPANISH_STEPS, "visit"],
+      [TRASTEVERE, "visit"],
+      [IL_SORPASSO, "lunch"],
+    ]);
+    expect(overBudget(tidied.selection, BUDGET).every((stop) => stop?.[1] !== "visit")).toBe(true);
+  });
+
+  // Tuesday 20 October 2026, Rome then Florence, at the lowest budget. Every day has its lunch
+  // and dinner, and day 0 also has Il Sorpasso, over the budget, as a morning visit before lunch.
+  const FULL = rome({ startDate: "2026-10-20", maxPriceLevel: 1, anchors: ["rome", "florence"] });
+  const FULL_ANSWER = answer(
+    [GIOLITTI, IL_SORPASSO, DA_ENZO, PANTHEON, TREVI_FOUNTAIN, TRATTORIA_DA_CESARE],
+    [MERCATO_TESTACCIO, TRASTEVERE, SPANISH_STEPS, EATALY],
+    florence(DUOMO_EXTERIOR, BUCA_DELL_ORAFO, SANTA_CROCE, PONTE_VECCHIO, RASPUTIN),
+  );
+
+  it("drops a restaurant over the budget that no day at its base can have as a meal", () => {
+    const tidied = tidy(FULL_ANSWER, FULL);
+
+    expect(tidied.changes).toEqual([{ rule: "over_budget_visit", day: 0, placeId: IL_SORPASSO }]);
+    expect(idsOf(tidied.selection)[0]).toEqual([
+      GIOLITTI,
+      DA_ENZO,
+      PANTHEON,
+      TREVI_FOUNTAIN,
+      TRATTORIA_DA_CESARE,
+    ]);
+    const { errors } = timed(tidied.selection, FULL);
+    expect(errors).toEqual([]);
+    expect(overBudget(tidied.selection, FULL).every((stop) => stop?.[1] !== "visit")).toBe(true);
+  });
+
+  it("keeps a restaurant over the budget as a visit when the traveler asked for it", () => {
+    const asked = { ...FULL, mustInclude: [IL_SORPASSO] };
+
+    const tidied = tidy(FULL_ANSWER, asked);
+
+    expect(tidied.changes).toEqual([]);
+    expect(timed(tidied.selection, asked).roles[0]?.[1]).toEqual([IL_SORPASSO, "visit"]);
+  });
+
+  it("drops a second restaurant over the budget that the first one's drop leaves as a visit", () => {
+    // Monday 19 October, Rome then Florence, packed, at the lowest budget. Il Sorpasso is a
+    // morning visit that brings Eataly to lunch; without it, Eataly arrives at 10:10, too early
+    // for lunch, and is a visit too. Rome has no other day, so both stay out.
+    const request = rome({ pace: "packed", maxPriceLevel: 1, anchors: ["rome", "florence"] });
+    const messy = answer(
+      [CAMPO_DE_FIORI, IL_SORPASSO, EATALY],
+      florence(SANTA_CROCE, IL_LATINI, PONTE_VECCHIO, PIAZZALE_MICHELANGELO, SAN_MINIATO, RASPUTIN),
+      florence(MERCATO_CENTRALE_FOOD_HALL, DUOMO_EXTERIOR),
+    );
+
+    const tidied = tidy(messy, request);
+
+    expect(tidied.changes).toEqual([
+      { rule: "over_budget_visit", day: 0, placeId: IL_SORPASSO },
+      { rule: "over_budget_visit", day: 0, placeId: EATALY },
+    ]);
+    expect(idsOf(tidied.selection)[0]).toEqual([CAMPO_DE_FIORI]);
+    expect(timed(tidied.selection, request).errors).toEqual([]);
+    expect(overBudget(tidied.selection, request).every((stop) => stop?.[1] !== "visit")).toBe(true);
+  });
+
+  // Tuesday 20 October 2026, Florence, balanced. The Mercato Centrale's market (a visit) and its
+  // food hall (a meal place for lunch and dinner) are one spot, so only one of them may stay.
+  const MARKET = rome({ startDate: "2026-10-20", anchors: ["florence"] });
+
+  it("keeps the food hall rather than the market at its spot when its day needs the lunch", () => {
+    // Day 0 has dinner at the Osteria dell'Enoteca and no other lunch place.
+    const messy = answer(
+      florence(MERCATO_CENTRALE, SAN_MINIATO, MERCATO_CENTRALE_FOOD_HALL, OSTERIA_ENOTECA),
+      florence(UFFIZI, BUCA_MARIO, ACCADEMIA, IL_LATINI),
+      florence(SANTA_CROCE, BUCA_DELL_ORAFO, PONTE_VECCHIO, RASPUTIN),
+    );
+
+    const tidied = tidy(messy, MARKET);
+
+    expect(tidied.changes).toEqual([{ rule: "same_spot", day: 0, placeId: MERCATO_CENTRALE }]);
+    const { errors, roles } = timed(tidied.selection, MARKET);
+    expect(errors).toEqual([]);
+    expect(roles[0]).toEqual([
+      [SAN_MINIATO, "visit"],
+      [MERCATO_CENTRALE_FOOD_HALL, "lunch"],
+      [OSTERIA_ENOTECA, "dinner"],
+    ]);
+  });
+
+  it("keeps the food hall on a later day that needs its lunch, and the day with the market loses it", () => {
+    const messy = answer(
+      florence(MERCATO_CENTRALE, UFFIZI, BUCA_DELL_ORAFO, ACCADEMIA, IL_LATINI),
+      florence(MERCATO_CENTRALE_FOOD_HALL, SAN_MINIATO, SANTA_CROCE, OSTERIA_ENOTECA),
+      florence(BARGELLO, BUCA_MARIO, PONTE_VECCHIO, RASPUTIN),
+    );
+
+    const tidied = tidy(messy, MARKET);
+
+    expect(tidied.changes).toEqual([{ rule: "same_spot", day: 0, placeId: MERCATO_CENTRALE }]);
+    const { errors, roles } = timed(tidied.selection, MARKET);
+    expect(errors).toEqual([]);
+    expect(roles[1]?.[0]).toEqual([MERCATO_CENTRALE_FOOD_HALL, "lunch"]);
+  });
+
+  it("keeps the market, the first at the spot, when the food hall's day has its lunch and dinner", () => {
+    // Day 1 has lunch at Buca Mario and dinner at the Osteria dell'Enoteca, so the food hall would
+    // be a visit there. Day 0's hours cannot hold the market as well, so it moves to day 2.
+    const messy = answer(
+      florence(MERCATO_CENTRALE, UFFIZI, BUCA_DELL_ORAFO, ACCADEMIA, IL_LATINI),
+      florence(BUCA_MARIO, SAN_MINIATO, MERCATO_CENTRALE_FOOD_HALL, SANTA_CROCE, OSTERIA_ENOTECA),
+      florence(BARGELLO, PONTE_VECCHIO, RASPUTIN),
+    );
+
+    const tidied = tidy(messy, MARKET);
+
+    expect(tidied.changes).toEqual([
+      { rule: "same_spot", day: 1, placeId: MERCATO_CENTRALE_FOOD_HALL },
+      moved(0, MERCATO_CENTRALE, 2, "does_not_fit"),
+    ]);
+    expect(errorsOf(tidied.selection, MARKET)).toEqual([]);
+  });
+
+  it("keeps a market the traveler asked for, even on a day the food hall would give lunch", () => {
+    const asked = { ...MARKET, mustInclude: [MERCATO_CENTRALE] };
+    const messy = answer(
+      florence(MERCATO_CENTRALE, SAN_MINIATO, MERCATO_CENTRALE_FOOD_HALL, OSTERIA_ENOTECA),
+      florence(UFFIZI, BUCA_MARIO, ACCADEMIA, IL_LATINI),
+      florence(SANTA_CROCE, BUCA_DELL_ORAFO, PONTE_VECCHIO, RASPUTIN),
+    );
+
+    const tidied = tidy(messy, asked);
+
+    expect(tidied.changes).toEqual([
+      { rule: "same_spot", day: 0, placeId: MERCATO_CENTRALE_FOOD_HALL },
+    ]);
+  });
+
+  it("keeps the food hall at the market's spot when the trip then has more meals, as live", () => {
+    // The live answer above: day 1 holds the market, San Miniato and the food hall, and no other
+    // meal place. At 030ec00 the market stayed, the first at the spot, and the day had no meal.
+    const tidied = tidy(FOOD_MARKETS_ANSWER, FOOD_MARKETS);
+
+    expect(tidied.changes).toContainEqual({ rule: "same_spot", day: 1, placeId: MERCATO_CENTRALE });
+    expect(timed(tidied.selection, FOOD_MARKETS).roles[1]).toEqual([
+      [MERCATO_CENTRALE_FOOD_HALL, "lunch"],
+      [SAN_MINIATO, "visit"],
+    ]);
+  });
+
+  it("swaps two restaurants in the wrong order, so the one that serves lunch is lunch", () => {
+    // Wednesday 21 October in Florence, packed: a live day of prover 4 on another Wednesday. Buca
+    // Mario is dinner and Rasputin, which serves only dinner, a visit after it at 21:05. The
+    // nearest order with lunch takes the Boboli Gardens and Buca Mario before the Pitti Palace,
+    // and Rasputin is dinner.
+    const packed = { ...MARKET, pace: "packed" as const };
+    const day = [SAN_MINIATO, PITTI_PALACE, BOBOLI_GARDENS, BUCA_MARIO, RASPUTIN];
+    const messy = answer(
+      florence(UFFIZI, BUCA_DELL_ORAFO, ACCADEMIA, IL_LATINI),
+      florence(...day),
+      florence(BARGELLO, SANTA_CROCE, MERCATO_CENTRALE_FOOD_HALL, OSTERIA_ENOTECA),
+    );
+
+    const tidied = tidy(messy, packed);
+
+    expect(tidied.changes).toEqual([{ rule: "reordered", day: 1 }]);
+    const { errors, roles } = timed(tidied.selection, packed);
+    expect(errors).toEqual([]);
+    expect(roles[1]).toEqual([
+      [SAN_MINIATO, "visit"],
+      [BOBOLI_GARDENS, "visit"],
+      [BUCA_MARIO, "lunch"],
+      [PITTI_PALACE, "visit"],
+      [RASPUTIN, "dinner"],
+    ]);
+  });
+
+  it("moves a visit out of lunch's way when a restaurant can only be lunch in another order", () => {
+    // Thursday 12 November 2026 in Venice, a live day of prover 4: in the model's order the Doge's
+    // Palace and the Guggenheim fill the day to 17:35, and the Osteria Alla Staffa is a visit at
+    // 17:55. Seated for lunch after St. Mark's, the Guggenheim must come before the Doge's Palace
+    // to fit its 18:00 closing: three swapped pairs, the fewest that give the day its lunch.
+    const request = rome({ startDate: "2026-11-12", anchors: ["venice"] });
+    const venice = (...placeIds: string[]) => ({ anchorId: "venice", placeIds });
+    const day = [
+      RIALTO_BRIDGE,
+      ST_MARKS_BASILICA,
+      DOGES_PALACE,
+      GUGGENHEIM,
+      OSTERIA_ALLA_STAFFA,
+      OSTERIA_DA_RIOBA,
+    ];
+    const messy = answer(
+      venice(...day),
+      venice(SAN_GIORGIO_CAMPANILE, AL_QUADRI),
+      venice(DORSODURO, CICCHETTI_CRAWL),
+    );
+
+    const tidied = tidy(messy, request);
+
+    expect(tidied.changes.filter((c) => c.day === 0)).toEqual([{ rule: "reordered", day: 0 }]);
+    expect(idsOf(tidied.selection)[0]).toEqual([
+      RIALTO_BRIDGE,
+      ST_MARKS_BASILICA,
+      OSTERIA_ALLA_STAFFA,
+      GUGGENHEIM,
+      DOGES_PALACE,
+      OSTERIA_DA_RIOBA,
+    ]);
+    const { errors, roles } = timed(tidied.selection, request);
+    expect(errors).toEqual([]);
+    expect(roles[0]?.filter(([, role]) => role !== "visit")).toEqual([
+      [OSTERIA_ALLA_STAFFA, "lunch"],
+      [OSTERIA_DA_RIOBA, "dinner"],
+    ]);
+  });
+
+  it("leaves a day in its order when no order of its own stops gives it the meal", () => {
+    // Sunday 15 November 2026 in Florence, packed: day 1 of a live repair answer of prover 3, in
+    // the order tidying gave it. Buca Mario is dinner and Rasputin a visit after it, and no order
+    // of the seven stops times with a lunch within the visit limit, so the day keeps its order.
+    const request = rome({
+      startDate: "2026-11-15",
+      pace: "packed",
+      anchors: ["florence", "bologna"],
+    });
+    const day = [
+      PIAZZALE_MICHELANGELO,
+      SAN_MINIATO,
+      BARGELLO,
+      BOBOLI_GARDENS,
+      PITTI_PALACE,
+      BUCA_MARIO,
+      RASPUTIN,
+    ];
+    const messy = answer(
+      florence(...day),
+      florence(MERCATO_CENTRALE, SANTA_CROCE),
+      florence(UFFIZI, ACCADEMIA, DUOMO_EXTERIOR, PONTE_VECCHIO, BUCA_DELL_ORAFO, OSTERIA_ENOTECA),
+    );
+
+    const tidied = tidy(messy, request);
+
+    expect(tidied.changes.filter((c) => c.day === 0)).toEqual([]);
+    expect(idsOf(tidied.selection)[0]).toEqual(day);
+    expect(timed(tidied.selection, request).roles[0]?.at(-1)).toEqual([RASPUTIN, "visit"]);
+    const anchor = ctx.anchorById.get("florence");
+    if (!anchor) throw new Error("no Florence base");
+    const orders = (ids: string[]): string[][] =>
+      ids.length <= 1
+        ? [ids]
+        : ids.flatMap((id, at) =>
+            orders([...ids.slice(0, at), ...ids.slice(at + 1)]).map((rest) => [id, ...rest]),
+          );
+    const lunches = orders(day).filter((order) => {
+      const timedDay = scheduleDay(order, request.startDate, anchor, request, ctx, 0);
+      const clean = timedDay.violations.every((v) => v.severity !== "error");
+      const visits = timedDay.stops.filter((stop) => stop.role === "visit").length;
+      return clean && visits <= 6 && timedDay.stops.some((stop) => stop.role === "lunch");
+    });
+    expect(lunches).toEqual([]);
   });
 });

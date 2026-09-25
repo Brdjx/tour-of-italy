@@ -264,6 +264,48 @@ describe("planTrip with every fixture scenario", () => {
     expect(itinerary.days[0]?.stops.map((stop) => stop.placeId)).toEqual(["place_019", vatican]);
   });
 
+  it("never shows a restaurant over the budget as a visit: it moves to a day that lacks the meal", async () => {
+    // Rome at the lowest budget, Friday 9 to Sunday 11 October 2026: the reviewer's probe of
+    // 2026-09-25. Il Sorpasso is offered one level over the budget, for meals only. The answer
+    // puts it between the Trevi Fountain and dinner, where the day times it as a 16:30 visit.
+    const sorpasso = "place_020";
+    const client = new ScriptedClient(async () => {
+      const day = (placeIds: string[]) => ({ anchorId: "rome", placeIds, reasons: [] });
+      const selection = {
+        days: [
+          day(["place_011", "place_003", "place_005", "place_018", sorpasso, "place_042"]),
+          day(["place_077", "place_019", "place_002"]),
+          day(["place_097", "place_014", "place_006"]),
+        ],
+        summary: "Three days in Rome.",
+      };
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+    const budget = request({ startDate: "2026-10-09", anchors: ["rome"], maxPriceLevel: 1 });
+
+    const { outcome } = await run(client, {}, budget);
+
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(client.inputs).toHaveLength(1);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(outcome.trace.tidied).toContainEqual({
+      rule: "moved_day",
+      day: 0,
+      placeId: sorpasso,
+      toDay: 1,
+      cause: "over_budget_visit",
+      answer: 1,
+    });
+    const lunch = itinerary.days[1]?.stops.find((stop) => stop.placeId === sorpasso);
+    expect(lunch?.role).toBe("lunch");
+    for (const warning of itinerary.warnings.filter((w) => w.code === "OVER_BUDGET")) {
+      const stop = itinerary.days[warning.day ?? -1]?.stops.find(
+        (s) => s.placeId === warning.placeId,
+      );
+      expect(stop?.role).not.toBe("visit");
+    }
+  });
+
   // Rome, Friday 9 to Sunday 11 October 2026, balanced: the owner's request that fell back on
   // 2026-09-25 (invalid_after_repair, EMPTY_DAY after both turns). The answers are rebuilt from
   // its log: the first puts day 3 on the Vatican Museums, closed that Sunday, and three places
