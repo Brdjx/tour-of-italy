@@ -1,6 +1,7 @@
 /*
- * The trip form. The start date and the pace are always on screen; everything else folds into
- * "More options" (options.css). Containers and inputs are square, anything pressed is a pill.
+ * The trip form. The start date and the pace are always on screen; everything else is in the
+ * "More options" sheet (options.css, sheet.css). Containers and inputs are square, anything
+ * pressed is a pill.
  * Every control is at least 44 px tall and every text input uses a 16 px font so iOS does not
  * zoom on focus.
  */
@@ -141,6 +142,7 @@
     color: var(--fg);
     font-size: 0.9375rem;
     font-weight: 500;
+    letter-spacing: -0.01em; /* as on every other pill */
     text-align: center;
     cursor: pointer;
     transition: color var(--dur-color) ease;
@@ -159,14 +161,23 @@
     outline-offset: 2px;
   }
 
+  /* Decision: on phones the segments give 4px of their side padding back, which with the pill
+     tracking above keeps "Let the planner choose" on one line inside its half of the track from
+     375px up. Two lines inside a pill read as a broken control. */
+  @media (max-width: 479px) {
+    .segment {
+      padding-inline: 6px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .segmented::before {
       transition: none;
     }
   }
 
-  /* The submit button stays in reach at the bottom of the screen while the open options
-     scroll. The hairline above it shows only then, when content can pass under the bar. */
+  /* The submit button stays in reach at the bottom of the screen, or of the Edit trip sheet,
+     where it is the sheet's footer (sheet.css). */
   .form-actions {
     position: sticky;
     bottom: 0;
@@ -174,10 +185,6 @@
     margin-top: 28px;
     padding: 12px 0 max(12px, var(--safe-bottom));
     background: var(--page);
-  }
-
-  .trip-form[data-options-open="true"] .form-actions {
-    border-top: 1px solid var(--line);
   }
 
   /* "Plan my trip": the page's one ink pill. */

@@ -8,7 +8,7 @@ import { initialItineraryState, itineraryReducer } from "../lib/itineraryReducer
 import { aiPlan, ctx, must, tripData } from "./fixtures";
 
 // Keyboard focus and the phone flows around the plan: focus is never dropped to the page or
-// left off screen after an edit, the reopened form has a way back, notes show where the
+// left off screen after an edit, the Edit trip sheet has a way back, notes show where the
 // traveler looks, and the badge says what really happened.
 
 vi.mock("../components/DayMap", () => ({
@@ -131,7 +131,7 @@ describe("the form reopened over a plan", () => {
       "Your current plan stays until you plan again.",
     );
     await user.click(screen.getByTestId("back-to-plan"));
-    expect(screen.getByTestId("form-return").closest("[hidden]")).not.toBeNull();
+    expect((screen.getByTestId("trip-sheet") as HTMLDialogElement).open).toBe(false);
     expect(document.activeElement).toBe(screen.getByTestId("edit-trip-button"));
     expect(rows().length).toBeGreaterThan(0);
   });

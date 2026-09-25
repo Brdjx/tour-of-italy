@@ -14,7 +14,7 @@ import { type RestoredPlan, useLastPlan } from "../lib/useLastPlan";
 import { usePageFocus } from "../lib/usePageFocus";
 import { usePlanEdits } from "../lib/usePlanEdits";
 import { usePlanExpected } from "../lib/usePlanExpected";
-import { usePlanTrip } from "../lib/usePlanTrip";
+import { type PlanPhase, usePlanTrip } from "../lib/usePlanTrip";
 import { useSharedLinkOnLoad } from "../lib/useSharedLink";
 import { type TripDataLoader, useTripData } from "../lib/useTripData";
 import { AlternativesPanel } from "./AlternativesPanel";
@@ -26,12 +26,18 @@ import { AppFooter, AppHeader, type PlanContent, PlanPane } from "./PlanPane";
 import { PlanView } from "./PlanView";
 import { LiveRegion, Toast } from "./StatusRegion";
 import { type PageView, TripPane } from "./TripPane";
+import { TripSummary } from "./TripSummary";
 import { UpdatePrompt } from "./UpdatePrompt";
 
 // The whole page. Before any plan it is one calm column: the start date, the pace, "More
 // options" and "Plan my trip", which all work before the data arrives. From the moment a plan
-// is asked for, the form folds into a one-line trip summary and the plan area shows the plan's
-// skeleton, then the plan (see app/styles/layout.css for the layouts).
+// is asked for, the page opens on the trip header (the dates, Edit trip, Copy link, how it was
+// planned) and the plan area shows the plan's skeleton, then the plan; the form moves into the
+// Edit trip sheet (see app/styles/layout.css and sheet.css). "Start a new trip" in that sheet
+// clears the plan and brings back the first screen.
+
+/** What the live region says after "Start a new trip". */
+export const STARTED_OVER = "Started a new trip. Your last plan is cleared from this device.";
 
 export interface PlannerAppProps {
   loader?: TripDataLoader; // injected in tests
@@ -50,8 +56,11 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
   const [animateDay, setAnimateDay] = useState(-1);
   const [notice, setNotice] = useState<string | null>(null);
   const [status, setStatus] = useState({ text: null as string | null, serial: 0, edit: false });
+  // A failed request that "Start a new trip" put away, so its message does not follow the
+  // traveler back to the first screen. A new request is a new phase and shows its own.
+  const [dismissedPhase, setDismissedPhase] = useState<PlanPhase | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const formHeading = useRef<HTMLHeadingElement>(null);
+  const startHeading = useRef<HTMLHeadingElement>(null);
   const expectFocus = useEditFocus(plan, heading);
 
   const announce = useCallback((text: string, edit = false) => {
@@ -85,7 +94,7 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     setForm((current) => ({ key: current.key + 1, values: valuesFromRequest(itinerary.request) }));
     setNotice(restoredNote(flagged));
   };
-  useLastPlan(ctx, plan, restore, { now: today });
+  const forgetLastPlan = useLastPlan(ctx, plan, restore, { now: today });
 
   useSharedLinkOnLoad(ctx, (result) => {
     if (result.status === "plan") {
@@ -115,7 +124,7 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     phase,
     planId: plan.planId,
     dayHeading: heading,
-    formHeading,
+    startHeading,
   });
 
   // A plan that arrived before the places is checked in this browser once they load.
@@ -129,15 +138,36 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
     if (ctx) return prefetchMap();
   }, [ctx]);
 
+  // Opening the sheet puts focus on its heading (Sheet); closing it returns to "Edit trip".
   const openForm = (open: boolean) => {
     setFormOpen(open);
-    setFocusNext(open ? "form" : "edit");
+    if (!open) setFocusNext("edit");
   };
 
   const submit = (request: TripRequest) => {
+    // Decision: the values that were sent, so the form that mounts in the Edit trip sheet (or
+    // back on the first screen after a failed first plan) shows exactly what was planned. The
+    // key stays: a form already in the sheet keeps its state, which is the same thing.
+    setForm((current) => ({ key: current.key, values: valuesFromRequest(request) }));
     setFormOpen(false);
     setFocusNext("plan");
     void planTrip(request);
+  };
+
+  // "Start a new trip": the saved plan, the shared-link note and the plan on screen go, and the
+  // first screen comes back with the default values. Offered only while no plan is on its way,
+  // since a request in flight would bring a plan back.
+  const startOver = () => {
+    forgetLastPlan();
+    dispatch({ type: "clear" });
+    setForm((current) => ({ key: current.key + 1, values: defaultFormValues(today()) }));
+    setFormOpen(false);
+    setNotice(null);
+    setActiveDay(0);
+    setAnimateDay(-1);
+    setDismissedPhase(phase);
+    setFocusNext("start");
+    announce(STARTED_OVER);
   };
 
   const planning = phase.kind === "planning";
@@ -154,79 +184,95 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
         ? "unavailable"
         : "skeleton";
   const summaryRequest = planning ? phase.request : (plan.itinerary?.request ?? null);
+  const shownPlan = content === "plan" ? plan.itinerary : null;
   const noticeBanner = notice ? (
     <Notice message={notice} onDismiss={() => setNotice(null)} testId="share-notice" />
   ) : null;
   const errorBanner =
-    phase.kind === "error" ? (
+    phase.kind === "error" && phase !== dismissedPhase ? (
       <ErrorState id="plan-error" message={phase.message} onRetry={retry} />
     ) : null;
   return (
-    <div
-      className="app"
-      data-view={view}
-      data-form-open={view === "plan" && formOpen ? "true" : "false"}
-      data-testid="planner-app"
-    >
+    <div className="app" data-view={view} data-testid="planner-app">
       <div className="status-scrim" aria-hidden="true" />
-      {view === "plan" ? (
-        <a className="skip-link" href="#plan">
-          Skip to your plan
-        </a>
-      ) : null}
-      <AppHeader tagline={view === "compose"} />
-      <OfflineBanner canPlan={ctx !== null} />
-      <UpdatePrompt />
-      <main className="app-body">
-        <TripPane
-          view={view}
-          formOpen={formOpen}
-          hasPlan={hasPlan}
-          summaryRequest={summaryRequest}
-          onEdit={() => openForm(true)}
-          onBack={() => openForm(false)}
-          headingRef={formHeading}
-          notice={view === "compose" ? noticeBanner : null}
-          error={view === "compose" ? errorBanner : null}
-          form={form}
-          dataState={dataState}
-          onRetryData={retryData}
-          planning={planning}
-          slow={planning && phase.slow}
-          onSubmit={submit}
-        />
-        {view === "compose" ? <Highlights ctx={ctx} /> : null}
+      {/* The page itself, which scales back behind a sheet on phones (sheet.css). */}
+      <div className="app-page">
         {view === "plan" ? (
-          <PlanPane
-            content={content}
-            reason={planning ? "planning" : "opening"}
-            slow={planning && phase.slow}
-            notice={noticeBanner}
-            error={errorBanner}
-            onRetryData={retryData}
-          >
-            {hasPlan && ctx ? (
-              <PlanView
-                plan={plan}
-                ctx={ctx}
-                activeDay={activeDay}
-                animateDay={animateDay}
-                headingRef={heading}
-                onSelectDay={(day) => {
-                  setActiveDay(day);
-                  setAnimateDay(-1);
-                }}
-                onUndo={edits.undo}
-                onSwap={edits.startSwap}
-                onRemove={edits.remove}
-                onMove={edits.move}
-                onStatus={(text) => announce(text)}
-              />
-            ) : null}
-          </PlanPane>
+          <a className="skip-link" href="#plan">
+            Skip to your plan
+          </a>
         ) : null}
-      </main>
-      <AppFooter dataState={dataState} />
+        {view === "compose" ? <AppHeader titleRef={startHeading} /> : null}
+        <OfflineBanner canPlan={ctx !== null} />
+        <UpdatePrompt />
+        <main className="app-body">
+          {view === "plan" ? (
+            <TripSummary
+              request={summaryRequest}
+              onEdit={() => openForm(true)}
+              editing={formOpen}
+              plan={
+                shownPlan
+                  ? {
+                      itinerary: shownPlan,
+                      origin: plan.origin,
+                      cause: plan.cause,
+                      errors: plan.errors.length,
+                      edited: plan.history.length > 0,
+                    }
+                  : null
+              }
+              undoLabel={undoLabel(plan)}
+              onUndo={edits.undo}
+              onStatus={(text) => announce(text)}
+            />
+          ) : null}
+          <TripPane
+            view={view}
+            formOpen={formOpen}
+            hasPlan={hasPlan}
+            onBack={() => openForm(false)}
+            onStartOver={hasPlan && !planning ? startOver : undefined}
+            notice={view === "compose" ? noticeBanner : null}
+            error={view === "compose" ? errorBanner : null}
+            form={form}
+            dataState={dataState}
+            onRetryData={retryData}
+            planning={planning}
+            slow={planning && phase.slow}
+            onSubmit={submit}
+          />
+          {view === "compose" ? <Highlights ctx={ctx} /> : null}
+          {view === "plan" ? (
+            <PlanPane
+              content={content}
+              reason={planning ? "planning" : "opening"}
+              slow={planning && phase.slow}
+              notice={noticeBanner}
+              error={errorBanner}
+              onRetryData={retryData}
+            >
+              {hasPlan && ctx ? (
+                <PlanView
+                  plan={plan}
+                  ctx={ctx}
+                  activeDay={activeDay}
+                  animateDay={animateDay}
+                  headingRef={heading}
+                  onSelectDay={(day) => {
+                    setActiveDay(day);
+                    setAnimateDay(-1);
+                  }}
+                  onSwap={edits.startSwap}
+                  onRemove={edits.remove}
+                  onMove={edits.move}
+                />
+              ) : null}
+            </PlanPane>
+          ) : null}
+        </main>
+        <AppFooter dataState={dataState} />
+      </div>
       <LiveRegion message={status.text} serial={status.serial} />
       <Toast
         message={status.edit && !formOpen ? status.text : null}

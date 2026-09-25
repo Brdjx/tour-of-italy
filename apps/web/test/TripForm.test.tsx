@@ -158,7 +158,24 @@ describe("TripForm", () => {
     expect(input.value).toBe("");
   });
 
-  it("scrolls a focused field out from under the sticky Plan my trip bar", async () => {
+  it("scrolls a focused field on the page out from under the sticky Plan my trip bar", () => {
+    renderForm();
+    const scrollBy = vi.fn();
+    window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+    const bar = document.querySelector(".form-actions") as HTMLElement;
+    const date = screen.getByTestId("start-date");
+    const rect = (top: number, bottom: number) => ({ top, bottom }) as DOMRect;
+    bar.getBoundingClientRect = () => rect(594, 667);
+    date.getBoundingClientRect = () => rect(560, 608);
+    fireEvent.focus(date);
+    expect(scrollBy).toHaveBeenCalledWith({ top: 608 - 594 + 12 });
+    scrollBy.mockClear();
+    date.getBoundingClientRect = () => rect(300, 348);
+    fireEvent.focus(date);
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("never scrolls the page for a field in the options sheet, which scrolls on its own", async () => {
     const { user } = renderForm();
     await openOptions(user);
     const scrollBy = vi.fn();
@@ -168,10 +185,6 @@ describe("TripForm", () => {
     const rect = (top: number, bottom: number) => ({ top, bottom }) as DOMRect;
     bar.getBoundingClientRect = () => rect(594, 667);
     notes.getBoundingClientRect = () => rect(539, 635);
-    fireEvent.focus(notes);
-    expect(scrollBy).toHaveBeenCalledWith({ top: 635 - 594 + 12 });
-    scrollBy.mockClear();
-    notes.getBoundingClientRect = () => rect(300, 396);
     fireEvent.focus(notes);
     expect(scrollBy).not.toHaveBeenCalled();
   });

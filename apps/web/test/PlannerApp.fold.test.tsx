@@ -11,9 +11,10 @@ import { encodeShare } from "../lib/shareLink";
 import type { TripData } from "../lib/tripData";
 import { aiPlan, fixturePlan, must, tripData } from "./fixtures";
 
-// The page's two shapes: one calm column before a plan, then the plan with the form folded into
-// a summary line. The fold must keep what the traveler set, a shared or saved plan must open
-// straight into the plan view, and a page whose places failed must still plan.
+// The page's two shapes: one calm column before a plan, then the plan under its trip header with
+// the form waiting in the Edit trip sheet. The sheet must keep what the traveler set, a shared or
+// saved plan must open straight into the plan view, "Start a new trip" must bring the first
+// screen back, and a page whose places failed must still plan.
 
 vi.mock("../components/DayMap", () => ({
   DayMap: () => <div data-testid="day-map" />,
@@ -31,7 +32,12 @@ function setup(post: Post = echo, loader: () => Promise<TripData> = async () => 
 }
 
 const view = () => screen.getByTestId("planner-app").dataset.view;
-const formFolded = () => must(document.getElementById("trip-form-body"), "form body").hidden;
+/** The form is out of sight: in the plan view that means its sheet is closed. */
+const formFolded = () => {
+  const body = must(document.getElementById("trip-form-body"), "form body");
+  return body instanceof HTMLDialogElement ? !body.open : body.hidden;
+};
+const tripSheet = () => screen.getByTestId("trip-sheet") as HTMLDialogElement;
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -54,41 +60,87 @@ describe("the calm first screen", () => {
   });
 });
 
-describe("the folded form", () => {
-  it("folds into the summary of what is being planned, then of the plan on screen", async () => {
+describe("the trip header and the Edit trip sheet", () => {
+  it("heads the page with the trip being planned, then with the plan on screen", async () => {
     let answer: (plan: Itinerary) => void = () => {};
     const user = setup(() => new Promise<Itinerary>((resolve) => (answer = resolve)));
     await user.click(await screen.findByTestId("more-options-button"));
     const interests = within(screen.getByTestId("interests-field")).getAllByRole("checkbox");
     await user.click(interests[0] as HTMLElement);
+    await user.click(screen.getByTestId("more-options-done"));
     await user.click(screen.getByTestId("plan-button"));
     expect(view()).toBe("plan");
     expect(formFolded()).toBe(true);
-    expect(screen.getByTestId("trip-summary-text").textContent).toBe(
-      "Your trip: Wed 7 Oct to Fri 9 Oct, balanced pace, 1 option",
-    );
+    // No bar at the top: the trip's dates are the page's heading.
+    expect(screen.queryByText("3 Days in Italy")).toBeNull();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toBe(screen.getByTestId("trip-summary-text"));
+    expect(heading.textContent).toBe("Your trip: Wed 7 Oct to Fri 9 Oct");
+    expect(screen.getByTestId("trip-summary-meta").textContent).toBe("Balanced pace, 1 option");
     expect(document.activeElement).toBe(document.getElementById("plan"));
     await act(async () => answer(aiPlan({ startDate: "2026-10-20", pace: "packed" })));
     await screen.findAllByTestId("stop-row");
-    expect(screen.getByTestId("trip-summary-text").textContent).toBe(
-      "Your trip: Tue 20 Oct to Thu 22 Oct, packed pace, 1 option",
+    expect(heading.textContent).toBe("Your trip: Tue 20 Oct to Thu 22 Oct");
+    expect(screen.getByTestId("trip-summary-meta").textContent).toBe("Packed pace, 1 option");
+  });
+
+  it("puts Edit trip, Copy link, the source line and Undo in the header, with full names", async () => {
+    const user = setup();
+    await user.click(await screen.findByTestId("plan-button"));
+    const header = screen.getByTestId("trip-summary");
+    await within(header).findByTestId("source-badge");
+    expect(within(header).getByRole("button", { name: "Edit trip" })).toBe(
+      screen.getByTestId("edit-trip-button"),
+    );
+    expect(within(header).getByRole("button", { name: "Copy link" })).toBe(
+      screen.getByTestId("share-button"),
+    );
+    expect(within(header).queryByTestId("undo-button")).toBeNull();
+    const row = (await screen.findAllByTestId("stop-row"))[0] as HTMLElement;
+    await user.click(within(row).getByTestId("remove-button"));
+    expect(within(header).getByRole("button", { name: "Undo remove" })).toBe(
+      screen.getByTestId("undo-button"),
     );
   });
 
-  it("opens again with Edit trip exactly as the traveler left it, More options included", async () => {
+  it("opens again with Edit trip exactly as the traveler left it, options included", async () => {
     const user = setup();
     await user.click(await screen.findByTestId("more-options-button"));
-    const first = within(screen.getByTestId("interests-field")).getAllByRole("checkbox")[0];
-    await user.click(first as HTMLElement);
+    const pick = within(screen.getByTestId("interests-field")).getAllByRole("checkbox")[0];
+    const tag = (pick as HTMLInputElement).value;
+    await user.click(pick as HTMLElement);
+    await user.click(screen.getByTestId("more-options-done"));
     await user.click(screen.getByTestId("plan-button"));
     await screen.findAllByTestId("stop-row");
-    await user.click(screen.getByTestId("edit-trip-button"));
+    const edit = screen.getByTestId("edit-trip-button");
+    expect(edit.getAttribute("aria-expanded")).toBe("false");
+    await user.click(edit);
     expect(formFolded()).toBe(false);
-    expect(screen.getByTestId("more-options-button").getAttribute("aria-expanded")).toBe("true");
-    expect((first as HTMLInputElement).checked).toBe(true);
+    expect(edit.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByTestId("form-heading"));
     expect(screen.getByTestId("options-count").textContent).toBe("1 set");
+    // The options open in their own sheet, stacked over the Edit trip sheet.
+    await user.click(screen.getByTestId("more-options-button"));
+    const box = within(screen.getByTestId("interests-field")).getByDisplayValue(tag);
+    expect((box as HTMLInputElement).checked).toBe(true);
+    await user.keyboard("{Escape}");
+    // Escape closes the top sheet only.
+    expect((screen.getByTestId("more-options-sheet") as HTMLDialogElement).open).toBe(false);
+    expect(tripSheet().open).toBe(true);
+    expect(document.activeElement).toBe(screen.getByTestId("more-options-button"));
     await user.click(screen.getByTestId("back-to-plan"));
     expect(formFolded()).toBe(true);
+    expect(document.activeElement).toBe(edit);
+  });
+
+  it("closes the Edit trip sheet with Escape and returns to Edit trip", async () => {
+    const user = setup();
+    await user.click(await screen.findByTestId("plan-button"));
+    await screen.findAllByTestId("stop-row");
+    await user.click(screen.getByTestId("edit-trip-button"));
+    expect(tripSheet().open).toBe(true);
+    await user.keyboard("{Escape}");
+    expect(tripSheet().open).toBe(false);
     expect(document.activeElement).toBe(screen.getByTestId("edit-trip-button"));
   });
 
@@ -111,7 +163,7 @@ describe("plans that open on their own", () => {
     await screen.findAllByTestId("stop-row");
     expect(view()).toBe("plan");
     expect(formFolded()).toBe(true);
-    expect(screen.getByTestId("trip-summary-text").textContent).toContain("relaxed pace");
+    expect(screen.getByTestId("trip-summary-meta").textContent).toContain("Relaxed pace");
   });
 
   it("shows the plan's skeleton, not the form, while a saved plan waits for the places", async () => {

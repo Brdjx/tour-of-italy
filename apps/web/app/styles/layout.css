@@ -3,10 +3,11 @@
  * safe areas.
  * Before any plan (data-view="compose"): a narrow column (560 px) holding the title, one line
  * about the page, the start date, the pace, "More options" and "Plan my trip".
- * Once a plan is on screen or on its way (data-view="plan"): a wider column (1120 px). The form
- * folds into a one-line trip summary with "Edit trip"; below it the plan, whose day tabs pin
- * under the status bar. The map follows the timetable on phones and tablets in portrait and
- * sits beside it from 1024 px (timetable.css). "About this data" is a quiet link at the foot.
+ * Once a plan is on screen or on its way (data-view="plan"): a wider column (1120 px) with no
+ * bar at the top. The trip header opens the page (plan.css), the form waits in the Edit trip
+ * sheet (sheet.css), and the plan's day tabs pin under the status bar. The map follows the
+ * timetable on phones and tablets in portrait and sits beside it from 1024 px (timetable.css).
+ * "About this data" is a quiet link at the foot.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -20,6 +21,20 @@
 
   .app[data-view="plan"] {
     --content-max: 1120px;
+  }
+
+  /* The page itself: everything but the status strip, the live region, the toast and the
+     sheets. On phones it scales back behind a sheet (sheet.css), over its own paper. */
+  .app-page {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    background: var(--page);
+  }
+
+  /* No bar at the top of the plan view: the trip header starts under the status bar. */
+  .app[data-view="plan"] .app-page {
+    padding-top: var(--safe-top);
   }
 
   @media (min-width: 640px) {
@@ -55,20 +70,20 @@
     background: var(--page);
   }
 
+  /* The first screen's header: the title leads the column in the display width, with room
+     above it. The plan view has none. */
   .app-header {
-    padding-top: calc(var(--safe-top) + 14px);
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--line);
+    padding-top: calc(var(--safe-top) + clamp(28px, 8vh, 88px));
   }
 
-  /* The title in the plan view: a compact title in the title width. */
   .app-title {
     color: var(--fg);
-    font-size: 1.25rem;
-    font-stretch: 125%;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+    font-size: clamp(2.125rem, 7vw, 3rem);
+    font-stretch: 150%;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
   }
 
   .app-tagline {
@@ -80,21 +95,11 @@
     line-height: 1.45;
   }
 
-  /* Before a plan the title leads the column in the display width, with room above it and no
-     rule below. */
-  .app[data-view="compose"] .app-header {
-    padding-top: calc(var(--safe-top) + clamp(28px, 8vh, 88px));
-    padding-bottom: 0;
-    border-bottom: 0;
-  }
-
-  .app[data-view="compose"] .app-title {
-    font-size: clamp(2.125rem, 7vw, 3rem);
-    font-stretch: 150%;
-    font-weight: 400;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    text-wrap: balance;
+  /* A shared link or a saved plan is on its way (lib/expectPlanScript.ts): the static page
+     paints nothing until the plan view takes over, since that view has no bar at the top to
+     paint early. Decision: stronger than skeleton.css's compact header rule, which predates it. */
+  html[data-expect-plan] .app[data-view="compose"] .app-page > .app-header {
+    display: none;
   }
 
   .app-body {
@@ -112,49 +117,8 @@
     padding-top: 32px;
   }
 
-  .app[data-view="plan"] .form-pane {
-    padding-top: 0;
-  }
-
-  .app[data-view="plan"][data-form-open="true"] .form-pane {
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  /* The form keeps its comfortable reading width when it opens over a wide plan. */
   .form-pane-body {
     max-width: 560px;
-  }
-
-  .form-return {
-    margin: 16px 0 20px;
-  }
-
-  /* The folded form: "Thu 15 Oct to Sat 17 Oct, balanced pace" and "Edit trip". */
-  .trip-summary {
-    display: flex;
-    min-height: 72px;
-    align-items: center;
-    gap: 8px 16px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--line);
-    animation: summary-in var(--dur-move) var(--ease-out) 60ms both;
-  }
-
-  .trip-summary-text {
-    min-width: 0;
-    flex: 1;
-    color: var(--fg);
-    font-size: 1rem;
-    line-height: 1.4;
-    font-variant-numeric: tabular-nums;
-  }
-
-  @keyframes summary-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
   }
 
   .plan-pane {
@@ -187,7 +151,7 @@
     gap: 4px 12px;
   }
 
-  /* Outline pills for the page's secondary actions: Edit trip, Copy link, Back to plan. */
+  /* Outline pills for secondary actions outside the trip header: Reload in the update strip. */
   .toolbar-button {
     display: inline-flex;
     min-height: 44px;
@@ -283,10 +247,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .trip-summary {
-      animation: none;
-    }
-
     .toolbar-button:active {
       transform: none;
     }

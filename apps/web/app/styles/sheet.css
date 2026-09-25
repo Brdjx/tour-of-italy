@@ -1,0 +1,350 @@
+/*
+ * Sheets (components/Sheet.tsx): Edit trip and More options, on the native <dialog>.
+ * Phones: a bottom sheet with a grabber that rises on the smooth spring, while the page behind
+ * scales back over a dark surround and dims, as on iOS. From 768 px: a centred panel that scales
+ * and fades in. Both over the scrim with a soft blur. A sheet opened over another pushes that
+ * one back a little. Entrances start from @starting-style; exits are shorter (--dur-exit) and
+ * keep display and overlay for their length (allow-discrete), so the sheet stays in the top
+ * layer while it leaves. Only transform, scale, translate and opacity move; the backdrop's blur
+ * fades with its opacity.
+ * Decision: the class is .form-sheet (Apple's name for this presentation), because .sheet
+ * already belongs to the swap sheet in overlays.css, whose animations would take these over.
+ */
+
+/* The sheet tokens (--sheet-*, --recede-*) are in globals.css with the other tokens. */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  /* ----- The sheet: a bottom sheet on phones ----- */
+
+  .form-sheet {
+    /* Decision: a fixed position and a z-index of its own, not only the UA's modal styles. A
+       browser without the overlay transition drops the sheet out of the top layer as its exit
+       starts; it then finishes leaving in place, above the page, instead of jumping. */
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 80;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    /* Decision: rounded top corners, where the sheet meets the edge of the screen. The owner
+       asked for Apple-style sheets; this is a deliberate exception to the square-container rule
+       and it covers sheets only. Everything on the page stays square. */
+    border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+    background: var(--surface);
+    color: var(--fg);
+    box-shadow: var(--shadow-sheet);
+    transform: translateY(100%);
+    transform-origin: 50% 0;
+    transition:
+      transform var(--dur-exit) var(--ease-exit),
+      scale var(--dur-exit) var(--ease-exit),
+      display var(--dur-exit) allow-discrete,
+      overlay var(--dur-exit) allow-discrete;
+  }
+
+  .form-sheet[open] {
+    display: flex;
+    flex-direction: column;
+    transform: none;
+    transition:
+      transform var(--dur-spring) var(--spring-smooth),
+      scale var(--dur-move) var(--ease-out);
+  }
+
+  @starting-style {
+    .form-sheet[open] {
+      transform: translateY(100%);
+    }
+  }
+
+  /* Edit trip reaches up to just under the status bar. */
+  .form-sheet--tall {
+    top: calc(var(--safe-top) + var(--sheet-top));
+  }
+
+  /* More options is as tall as its fields, up to the same line. */
+  .form-sheet--fit {
+    max-height: calc(100dvh - var(--safe-top) - var(--sheet-top));
+  }
+
+  /* Over the Edit trip sheet it starts a little lower, so the sheet beneath peeks out. */
+  .form-sheet[open] ~ .form-sheet--fit {
+    max-height: calc(100dvh - var(--safe-top) - var(--sheet-top) - var(--sheet-stack));
+  }
+
+  /* A sheet with another sheet over it steps back. */
+  .form-sheet[open]:has(~ .form-sheet[open]) {
+    scale: var(--recede-sheet);
+    transition:
+      transform var(--dur-spring) var(--spring-smooth),
+      scale var(--dur-spring) var(--spring-smooth);
+  }
+
+  /* Following a finger: no easing between pointer moves. */
+  .form-sheet[data-dragging] {
+    transition: none;
+  }
+
+  .form-sheet::backdrop {
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(var(--sheet-blur));
+    backdrop-filter: blur(var(--sheet-blur));
+    opacity: 0;
+    transition:
+      opacity var(--dur-exit) var(--ease-exit),
+      display var(--dur-exit) allow-discrete,
+      overlay var(--dur-exit) allow-discrete;
+  }
+
+  .form-sheet[open]::backdrop {
+    opacity: 1;
+    transition: opacity var(--dur-arrive) var(--ease-out);
+  }
+
+  @starting-style {
+    .form-sheet[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  /* Decision: a sheet over a sheet only dims. The page is blurred already, and blurring the
+     sheet beneath as well turns it to mud. */
+  .form-sheet[open] ~ .form-sheet::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* The page does not scroll behind a sheet. */
+  html:has(> body > .form-sheet[open]) {
+    overflow: hidden;
+  }
+
+  /* ----- Inside a sheet ----- */
+
+  .form-sheet-head {
+    position: relative;
+    flex: none;
+    padding: 18px max(var(--sheet-pad), var(--safe-right)) 6px
+      max(var(--sheet-pad), var(--safe-left));
+  }
+
+  .form-sheet-grabber {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--sheet-grabber);
+    translate: -50% 0;
+  }
+
+  .form-sheet-head-row {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .form-sheet-title {
+    min-width: 0;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+
+  .form-sheet-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* The close icon lines up with the sheet's text edge rather than its own padding. */
+  .form-sheet-close {
+    margin-right: -10px;
+  }
+
+  .form-sheet-body {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px max(var(--sheet-pad), var(--safe-right)) max(20px, var(--safe-bottom))
+      max(var(--sheet-pad), var(--safe-left));
+    /* A focused field stays clear of the sheet's sticky Plan my trip bar. */
+    scroll-padding-bottom: 96px;
+  }
+
+  .form-sheet-lede {
+    margin-bottom: 22px;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  /* Edit trip: the form fills the sheet, so Plan my trip sits at its foot as a sticky bar that
+     carries the home indicator's inset itself. */
+  .trip-sheet .form-sheet-body {
+    padding-bottom: 0;
+  }
+
+  .trip-sheet .trip-form {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+
+  .trip-sheet .more-options {
+    margin-bottom: 28px;
+  }
+
+  .trip-sheet .form-actions {
+    margin-top: auto;
+    background: var(--surface);
+  }
+
+  /* "Start a new trip": quiet, with one line saying what it clears. */
+  .start-over {
+    margin-bottom: 24px;
+  }
+
+  /* ----- Phones: the page behind scales back ----- */
+
+  @media (max-width: 767px) {
+    /* Decision: the grabber and title row take the drag, so the fields below still scroll. */
+    .form-sheet-head {
+      touch-action: none;
+      user-select: none;
+    }
+
+    .app-page {
+      transform-origin: 50% var(--recede-top, 0px);
+      transition:
+        scale var(--dur-exit) var(--ease-exit),
+        translate var(--dur-exit) var(--ease-exit);
+    }
+
+    body:has(> .form-sheet[open]) .app-page {
+      scale: var(--recede-page);
+      translate: 0 calc(var(--safe-top) + var(--sheet-top) / 2);
+      transition:
+        scale var(--dur-spring) var(--spring-smooth),
+        translate var(--dur-spring) var(--spring-smooth);
+    }
+  }
+
+  /* ----- From 768 px: a centred panel ----- */
+
+  @media (min-width: 768px) {
+    .form-sheet {
+      inset: 0;
+      width: min(560px, calc(100% - 48px));
+      height: fit-content;
+      max-height: min(calc(100dvh - 64px), 880px);
+      margin: auto;
+      /* The same exception, all four corners: the panel floats clear of every edge. */
+      border-radius: var(--sheet-radius);
+      box-shadow: var(--shadow-float);
+      opacity: 0;
+      scale: 0.96;
+      transform: none;
+      transform-origin: 50% 50%;
+      transition:
+        opacity var(--dur-exit) var(--ease-exit),
+        scale var(--dur-exit) var(--ease-exit),
+        display var(--dur-exit) allow-discrete,
+        overlay var(--dur-exit) allow-discrete;
+    }
+
+    .form-sheet[open] {
+      opacity: 1;
+      scale: 1;
+      transition:
+        opacity var(--dur-fade) var(--ease-out),
+        scale var(--dur-spring) var(--spring-smooth);
+    }
+
+    @starting-style {
+      .form-sheet[open] {
+        opacity: 0;
+        scale: 0.96;
+      }
+    }
+
+    .form-sheet--fit,
+    .form-sheet[open] ~ .form-sheet--fit {
+      max-height: min(calc(100dvh - 64px), 880px);
+    }
+
+    .form-sheet[open]:has(~ .form-sheet[open]) {
+      scale: var(--recede-sheet);
+    }
+
+    .form-sheet-grabber {
+      display: none;
+    }
+
+    .form-sheet-head {
+      padding-top: 22px;
+    }
+
+    .trip-sheet .form-actions {
+      padding-bottom: 24px;
+    }
+  }
+
+  /* ----- Reduced motion: a short fade, nothing moves ----- */
+
+  @media (prefers-reduced-motion: reduce) {
+    .form-sheet,
+    .form-sheet[open],
+    .form-sheet[open]:has(~ .form-sheet[open]) {
+      transform: none;
+      scale: none;
+    }
+
+    .form-sheet {
+      opacity: 0;
+      transition:
+        opacity var(--dur-exit) ease,
+        display var(--dur-exit) allow-discrete,
+        overlay var(--dur-exit) allow-discrete;
+    }
+
+    .form-sheet[open] {
+      opacity: 1;
+      transition: opacity var(--dur-fade) ease;
+    }
+
+    @starting-style {
+      .form-sheet[open] {
+        opacity: 0;
+      }
+    }
+
+    body:has(> .form-sheet[open]) .app-page {
+      scale: none;
+      translate: none;
+    }
+  }
+}
+
+/* Decision: outside the layer. globals.css paints body without a layer, and a layered rule would
+   lose to it however specific. The surround only shows while the page scales back, so reduced
+   motion keeps the page colour. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  body:has(> .form-sheet[open]) {
+    background: var(--recede-surround);
+  }
+}

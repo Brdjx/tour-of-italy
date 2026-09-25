@@ -9,10 +9,10 @@ import { INTERESTS_SHOWN } from "../lib/moreOptions";
 import { defaultFormValues, type TripFormValues } from "../lib/tripForm";
 import { tripData } from "./fixtures";
 
-// "More options": the filters stay folded until asked for, the button says how many are set,
-// the fold works by keyboard, Clear options resets only the options, an error inside the fold
-// opens it, and the form works (date, pace, Plan my trip) before the places arrive or when they
-// cannot load.
+// "More options": the filters stay in their sheet until asked for, the row says how many are set,
+// the sheet works by keyboard (focus in, Escape out, focus back), Clear options resets only the
+// options, an error inside the options opens the sheet, and the form works (date, pace, Plan my
+// trip) before the places arrive or when they cannot load.
 
 afterEach(cleanup);
 
@@ -38,14 +38,18 @@ function renderForm(
 }
 
 const button = () => screen.getByTestId("more-options-button");
+const sheet = () => screen.getByTestId("more-options-sheet") as HTMLDialogElement;
 const panel = () => screen.getByTestId("more-options-panel");
-const folded = () => panel().hidden;
+const done = () => screen.getByTestId("more-options-done");
+const folded = () => !sheet().open;
 
 describe("More options", () => {
   it("keeps every filter out of sight until More options is opened", () => {
     renderForm();
     expect(button().getAttribute("aria-expanded")).toBe("false");
-    expect(button().getAttribute("aria-controls")).toBe(panel().id);
+    expect(button().getAttribute("aria-haspopup")).toBe("dialog");
+    expect(button().getAttribute("aria-controls")).toBe(sheet().id);
+    expect(sheet().tagName).toBe("DIALOG");
     expect(folded()).toBe(true);
     // Only the date, the pace and the plan button are reachable.
     expect(screen.queryByRole("group", { name: "Interests" })).toBeNull();
@@ -56,17 +60,50 @@ describe("More options", () => {
     expect(screen.queryByTestId("options-count")).toBeNull();
   });
 
-  it("opens and closes with the keyboard and reports it through aria-expanded", async () => {
+  it("opens a sheet with the keyboard, closes it with Escape, and puts focus back", async () => {
     const { user } = renderForm();
     button().focus();
     await user.keyboard("{Enter}");
     expect(button().getAttribute("aria-expanded")).toBe("true");
     expect(folded()).toBe(false);
+    // Focus starts on the sheet's heading, which names the sheet.
+    const heading = screen.getByRole("heading", { name: "More options" });
+    expect(document.activeElement).toBe(heading);
+    expect(sheet().getAttribute("aria-labelledby")).toBe(heading.id);
     expect(screen.getByRole("group", { name: /Interests/ })).toBeTruthy();
-    await user.keyboard(" ");
+    await user.keyboard("{Escape}");
     expect(button().getAttribute("aria-expanded")).toBe("false");
     expect(folded()).toBe(true);
     expect(document.activeElement).toBe(button());
+    await user.click(button());
+    await user.click(done());
+    expect(folded()).toBe(true);
+    expect(document.activeElement).toBe(button());
+  });
+
+  it("closes the sheet on a second Escape from an empty place field, after the first closes its list", async () => {
+    const { user } = renderForm();
+    button().focus();
+    await user.keyboard("{Enter}");
+    const field = within(panel()).getAllByRole("combobox")[0] as HTMLElement;
+    field.focus(); // focus opens the field's suggestion list
+    await user.keyboard("{Escape}");
+    expect(folded()).toBe(false);
+    expect(field.getAttribute("aria-expanded")).toBe("false");
+    await user.keyboard("{Escape}");
+    expect(folded()).toBe(true);
+    expect(document.activeElement).toBe(button());
+  });
+
+  it("keeps the sheet open when Escape only closes a search list inside it", async () => {
+    const { user } = renderForm();
+    await user.click(button());
+    const input = within(screen.getByTestId("skip-field")).getByRole("combobox");
+    await user.click(input);
+    await user.keyboard("rome");
+    await user.keyboard("{Escape}");
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+    expect(folded()).toBe(false);
   });
 
   it("counts set options by group on the button and in its accessible name", async () => {
@@ -79,12 +116,13 @@ describe("More options", () => {
     expect(button().getAttribute("aria-label")).toBe("More options, 1 set");
     await user.click(screen.getByRole("radio", { name: "Up to price level 2, moderate" }));
     expect(screen.getByRole("button", { name: "More options, 2 set" })).toBe(button());
-    await user.click(button());
-    // Folded, the badge still says what is set.
+    await user.click(done());
+    // With the sheet closed, the badge on the row still says what is set.
+    expect(folded()).toBe(true);
     expect(screen.getByTestId("options-count").textContent).toContain("2 set");
   });
 
-  it("clears every option, keeps the date and pace, and returns focus to More options", async () => {
+  it("clears every option, keeps the date and pace, and moves focus to Done", async () => {
     const { onSubmit, user } = renderForm();
     await user.click(screen.getByRole("radio", { name: "Packed" }));
     await user.click(button());
@@ -99,7 +137,9 @@ describe("More options", () => {
     await user.click(screen.getByTestId("clear-options"));
     expect(screen.queryByTestId("options-count")).toBeNull();
     expect(screen.queryByTestId("clear-options")).toBeNull();
-    expect(document.activeElement).toBe(button());
+    // The Clear button went away; Done is the next thing to press.
+    expect(document.activeElement).toBe(done());
+    await user.click(done());
     await user.click(screen.getByTestId("plan-button"));
     expect(onSubmit).toHaveBeenCalledWith({
       startDate: "2026-10-07",
@@ -112,7 +152,7 @@ describe("More options", () => {
     });
   });
 
-  it("opens the fold and focuses the field when the error is inside it", async () => {
+  it("opens the sheet and focuses the field when the error is inside it", async () => {
     const { onSubmit, user } = renderForm({ values: { anchorMode: "choose" } });
     expect(folded()).toBe(true);
     await user.click(screen.getByTestId("plan-button"));
@@ -165,7 +205,8 @@ describe("the form before and without the places", () => {
   it("leaves no skeleton behind once the options arrive", async () => {
     const { view, user } = renderForm({ withOptions: false });
     await user.click(button());
-    expect(view.container.querySelectorAll(".skeleton").length).toBeGreaterThan(0);
+    // The sheet renders into <body>, outside the form's container.
+    expect(panel().querySelectorAll(".skeleton").length).toBeGreaterThan(0);
     view.rerender(
       <TripForm
         options={options}
@@ -174,7 +215,7 @@ describe("the form before and without the places", () => {
         onSubmit={() => {}}
       />,
     );
-    expect(view.container.querySelectorAll(".skeleton")).toHaveLength(0);
+    expect(document.querySelectorAll(".skeleton")).toHaveLength(0);
     expect(panel().hasAttribute("aria-busy")).toBe(false);
     expect(within(screen.getByTestId("interests-field")).getAllByRole("checkbox")).toHaveLength(
       INTERESTS_SHOWN,
@@ -183,7 +224,7 @@ describe("the form before and without the places", () => {
 
   it("says the options could not load, offers Try again, and still plans", async () => {
     const { onSubmit, onRetryData, user } = renderForm({ withOptions: false, status: "error" });
-    // Visible while folded, so the traveler learns it without opening anything.
+    // Visible with the sheet closed, so the traveler learns it without opening anything.
     expect(folded()).toBe(true);
     expect(screen.getByTestId("options-error").textContent).toContain(OPTIONS_FAILED);
     expect(screen.getByRole("alert")).toBe(screen.getByTestId("options-error"));
@@ -196,6 +237,7 @@ describe("the form before and without the places", () => {
     expect(screen.queryByTestId("interests-field")).toBeNull();
     expect(screen.queryByTestId("must-see-field")).toBeNull();
     expect(document.querySelectorAll(".skeleton")).toHaveLength(0);
+    await user.click(done());
     await user.click(screen.getByTestId("plan-button"));
     expect(onSubmit).toHaveBeenCalledOnce();
   });

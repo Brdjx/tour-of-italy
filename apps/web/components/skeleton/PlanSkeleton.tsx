@@ -49,7 +49,6 @@ export function PlanSkeleton({ reason, slow }: PlanSkeletonProps) {
           <span className="flap-spinner" aria-hidden="true" />
           {status.title}
         </p>
-        <Skeleton className="skeleton--button" width={112} />
       </div>
       {/* Decision: after SLOW_PLAN_MS the honest line takes the explanation's place instead of
           adding a line, so nothing below it moves while the traveler waits. */}

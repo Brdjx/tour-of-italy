@@ -1,7 +1,15 @@
 "use client";
 
 import type { TripRequest } from "@italy/planner";
-import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  type FocusEvent,
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { keepClearOfActions } from "../lib/keepClear";
 import { clearOptions, optionCount } from "../lib/moreOptions";
 import {
@@ -19,12 +27,13 @@ import { MoreOptions } from "./form/MoreOptions";
 import { type DataStatus, OptionFields } from "./form/OptionFields";
 import { PrimaryControls } from "./form/PrimaryControls";
 
-// The trip form: start date and pace always on screen, everything else folded into "More
-// options", then "Plan my trip". Date, pace and the button need no data, so they work from the
+// The trip form: start date and pace always on screen, everything else in the "More options"
+// sheet, then "Plan my trip". Date, pace and the button need no data, so they work from the
 // first paint; the options that are built from the places show skeletons until they arrive.
 // Checks run on submit with one message per field; the first problem gets focus, and an error
-// inside the folded options opens them first. The request that leaves here has passed the
-// planner's own TripRequestSchema.
+// inside the options opens their sheet first. The request that leaves here has passed the
+// planner's own TripRequestSchema. The form sits on the page before any plan and in the Edit
+// trip sheet after one (TripPane).
 
 interface TripFormProps {
   options: TripOptions | null; // null until the places load
@@ -34,6 +43,7 @@ interface TripFormProps {
   planning: boolean;
   slow?: boolean; // the plan in flight has passed SLOW_PLAN_MS
   onSubmit: (request: TripRequest) => void;
+  beforeActions?: ReactNode; // shown above "Plan my trip" (the Edit trip sheet's reset)
 }
 
 /** The element that gets focus for each field's error: the first control the error describes. */
@@ -48,7 +58,7 @@ const FOCUS_TARGET: Record<FormField, string> = {
   form: '[data-testid="plan-button"]',
 };
 
-/** Fields inside "More options": an error on one of them opens the panel. */
+/** Fields inside "More options": an error on one of them opens the sheet. */
 const OPTION_FIELDS: readonly FormField[] = [
   "interests",
   "anchors",
@@ -67,13 +77,19 @@ export function TripForm(props: TripFormProps) {
   const [focusField, setFocusField] = useState<FormField | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const primary = options ?? PRIMARY_OPTIONS;
   const count = optionCount(values);
 
-  // Focus moves after the render that opened the panel, so the field is visible when it lands.
+  // Focus moves after the render that opened the sheet, so the field is visible when it lands.
+  // The option fields live in the sheet, outside the <form> element (Sheet portals to <body>).
   useEffect(() => {
     if (!focusField) return;
-    formRef.current?.querySelector<HTMLElement>(FOCUS_TARGET[focusField])?.focus();
+    const selector = FOCUS_TARGET[focusField];
+    const target =
+      formRef.current?.querySelector<HTMLElement>(selector) ??
+      panelRef.current?.querySelector<HTMLElement>(selector);
+    target?.focus();
     setFocusField(null);
   }, [focusField]);
 
@@ -85,8 +101,16 @@ export function TripForm(props: TripFormProps) {
   const clear = () => {
     setValues(clearOptions);
     setErrors((current) => (current.startDate ? { startDate: current.startDate } : {}));
-    // The Clear button goes away with the last option; focus returns to the disclosure.
-    moreRef.current?.focus();
+  };
+
+  // Decision: only for fields on the page. In a sheet, the sheet's own scroller keeps the field
+  // clear of the bar (sheet.css), and scrolling the window would move the page behind it.
+  const onFocus = (event: FocusEvent<HTMLFormElement>) => {
+    const form = event.currentTarget;
+    if (form.closest("dialog") || !(event.target instanceof Node) || !form.contains(event.target)) {
+      return;
+    }
+    keepClearOfActions(event);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -110,10 +134,9 @@ export function TripForm(props: TripFormProps) {
       ref={formRef}
       noValidate
       onSubmit={submit}
-      onFocus={keepClearOfActions}
+      onFocus={onFocus}
       className="trip-form"
       data-testid="trip-form"
-      data-options-open={optionsOpen ? "true" : "false"}
       aria-label="Your trip"
     >
       <PrimaryControls
@@ -125,12 +148,14 @@ export function TripForm(props: TripFormProps) {
       />
       <MoreOptions
         open={optionsOpen}
-        onToggle={() => setOptionsOpen((open) => !open)}
+        onOpen={() => setOptionsOpen(true)}
+        onClose={() => setOptionsOpen(false)}
         count={count}
         status={status}
         onRetryData={props.onRetryData}
         onClear={clear}
         buttonRef={moreRef}
+        panelRef={panelRef}
       >
         <OptionFields
           idBase={id}
@@ -143,6 +168,7 @@ export function TripForm(props: TripFormProps) {
           toggle={toggle}
         />
       </MoreOptions>
+      {props.beforeActions}
       <div className="form-actions">
         {errors.form ? <p className="field-error mb-2">{errors.form}</p> : null}
         {planning ? (

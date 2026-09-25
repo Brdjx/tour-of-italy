@@ -1,13 +1,14 @@
 "use client";
 
 import type { Itinerary, PlannerContext } from "@italy/planner";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { ItineraryState, PlanOrigin } from "./itineraryReducer";
-import { browserStore, type KeyValueStore, readLastPlan, saveLastPlan } from "./lastPlan";
+import { browserStore, forget, type KeyValueStore, readLastPlan, saveLastPlan } from "./lastPlan";
 import type { FallbackCause } from "./planRequest";
 import { readShareParam } from "./shareLink";
 
-// Brings the last plan back when the app opens, and saves the plan after every change.
+// Brings the last plan back when the app opens, saves the plan after every change, and forgets
+// it when the traveler starts a new trip.
 
 export interface RestoredPlan {
   itinerary: Itinerary;
@@ -25,13 +26,14 @@ export interface LastPlanOptions {
  * Once the places are loaded, restores the saved plan through `onRestore`, unless the page was
  * opened with a shared link or already has a plan. Every later plan or edit is saved.
  * Call it before useSharedLinkOnLoad: that hook removes ?p= from the address bar.
+ * Returns `forgetLastPlan`, which removes the saved plan ("Start a new trip").
  */
 export function useLastPlan(
   ctx: PlannerContext | null,
   plan: Pick<ItineraryState, "itinerary" | "origin" | "cause">,
   onRestore: (restored: RestoredPlan) => void,
   options: LastPlanOptions = {},
-): void {
+): () => void {
   const latest = useRef({ plan, onRestore, options });
   latest.current = { plan, onRestore, options };
   const openedWithLink = useRef<boolean | null>(null);
@@ -62,4 +64,12 @@ export function useLastPlan(
     const now = (opts.now ?? (() => new Date()))();
     if (store) saveLastPlan(store, plan.itinerary, plan.origin, now, plan.cause);
   }, [plan.itinerary, plan.origin, plan.cause]);
+
+  // Decision: the page clears its plan in the same step, so nothing is saved again after this;
+  // the next plan the traveler makes is saved as usual.
+  return useCallback(() => {
+    const store = (latest.current.options.store ?? browserStore)();
+    if (store) forget(store);
+    restored.current = null;
+  }, []);
 }

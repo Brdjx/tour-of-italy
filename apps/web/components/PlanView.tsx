@@ -3,18 +3,15 @@
 import type { PlannerContext } from "@italy/planner";
 import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
-import { type ItineraryState, undoLabel } from "../lib/itineraryReducer";
+import type { ItineraryState } from "../lib/itineraryReducer";
 import { buildTripView } from "../lib/timetable";
 import { DayMap } from "./DayMap";
 import { DAY_PANEL_ID, DayTabs, dayTabId } from "./DayTabs";
 import { DayTimetable } from "./DayTimetable";
-import { UndoIcon } from "./icons";
-import { ShareButton } from "./ShareButton";
-import { SourceBadge } from "./SourceBadge";
 
-// The plan: source badge and toolbar (undo, copy link), the AI summary, trip-level notes, day
-// tabs, and the active day's board and map (below it on phones and tablets in portrait, beside it
-// from 1024 px). "Edit trip" lives in the trip summary line above the plan. Switching days slides
+// The plan: the AI summary, trip-level notes, day tabs, and the active day's board and map (below
+// it on phones and tablets in portrait, beside it from 1024 px). The trip header above the plan
+// (TripSummary) holds Edit trip, Copy link, the source line and Undo. Switching days slides
 // the new board in from the side it was reached from; the map stays mounted so its camera can
 // move to the new day instead of starting over.
 
@@ -25,11 +22,9 @@ export interface PlanViewProps {
   animateDay: number;
   headingRef: Ref<HTMLHeadingElement>;
   onSelectDay: (day: number) => void;
-  onUndo: () => void;
   onSwap: (day: number, stop: number) => void;
   onRemove: (day: number, stop: number) => void;
   onMove: (day: number, stop: number, direction: "up" | "down") => void;
-  onStatus: (message: string) => void;
 }
 
 export function PlanView(props: PlanViewProps) {
@@ -46,36 +41,12 @@ export function PlanView(props: PlanViewProps) {
   );
   if (!itinerary) return null;
   const day = days[activeDay] ?? days[0];
-  const undo = undoLabel(plan);
   const tripNotes = tripViolations([...plan.errors, ...itinerary.warnings]);
   return (
     <section aria-labelledby="plan-title" className="plan" data-testid="plan-view">
       <h2 id="plan-title" className="sr-only">
         Your plan
       </h2>
-      <div className="plan-toolbar">
-        <SourceBadge
-          itinerary={itinerary}
-          origin={plan.origin}
-          cause={plan.cause}
-          errors={plan.errors.length}
-          edited={plan.history.length > 0}
-        />
-        <div className="flex flex-wrap items-start gap-1">
-          {undo ? (
-            <button
-              type="button"
-              className="toolbar-button"
-              onClick={props.onUndo}
-              data-testid="undo-button"
-            >
-              <UndoIcon size={18} />
-              {undo}
-            </button>
-          ) : null}
-          <ShareButton itinerary={itinerary} onStatus={props.onStatus} />
-        </div>
-      </div>
       {itinerary.summary ? (
         <p className="plan-summary" data-testid="plan-summary">
           {itinerary.summary}

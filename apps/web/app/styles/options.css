@@ -1,7 +1,7 @@
 /*
- * "More options": the disclosure row with its count badge, the inline panel, the short line
- * shown when the options could not load, and the text buttons inside the form ("Show all
- * interests", "Clear options", "Try again").
+ * "More options": the row with its count badge that opens the options sheet (sheet.css), the
+ * fields as they drop into the sheet, the short line shown when the options could not load, and
+ * the text buttons inside the form ("Show all interests", "Try again", "Start a new trip").
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -10,7 +10,8 @@
     margin-top: 32px;
   }
 
-  /* A full-width row between two hairlines: quiet next to "Plan my trip", easy to hit. */
+  /* A full-width row between two hairlines: quiet next to "Plan my trip", easy to hit. The
+     chevron points onward: the row opens a sheet rather than unfolding in place. */
   .more-options-button {
     display: flex;
     width: 100%;
@@ -63,41 +64,39 @@
     flex-shrink: 0;
     margin-left: auto;
     color: var(--fg);
-    transition: transform var(--dur-move) var(--ease-out);
+    transform: rotate(-90deg);
+    transition: translate var(--dur-press) var(--ease-out);
   }
 
-  .more-options-chevron--open {
-    transform: rotate(180deg);
+  .more-options-button:hover .more-options-chevron {
+    translate: 2px 0;
   }
 
   .more-options-panel {
-    padding-top: 24px;
+    padding-top: 8px;
   }
 
-  /* Opening the panel: each field drops 6 px and fades in, 28 ms after the one before, capped
-     at six so a long panel never waits. The panel's height is never animated. */
-  .more-options-panel:not([hidden]) > .option-fields > * {
-    animation: field-in 240ms var(--ease-content) both;
+  /* Opening the sheet: each field drops 6 px and fades in, 28 ms after the one before, capped
+     at six so a long sheet never waits. The first starts as the sheet is most of the way up.
+     The sheet shows them again each time it opens, since a closed dialog is not displayed. */
+  .form-sheet[open] .more-options-panel > .option-fields > * {
+    animation: field-in 240ms var(--ease-content) 80ms both;
   }
 
-  .more-options-panel:not([hidden]) > .option-fields > :nth-child(2) {
-    animation-delay: 28ms;
+  .form-sheet[open] .more-options-panel > .option-fields > :nth-child(2) {
+    animation-delay: 108ms;
   }
-  .more-options-panel:not([hidden]) > .option-fields > :nth-child(3) {
-    animation-delay: 56ms;
+  .form-sheet[open] .more-options-panel > .option-fields > :nth-child(3) {
+    animation-delay: 136ms;
   }
-  .more-options-panel:not([hidden]) > .option-fields > :nth-child(4) {
-    animation-delay: 84ms;
+  .form-sheet[open] .more-options-panel > .option-fields > :nth-child(4) {
+    animation-delay: 164ms;
   }
-  .more-options-panel:not([hidden]) > .option-fields > :nth-child(5) {
-    animation-delay: 112ms;
+  .form-sheet[open] .more-options-panel > .option-fields > :nth-child(5) {
+    animation-delay: 192ms;
   }
-  .more-options-panel:not([hidden]) > .option-fields > :nth-child(n + 6) {
-    animation-delay: 140ms;
-  }
-
-  .clear-options {
-    margin-top: 12px;
+  .form-sheet[open] .more-options-panel > .option-fields > :nth-child(n + 6) {
+    animation-delay: 220ms;
   }
 
   /* The data behind the options did not load: a short line with Try again, never a banner. */
@@ -168,8 +167,12 @@
       transition: none;
     }
 
+    .more-options-button:hover .more-options-chevron {
+      translate: none;
+    }
+
     .count-badge,
-    .more-options-panel:not([hidden]) > .option-fields > * {
+    .form-sheet[open] .more-options-panel > .option-fields > * {
       animation: none;
     }
   }

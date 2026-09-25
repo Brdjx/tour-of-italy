@@ -8,7 +8,7 @@ import { ChevronIcon } from "./icons";
 
 // Says who planned the trip, how it was checked, and whether it currently has problems. The
 // label is always visible; the details (what the pipeline did, the fallback cause in plain
-// words) open on tap, click, or Enter. The chevron shows it opens. The mark before the label is
+// words) open on tap, click, or Enter. The chevron after the label shows it opens. The mark before the label is
 // a check that draws itself when a plan arrives, because every plan shown has passed the check
 // against hours and distance: gold for the AI planner, ink for the rules. A plan with a problem
 // gets a red dot instead, never a check.
@@ -43,7 +43,7 @@ export function SourceBadge({ itinerary, origin, ...status }: SourceBadgeProps) 
   const text = sourceText(itinerary, origin, status);
   return (
     <div
-      className="min-w-0"
+      className="source-badge min-w-0"
       data-testid="source-badge"
       data-source={itinerary.source}
       data-marker={text.marker}
@@ -59,14 +59,21 @@ export function SourceBadge({ itinerary, origin, ...status }: SourceBadgeProps) 
         }}
       >
         <SourceMark marker={text.marker} />
-        <span
-          data-testid={text.offline ? "offline-label" : undefined}
-          className={text.marker === "problem" ? "text-danger" : undefined}
-        >
-          {text.label}
+        {/* Decision: the chevron runs on after the last word, so a label that wraps on a phone
+            still ends in its disclosure mark instead of leaving it stranded at the far edge. */}
+        <span className="source-text">
+          <span
+            data-testid={text.offline ? "offline-label" : undefined}
+            className={text.marker === "problem" ? "text-danger" : undefined}
+          >
+            {text.label}
+          </span>
+          <span className="sr-only">. Show how this plan was made.</span>
+          <ChevronIcon
+            size={16}
+            className={`source-chevron${open ? " source-chevron--open" : ""}`}
+          />
         </span>
-        <span className="sr-only">. Show how this plan was made.</span>
-        <ChevronIcon size={16} className={`source-chevron${open ? " source-chevron--open" : ""}`} />
       </button>
       <div id={detailsId} hidden={!open} className="source-details" data-testid="source-details">
         {text.details.map((sentence) => (

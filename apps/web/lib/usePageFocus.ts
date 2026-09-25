@@ -3,21 +3,23 @@
 import { type RefObject, useEffect, useState } from "react";
 import type { PlanPhase } from "./usePlanTrip";
 
-// Where keyboard focus goes when the page itself changes shape (edits have lib/editFocus.ts):
+// Where keyboard focus goes when the page itself changes shape (edits have lib/editFocus.ts;
+// a sheet puts focus on its own heading when it opens, see components/Sheet.tsx):
 // - a new plan: the day heading, so keyboard and screen reader users land on it;
-// - "Edit trip": the form's heading; "Back to plan": the "Edit trip" button again;
+// - closing the Edit trip sheet without planning: the "Edit trip" button again;
 // - sending the form: the plan area, which now shows the plan's skeleton (the button that had
-//   focus just folded away with the form);
+//   focus just went away with the sheet);
+// - "Start a new trip": the first screen's title, at the top of the page;
 // - a failed plan: its message is brought into view, and if focus was left on a region that is
 //   gone (no earlier plan to go back to), it moves to the message's button or "Plan my trip".
 
-export type FocusTarget = "form" | "edit" | "plan";
+export type FocusTarget = "edit" | "plan" | "start";
 
 interface PageFocusOptions {
   phase: PlanPhase;
   planId: number;
   dayHeading: RefObject<HTMLElement | null>;
-  formHeading: RefObject<HTMLElement | null>;
+  startHeading: RefObject<HTMLElement | null>;
 }
 
 function lost(doc: Document): boolean {
@@ -25,7 +27,11 @@ function lost(doc: Document): boolean {
   return !active || active === doc.body || !active.isConnected;
 }
 
-export function usePageFocus({ phase, planId, dayHeading, formHeading }: PageFocusOptions) {
+function toTop(): void {
+  (document.scrollingElement ?? document.documentElement).scrollTop = 0;
+}
+
+export function usePageFocus({ phase, planId, dayHeading, startHeading }: PageFocusOptions) {
   const [next, setNext] = useState<FocusTarget | null>(null);
 
   useEffect(() => {
@@ -35,14 +41,16 @@ export function usePageFocus({ phase, planId, dayHeading, formHeading }: PageFoc
   useEffect(() => {
     if (!next) return;
     setNext(null);
-    if (next === "form") formHeading.current?.focus();
-    else if (next === "plan") {
-      // The form that had focus just folded away; the page is now the summary line and the
-      // plan's skeleton, so show it from the top rather than wherever the long form was.
+    if (next === "plan") {
+      // The sheet that had focus just closed; the page is now the trip header and the plan's
+      // skeleton, so show it from the top rather than wherever the page was scrolled.
       document.getElementById("plan")?.focus({ preventScroll: true });
-      (document.scrollingElement ?? document.documentElement).scrollTop = 0;
+      toTop();
+    } else if (next === "start") {
+      startHeading.current?.focus({ preventScroll: true });
+      toTop();
     } else document.querySelector<HTMLElement>('[data-testid="edit-trip-button"]')?.focus();
-  }, [next, formHeading]);
+  }, [next, startHeading]);
 
   useEffect(() => {
     if (phase.kind !== "error") return;

@@ -10,6 +10,7 @@
 @import "./styles/skeleton.css";
 @import "./styles/compose.css";
 @import "./styles/plan.css";
+@import "./styles/sheet.css";
 
 /* Decision: a stand-in with TikTok Sans's measurements while the font loads, so text does not
    reflow when it arrives. next/font has no metrics for this family, so these are computed the way
@@ -68,6 +69,17 @@
   --shadow-menu: 0 18px 50px rgb(17 17 15 / 0.14);
   --shadow-sheet: 0 -14px 40px -8px rgb(17 17 15 / 0.22); /* the bottom sheet, lit from above */
   --scrim: rgb(17 17 15 / 0.42);
+  /* Sheets (styles/sheet.css). Decision: rounded top corners on sheets are the owner's explicit
+     request for an Apple-style sheet; containers elsewhere stay square. */
+  --sheet-radius: 20px;
+  --sheet-top: 12px; /* the gap above a tall sheet on phones, under the status bar */
+  --sheet-stack: 24px; /* a sheet over another starts this much lower, so the one beneath shows */
+  --sheet-pad: 16px; /* the page's phone gutter, so fields keep the same measure */
+  --sheet-blur: 10px;
+  --sheet-grabber: var(--line-strong);
+  --recede-page: 0.94; /* the page behind a phone sheet */
+  --recede-sheet: 0.94; /* a sheet with another sheet over it */
+  --recede-surround: #000000; /* what shows around the page as it scales back, as on iOS */
 
   /* Motion. Exponential ease-outs for things arriving, a shorter ease-in for things leaving, and
      two springs written as linear() curves. Only transform and opacity move. */
@@ -158,6 +170,12 @@
     --shadow-menu: 0 18px 50px rgb(0 0 0 / 0.45);
     --shadow-sheet: 0 -14px 40px -8px rgb(0 0 0 / 0.55);
     --scrim: rgb(0 0 0 / 0.56);
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --sheet-pad: 28px;
   }
 }
 

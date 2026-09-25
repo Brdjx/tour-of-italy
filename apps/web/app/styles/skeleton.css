@@ -137,23 +137,8 @@
   }
 
   /* A shared link or a saved plan is on its way (lib/expectPlanScript.ts): until the app takes
-     over, the static page paints the plan view's compact header over an empty page instead of
-     the form, so nothing jumps when the plan's skeleton appears. */
-  html[data-expect-plan] .app[data-view="compose"] {
-    --content-max: 1120px;
-  }
-
-  html[data-expect-plan] .app[data-view="compose"] .app-header {
-    padding-top: calc(var(--safe-top) + 12px);
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  html[data-expect-plan] .app[data-view="compose"] .app-title {
-    font-size: 1.25rem;
-    line-height: 1.3;
-  }
-
+     over, the static page paints nothing instead of the form (layout.css hides the title), so
+     nothing jumps when the plan's skeleton appears. */
   html[data-expect-plan] .app[data-view="compose"] .app-tagline,
   html[data-expect-plan] .app[data-view="compose"] .app-body,
   html[data-expect-plan] .app[data-view="compose"] .app-footer {

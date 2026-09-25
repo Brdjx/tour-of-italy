@@ -83,7 +83,9 @@ export function PlacePicker(props: PlacePickerProps) {
       event.preventDefault();
       const choice = matches[active] ?? matches[0];
       if (choice) pick(choice);
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && (open || query !== "")) {
+      // Decision: Escape is the picker's only while its list is open or it holds text; otherwise
+      // it passes through, so the More options sheet around the field can close.
       event.preventDefault();
       if (open) setOpen(false);
       else setQuery("");

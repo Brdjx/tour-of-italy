@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import type { TripDataState } from "../lib/useTripData";
 import { BaseLine } from "./BaseLine";
 import { DataNotesPanel } from "./DataNotesPanel";
@@ -11,7 +11,8 @@ import { Skeleton } from "./skeleton/Skeleton";
 // The plan area and the page's header and footer. The plan area shows the plan, or its skeleton
 // while a plan is on its way (aria-busy is set here, on the region that waits), or, in the rare
 // case where a plan arrived but the places never did, a way to load them again. A failed request
-// keeps the previous plan and puts its message above it.
+// keeps the previous plan and puts its message above it. The header is the first screen's
+// title; the plan view has no bar at the top, its trip header (TripSummary) opens the page.
 
 export type PlanContent = "skeleton" | "plan" | "unavailable";
 
@@ -54,21 +55,19 @@ export function PlanPane(props: PlanPaneProps) {
 }
 
 /**
- * The title, and before any plan the one line that says what the page does and the line
- * diagram of the five bases the trip is planned from.
+ * Before any plan: the title, the one line that says what the page does, and the line diagram
+ * of the five bases the trip is planned from. The title takes focus after "Start a new trip".
  */
-export function AppHeader({ tagline }: { tagline: boolean }) {
+export function AppHeader({ titleRef }: { titleRef?: Ref<HTMLHeadingElement> }) {
   return (
     <header className="app-header">
-      <h1 className="app-title">3 Days in Italy</h1>
-      {tagline ? (
-        <>
-          <p className="app-tagline" data-testid="app-tagline">
-            {TAGLINE}
-          </p>
-          <BaseLine />
-        </>
-      ) : null}
+      <h1 ref={titleRef} tabIndex={-1} className="app-title outline-none">
+        3 Days in Italy
+      </h1>
+      <p className="app-tagline" data-testid="app-tagline">
+        {TAGLINE}
+      </p>
+      <BaseLine />
     </header>
   );
 }
