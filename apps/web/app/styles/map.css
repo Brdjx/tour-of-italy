@@ -39,7 +39,7 @@
     overflow: hidden;
     isolation: isolate;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 0;
     background: var(--page);
   }
 
@@ -107,21 +107,27 @@
   display: none;
 }
 
-/* The credits button: a quiet "i" in the page's type, drawn in either scheme. */
+/* The credits button: a drawn info mark in the muted ink, in either scheme. */
 .map-canvas .maplibregl-ctrl-attrib-button {
   border: 1px solid var(--line);
   background-image: none;
   color: var(--muted);
-  font: italic 600 12px / 22px var(--font-sans);
-  text-align: center;
 }
 
 .map-canvas .maplibregl-ctrl-attrib-button::before {
-  content: "i";
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 0 auto;
+  background: currentColor;
+  content: "";
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5'/%3E%3Ccircle cx='12' cy='7.6' r='0.6' fill='black'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 /* The "Use Ctrl + scroll to zoom the map" notice. */
 .map-canvas .maplibregl-cooperative-gesture-screen {
-  background: rgb(17 17 15 / 0.55);
+  background: var(--scrim);
   font-size: 0.9375rem;
 }

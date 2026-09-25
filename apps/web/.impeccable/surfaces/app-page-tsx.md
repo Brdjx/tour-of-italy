@@ -12,6 +12,13 @@ primary_target: "app/page.tsx"
 related_targets: []
 ---
 
+---
+version: 1
+slug: "app-page-tsx"
+primary_target: "app/page.tsx"
+related_targets: []
+---
+
 # Planner (the one page)
 
 Mode: Operate. A traveler composes a trip, then reads, edits and carries a three-day plan.
@@ -24,7 +31,7 @@ Constraints from the owner (2026-09-24): keep the simple flow (date, pace, More 
 
 THESIS: Each day is a departure board you check once and trust. It refuses the itinerary-app default of a hero photo over a stack of rounded stop cards with star ratings.
 
-OWN-WORLD: Goodpix paper and ink. White page, warm tile #f6f5f0, ink #11110f as the only fill, gold #a8864b that only draws (the chosen tab, the AI dot, focus), 1px hairlines between board rows, square containers and photos, 999px pills for anything pressed. TikTok Sans with width as rank: display 400 at 150, titles 500 at 125, board times 600 at 87.5 in tabular figures, place names 500 at 112.5. Shadows only on floating sheets. The map is a vector map in the same world: paper land, hairline streets, ink route, gold stops, and a real dark mode.
+OWN-WORLD: Goodpix paper and ink. White page, warm tile #f6f5f0, ink #11110f as the only fill, gold #a8864b that only draws (the chosen tab, the AI dot, focus), 1px hairlines between board rows, square containers and photos, 999px pills for anything pressed. TikTok Sans with width as rank: display 400 at 150, titles and place names 500 at 125, day tabs 500 at 112.5, board times 600 at 87.5 in tabular figures. Shadows only on floating sheets. The map is a vector map in the same world: paper land, hairline streets, an ink route and ink stops (gold stays off the map), and a real dark mode.
 
 STORY: The traveler sets a date and a pace and presses Plan my trip. The board flips into Day 1: times, places, areas and travel, with what the data cannot confirm said on the row. A stop opens in place to show its photo, credit and facts. Edits recompute the board, and only the changed times flip. The plan is shared or carried on the phone.
 

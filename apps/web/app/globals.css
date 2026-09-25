@@ -66,6 +66,7 @@
   --skeleton: var(--line);
   --shadow-float: 0 14px 40px -8px rgb(17 17 15 / 0.22);
   --shadow-menu: 0 18px 50px rgb(17 17 15 / 0.14);
+  --shadow-sheet: 0 -14px 40px -8px rgb(17 17 15 / 0.22); /* the bottom sheet, lit from above */
   --scrim: rgb(17 17 15 / 0.42);
 
   /* Motion. Exponential ease-outs for things arriving, a shorter ease-in for things leaving, and
@@ -155,6 +156,7 @@
     --status-bar: var(--page);
     --shadow-float: 0 14px 40px -8px rgb(0 0 0 / 0.55);
     --shadow-menu: 0 18px 50px rgb(0 0 0 / 0.45);
+    --shadow-sheet: 0 -14px 40px -8px rgb(0 0 0 / 0.55);
     --scrim: rgb(0 0 0 / 0.56);
   }
 }
