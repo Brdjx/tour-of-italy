@@ -1,8 +1,7 @@
 /*
  * The top of the plan view: the trip header (the dates as the page's heading, the pace, Edit
- * trip and Copy link, then the source line with Undo), the source badge with its drawn check and
- * the details that open under it, and the AI summary. The day tabs and the board are in
- * timetable.css.
+ * trip and Copy link, then the source line with Undo), the source line's drawn check, and the AI
+ * summary. The day tabs and the board are in timetable.css.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -175,11 +174,6 @@
     animation: details-in var(--dur-move) var(--ease-content) both;
   }
 
-  .trip-head-status > .source-badge {
-    min-width: 0;
-    flex: 1;
-  }
-
   .head-undo {
     flex-shrink: 0;
     animation: undo-in var(--dur-spring) var(--spring-snappy);
@@ -206,41 +200,20 @@
     }
   }
 
-  /* ----- The source badge ----- */
-  .source-button {
-    display: inline-flex;
-    min-height: 44px;
-    max-width: 100%;
-    align-items: center;
-    gap: 10px;
-    /* Decision: the pill has room on both sides of its words when it shows (hover), and the
-       negative margin keeps the mark in line with the heading above it at rest. */
-    margin-inline-start: -12px;
-    padding: 4px 14px 4px 12px;
-    border-radius: 999px;
-    color: var(--fg);
-    font-size: 0.9375rem;
-    font-weight: 500;
-    text-align: left;
-    transition: background-color var(--dur-color) ease;
-  }
-
-  .source-button:hover {
-    background: var(--hover);
-  }
-
-  .source-button:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 2px;
-  }
+  /* ----- The source line ----- */
 
   /* Under the heading the source line is small print: the claim, not a second title.
-     Decision: on a phone the claim wraps to two or three lines beside Undo. The padding puts the
-     first line's centre 22px down, the centre of a 44px pill, and the mark sits on that line
-     too, so the mark, the first line and Undo read as one row instead of three heights. */
-  .trip-head .source-button {
+     Decision: the padding puts the first line's centre 22px down, the centre of the 44px Undo
+     pill at its end, and the mark sits on that line too, so the mark, the claim and Undo read as
+     one row; a claim that wraps on a phone wraps under itself, beside the mark. */
+  .source-line {
+    display: flex;
+    min-width: 0;
+    flex: 1;
     align-items: flex-start;
+    gap: 10px;
     padding-block: calc((44px - 1.35em) / 2);
+    color: var(--fg);
     font-size: 0.875rem;
     line-height: 1.35;
   }
@@ -292,64 +265,17 @@
     background: var(--danger);
   }
 
-  /* In the trip header the mark sits on the claim's first line (see .trip-head .source-button). */
-  .trip-head .source-mark {
+  /* The mark sits on the claim's first line. */
+  .source-line .source-mark {
     margin-top: calc((1.35em - 20px) / 2);
   }
 
-  .trip-head .source-mark--problem {
+  .source-line .source-mark--problem {
     margin-top: calc((1.35em - 10px) / 2);
   }
 
   .source-text {
     min-width: 0;
-  }
-
-  .source-chevron {
-    display: inline-block;
-    margin-left: 4px;
-    vertical-align: -3px;
-    color: var(--muted);
-    transition: transform var(--dur-move) var(--ease-out);
-  }
-
-  .source-chevron--open {
-    transform: rotate(180deg);
-  }
-
-  /* The details on warm paper, with a gold hairline that draws down beside them. */
-  .source-details {
-    position: relative;
-    max-width: 62ch;
-    margin-top: 8px;
-    padding: 12px 14px 12px 16px;
-    background: var(--surface-warm);
-    color: var(--fg);
-    font-size: 0.875rem;
-    line-height: 1.45;
-  }
-
-  .source-details:not([hidden]) {
-    animation: details-in var(--dur-move) var(--ease-content) both;
-  }
-
-  .source-details::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 1px;
-    background: var(--gold);
-    content: "";
-    transform-origin: 50% 0;
-  }
-
-  .source-details:not([hidden])::before {
-    animation: rule-draw 240ms var(--ease-out) both;
-  }
-
-  .source-details > p + p {
-    margin-top: 6px;
   }
 
   .plan-summary {
@@ -373,12 +299,6 @@
     }
   }
 
-  @keyframes rule-draw {
-    from {
-      transform: scaleY(0);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .trip-head,
     .trip-head-status,
@@ -393,14 +313,8 @@
     }
 
     .source-mark-ring,
-    .source-mark-check,
-    .source-details:not([hidden]),
-    .source-details:not([hidden])::before {
+    .source-mark-check {
       animation: none;
-    }
-
-    .source-chevron {
-      transition: none;
     }
   }
 }

@@ -1,164 +1,197 @@
-import { FALLBACK_REASONS } from "@italy/planner";
+import { FALLBACK_REASONS, type FallbackReason } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { fromBase64Url, toBase64Url } from "../lib/base64url";
-import { CAUSE_TEXT, FALLBACK_TEXT, sourceText } from "../lib/sourceText";
+import { FALLBACK_CLAIM, ON_DEVICE_CLAIM, sourceText } from "../lib/sourceText";
 import { aiPlan, fixturePlan } from "./fixtures";
 
 const EM_DASH = String.fromCharCode(0x2014);
 
-// The source badge is the product's honesty: it must never claim AI for a rules plan, and every
-// fallback reason needs plain words.
+// The source line is the product's honesty: it must never claim AI for a rules plan, and every
+// fallback reason needs a few plain words.
+
+const NOW = new Date(2026, 8, 25, 12);
+
+/** A rules plan the API made for `reason`. */
+function fallback(reason: FallbackReason) {
+  const plan = fixturePlan();
+  return { ...plan, meta: { ...plan.meta, fallbackReason: reason } };
+}
 
 describe("sourceText", () => {
-  it("says who planned it for every source", () => {
+  it("says who planned it for every source, in one short claim", () => {
     const ai = aiPlan();
-    expect(sourceText(ai, "api").label).toBe("Planned with AI, checked against hours and distance");
-    expect(sourceText({ ...ai, source: "ai_repaired" }, "api").label).toBe(
-      "Planned with AI, fixed after a check",
-    );
-    expect(sourceText(fixturePlan(), "api").label).toBe("Planned without AI");
-    expect(sourceText(ai, "shared").label).toBe("Shared plan, checked against hours and distance");
+    expect(sourceText(ai, "api")).toEqual({
+      claim: "Planned with AI",
+      problem: null,
+      offline: false,
+      marker: "ai",
+    });
+    expect(sourceText({ ...ai, source: "ai_repaired" }, "api")).toMatchObject({
+      claim: "Planned with AI, fixed after a check",
+      marker: "ai",
+    });
+    expect(sourceText(fixturePlan(), "api")).toMatchObject({
+      claim: "Planned without AI",
+      marker: "rules",
+    });
+    expect(sourceText(ai, "shared")).toMatchObject({
+      claim: "Shared plan, rebuilt from its places",
+      marker: "rules",
+    });
   });
 
-  it("names both ways a draft is fixed, since the server may tidy it without asking the AI", () => {
-    const [first] = sourceText({ ...aiPlan(), source: "ai_repaired" }, "api").details;
-    expect(first).toContain("first draft broke a rule");
-    expect(first).toContain("dropped or reordered stops, or asked the AI");
+  it.each([
+    ["requested", "Planned without AI"],
+    ["no_key", "Planned without AI: the AI planner is off"],
+    ["disabled", "Planned without AI: the AI planner is off"],
+    ["timeout", "Planned without AI: the AI planner timed out"],
+    ["rate_limited", "Planned without AI: the AI planner was busy"],
+    ["refusal", "Planned without AI: the AI planner declined"],
+    ["invalid_after_repair", "Planned without AI: the AI's plan broke a rule"],
+    ["schema_invalid", "Planned without AI: the AI planner failed"],
+    ["max_tokens", "Planned without AI: the AI planner failed"],
+    ["llm_error", "Planned without AI: the AI planner failed"],
+  ] as const)("says in a few words why a rules plan was made (%s)", (reason, claim) => {
+    expect(sourceText(fallback(reason), "api")).toMatchObject({ claim, marker: "rules" });
+  });
+
+  it("words every fallback reason plainly and briefly", () => {
+    for (const reason of FALLBACK_REASONS) {
+      const claim = FALLBACK_CLAIM[reason];
+      expect(claim.startsWith("Planned without AI")).toBe(true);
+      expect(claim.length).toBeLessThanOrEqual(46);
+      expect(claim).not.toMatch(/schema|token|429|529|SDK/);
+      expect(claim.includes(EM_DASH)).toBe(false);
+    }
   });
 
   it("labels a browser-built plan offline only when the server could not be reached", () => {
     const plan = fixturePlan();
     expect(sourceText(plan, "offline", { cause: "offline" })).toMatchObject({
-      label: "Planned without AI, offline",
+      claim: "Planned on this device, offline",
       offline: true,
       marker: "rules",
     });
     // Restored from storage without a cause: honest about where, silent about why.
     expect(sourceText(plan, "offline")).toMatchObject({
-      label: "Planned without AI, on this device",
+      claim: "Planned on this device",
       offline: false,
     });
   });
 
   it.each([
-    ["timeout", "did not answer in time"],
-    ["busy", "is busy right now"],
-    ["server", "had an error"],
-    ["unreadable", "sent a reply this page cannot read"],
-    ["invalid", "did not pass the checks on this device"],
-  ] as const)("never says offline when the service answered (%s)", (cause, words) => {
+    ["timeout", "Planned on this device: the server timed out"],
+    ["busy", "Planned on this device: the server was busy"],
+    ["server", "Planned on this device: the server failed"],
+    ["unreadable", "Planned on this device: the reply was unreadable"],
+    ["invalid", "Planned on this device: the server's plan broke a rule"],
+  ] as const)("never says offline when the service answered (%s)", (cause, claim) => {
     const text = sourceText(fixturePlan(), "offline", { cause });
-    expect(text.label).toBe("Planned without AI, on this device");
+    expect(text.claim).toBe(claim);
+    expect(ON_DEVICE_CLAIM[cause]).toBe(claim);
     expect(text.offline).toBe(false);
-    expect(text.details[0]).toContain(words);
-    expect(text.details[0]).not.toContain("could not be reached");
-    expect(CAUSE_TEXT[cause]).toBe(text.details[0]);
+    expect(text.claim).not.toContain("offline");
   });
 
-  it("stops claiming 'checked' when the current plan breaks a rule", () => {
+  it("keeps the claim and gives the count to fix when the current plan breaks a rule", () => {
     const edited = sourceText(aiPlan(), "api", { errors: 2, edited: true });
-    expect(edited.label).toBe("Edited by you, 2 problems to fix");
-    expect(edited.marker).toBe("problem");
-    expect(edited.label).not.toContain("checked");
-    expect(edited.details.join(" ")).not.toContain("Every stop was checked");
+    expect(edited).toEqual({
+      claim: "Planned with AI, edited",
+      problem: "2 problems to fix",
+      offline: false,
+      marker: "problem",
+    });
     const restored = sourceText(fixturePlan(), "offline", { errors: 1, cause: "offline" });
-    expect(restored.label).toBe("1 problem to fix");
-    expect(restored.offline).toBe(false);
+    expect(restored).toMatchObject({
+      claim: "Planned on this device, offline",
+      problem: "1 problem to fix",
+      offline: true,
+      marker: "problem",
+    });
   });
 
-  it("says a clean edited plan was edited and is still checked", () => {
-    expect(sourceText(aiPlan(), "api", { edited: true }).label).toBe(
-      "Planned with AI, edited by you, still checked against hours and distance",
+  it("says a clean plan the traveler changed was edited, and keeps its mark", () => {
+    expect(sourceText(aiPlan(), "api", { edited: true })).toMatchObject({
+      claim: "Planned with AI, edited",
+      marker: "ai",
+    });
+    expect(sourceText(fixturePlan(), "offline", { edited: true, cause: "offline" }).claim).toBe(
+      "Planned on this device, offline, edited",
     );
-    expect(sourceText(fixturePlan(), "offline", { edited: true, cause: "offline" }).label).toBe(
-      "Planned without AI, offline, edited by you",
+    expect(sourceText(fallback("timeout"), "api", { edited: true }).claim).toBe(
+      "Planned without AI: the AI planner timed out, edited",
     );
   });
 
   describe("a trip opened from a saved link", () => {
     const saved = {
       id: "a1B2c3D4e5",
-      createdAt: "2026-09-20T12:00:00.000Z",
+      createdAt: new Date(2026, 8, 20, 12).toISOString(),
       plannedBy: "ai" as const,
       edited: false,
       retimed: false,
     };
 
-    it("says how it was planned and that it is a saved trip, with the AI's mark", () => {
-      const text = sourceText(aiPlan(), "saved", { saved });
-      expect(text.label).toBe("Planned with AI, saved trip, checked against hours and distance");
-      expect(text.marker).toBe("ai");
-      expect(text.details[0]).toBe(
-        "Saved on 20 September 2026. The times and why lines are as they were saved.",
+    it("says it is a saved trip, how it was planned and the day it was saved, with the AI's mark", () => {
+      expect(sourceText(aiPlan(), "saved", { saved, now: NOW })).toEqual({
+        claim: "Saved trip, planned with AI, saved 20 Sep",
+        problem: null,
+        offline: false,
+        marker: "ai",
+      });
+      const fixed = { ...saved, plannedBy: "ai_repaired" as const };
+      expect(sourceText(aiPlan(), "saved", { saved: fixed, now: NOW }).claim).toBe(
+        "Saved trip, planned with AI, saved 20 Sep",
       );
-      expect(text.details).toContain("The AI planner chose the places from the data.");
-      expect(text.details.at(-1)).toContain("A filled dot marks a reason written by the AI");
     });
 
-    it("says a fixed draft was fixed and an edited trip was edited before saving", () => {
-      const text = sourceText(aiPlan(), "saved", {
-        saved: { ...saved, plannedBy: "ai_repaired", edited: true },
-      });
-      expect(text.details[1]).toContain("first draft broke a rule and was fixed");
-      expect(text.details).toContain("It was edited before it was saved.");
+    it("names the year of a trip saved in another year", () => {
+      const old = { ...saved, createdAt: new Date(2025, 11, 30, 12).toISOString() };
+      expect(sourceText(aiPlan(), "saved", { saved: old, now: NOW }).claim).toBe(
+        "Saved trip, planned with AI, saved 30 Dec 2025",
+      );
+    });
+
+    it("says edited when it was edited before it was saved, or since", () => {
+      const before = { ...saved, edited: true };
+      expect(sourceText(aiPlan(), "saved", { saved: before, now: NOW }).claim).toBe(
+        "Saved trip, planned with AI, saved 20 Sep, edited",
+      );
+      expect(sourceText(aiPlan(), "saved", { saved, edited: true, now: NOW }).claim).toBe(
+        "Saved trip, planned with AI, saved 20 Sep, edited",
+      );
     });
 
     it("claims neither the AI nor the rules without an AI plan on record", () => {
-      const text = sourceText(fixturePlan(), "saved", { saved: { ...saved, plannedBy: "rules" } });
-      expect(text.label).toBe("Saved trip, checked against hours and distance");
-      expect(text.marker).toBe("rules");
-      expect(text.details[1]).toBe("Its why lines come from the rules.");
-      expect(text.label).not.toContain("without AI");
-    });
-
-    it("says a trip timed again with newer place data has the rules' why lines", () => {
-      const ai = sourceText(fixturePlan(), "saved", { saved: { ...saved, retimed: true } });
-      expect(ai.label).toBe("Planned with AI, saved trip, checked against hours and distance");
-      expect(ai.marker).toBe("rules");
-      expect(ai.details[0]).toContain("its times were worked out again");
-      expect(ai.details.join(" ")).not.toContain("filled dot");
-      const rules = sourceText(fixturePlan(), "saved", {
-        saved: { ...saved, plannedBy: "rules", retimed: true },
+      const text = sourceText(fixturePlan(), "saved", {
+        saved: { ...saved, plannedBy: "rules" },
+        now: NOW,
       });
-      expect(rules.details.filter((line) => line.includes("why lines come from"))).toHaveLength(1);
+      expect(text).toMatchObject({ claim: "Saved trip, saved 20 Sep", marker: "rules" });
+      expect(text.claim).not.toContain("AI");
     });
 
-    it("stays honest without the saved details, or with an unreadable date, and after edits", () => {
-      expect(sourceText(aiPlan(), "saved").label).toBe(
-        "Saved trip, checked against hours and distance",
-      );
+    it("gives a trip timed again with newer place data the rules' mark", () => {
+      const text = sourceText(fixturePlan(), "saved", {
+        saved: { ...saved, retimed: true },
+        now: NOW,
+      });
+      expect(text).toMatchObject({
+        claim: "Saved trip, planned with AI, saved 20 Sep",
+        marker: "rules",
+      });
+    });
+
+    it("stays honest without the saved details, or with an unreadable date", () => {
+      expect(sourceText(aiPlan(), "saved")).toMatchObject({
+        claim: "Saved trip",
+        marker: "rules",
+      });
       expect(
-        sourceText(aiPlan(), "saved", { saved: { ...saved, createdAt: "garbage" } }).details[0],
-      ).toBe("Saved. The times and why lines are as they were saved.");
-      expect(sourceText(aiPlan(), "saved", { saved, edited: true }).label).toBe(
-        "Planned with AI, saved trip, edited by you, still checked against hours and distance",
-      );
+        sourceText(aiPlan(), "saved", { saved: { ...saved, createdAt: "garbage" }, now: NOW })
+          .claim,
+      ).toBe("Saved trip, planned with AI");
     });
-
-    it("stops saying the times are as saved once the traveler edits the trip", () => {
-      const details = sourceText(aiPlan(), "saved", { saved, edited: true }).details;
-      expect(details[0]).toBe("Saved on 20 September 2026.");
-      expect(details.join(" ")).not.toContain("as they were saved");
-      expect(details.at(-1)).toBe("You changed this plan, and every change was checked again.");
-    });
-  });
-
-  it("explains every fallback reason in plain words without jargon", () => {
-    for (const reason of FALLBACK_REASONS) {
-      const text = FALLBACK_TEXT[reason];
-      expect(text.length).toBeGreaterThan(20);
-      expect(text).not.toMatch(/schema|token|429|529|SDK/);
-      expect(text.includes(EM_DASH)).toBe(false);
-      const plan = fixturePlan();
-      const details = sourceText(
-        { ...plan, meta: { ...plan.meta, fallbackReason: reason } },
-        "api",
-      ).details;
-      expect(details[0]).toBe(text);
-    }
-    expect(FALLBACK_TEXT.timeout).toBe(
-      "The AI planner didn't return a valid plan in time, so this plan was built by rules. It follows the same checks.",
-    );
   });
 });
 

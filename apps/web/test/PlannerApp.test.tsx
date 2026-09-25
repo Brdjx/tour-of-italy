@@ -134,7 +134,7 @@ describe("PlannerApp", () => {
       expect(screen.getAllByTestId("stop-row").map((row) => row.dataset.placeId)).toEqual(first),
     );
     expect(post).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("source-badge").textContent).not.toContain("edited by you");
+    expect(screen.getByTestId("source-badge").textContent).not.toContain("edited");
     expect(screen.getByTestId("source-badge").textContent).not.toContain("to fix");
   });
 
@@ -158,7 +158,7 @@ describe("PlannerApp", () => {
       throw new ApiError({ kind: "network", message: "x" });
     });
     await planOnce(user);
-    expect(screen.getByTestId("offline-label").textContent).toBe("Planned without AI, offline");
+    expect(screen.getByTestId("offline-label").textContent).toBe("Planned on this device, offline");
     expect(screen.queryByTestId("error-state")).toBeNull();
   });
 
@@ -187,7 +187,9 @@ describe("PlannerApp", () => {
       plan.days[0]?.stops.map((stop) => stop.placeId),
     );
     expect(screen.getByTestId("share-notice").textContent).toContain("Opened a shared plan.");
-    expect(screen.getByTestId("source-badge").textContent).toContain("Shared plan");
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Shared plan, rebuilt from its places",
+    );
     expect(window.location.search).toBe("");
   });
 

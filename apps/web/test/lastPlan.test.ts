@@ -287,5 +287,12 @@ describe("plans that no longer match the data", () => {
     expect(read.flagged).toBeGreaterThan(0);
     expect(restoredNote(read.flagged)).toMatch(/no longer fit/);
     expect(restoredNote(0)).toBeNull();
+    // A saved trip timed again says so after a reload too; the source line no longer does.
+    expect(restoredNote(0, true)).toBe(
+      "Your last plan is back. It is a saved trip whose times were worked out again with newer place data, so its why lines come from the rules.",
+    );
+    expect(restoredNote(2, true)).toMatch(
+      /why lines come from the rules\. Some stops no longer fit/,
+    );
   });
 });

@@ -83,13 +83,15 @@ export function longDate(date: string): string {
 }
 
 /**
- * "25 September 2026" for an ISO timestamp, on the reader's own calendar (a trip saved late in
- * the evening in Rome is the day the reader saw it saved). Empty for an unreadable timestamp.
+ * "25 Sep" for an ISO timestamp, on the reader's own calendar (a trip saved late in the evening
+ * in Rome is the day the reader saw it saved), with the year when it is not `now`'s ("25 Sep
+ * 2025"). Empty for an unreadable timestamp.
  */
-export function dayOfTimestamp(iso: string): string {
+export function shortDayOfTimestamp(iso: string, now: Date): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return `${date.getDate()} ${MONTH_LONG[date.getMonth()] ?? ""} ${date.getFullYear()}`;
+  const day = `${date.getDate()} ${MONTH_SHORT[date.getMonth()] ?? ""}`;
+  return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
 }
 
 /** "25 September 2026", for a day something was written. */

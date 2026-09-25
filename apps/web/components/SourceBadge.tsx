@@ -1,17 +1,15 @@
 "use client";
 
 import type { Itinerary } from "@italy/planner";
-import { useId, useState } from "react";
 import type { PlanOrigin } from "../lib/itineraryReducer";
 import { type SourceMarker, type SourceStatus, sourceText } from "../lib/sourceText";
-import { ChevronIcon } from "./icons";
 
-// Says who planned the trip, how it was checked, and whether it currently has problems. The
-// label is always visible; the details (what the pipeline did, the fallback cause in plain
-// words) open on tap, click, or Enter. The chevron after the label shows it opens. The mark before the label is
-// a check that draws itself when a plan arrives, because every plan shown has passed the check
-// against hours and distance: gold for the AI planner, ink for the rules. A plan with a problem
-// gets a red dot instead, never a check.
+// The source line: one factual line under the trip's dates that says how the plan was made
+// (lib/sourceText.ts), and why for a plan made without the AI. It is not a control; what the
+// words mean in general is in About this data. The mark before it is a check that draws itself
+// when a plan arrives, because every plan shown has passed the check against hours and travel
+// time: gold for the AI planner, ink for the rules. A plan with a problem gets a red dot instead,
+// never a check, and the count to fix after the claim.
 
 interface SourceBadgeProps extends SourceStatus {
   itinerary: Itinerary;
@@ -38,50 +36,26 @@ function SourceMark({ marker }: { marker: SourceMarker }) {
 }
 
 export function SourceBadge({ itinerary, origin, ...status }: SourceBadgeProps) {
-  const [open, setOpen] = useState(false);
-  const detailsId = useId();
   const text = sourceText(itinerary, origin, status);
   return (
-    <div
-      className="source-badge min-w-0"
+    <p
+      className="source-line"
       data-testid="source-badge"
       data-source={itinerary.source}
       data-marker={text.marker}
     >
-      <button
-        type="button"
-        className="source-button"
-        aria-expanded={open}
-        aria-controls={detailsId}
-        onClick={() => setOpen((value) => !value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setOpen(false);
-        }}
-      >
-        <SourceMark marker={text.marker} />
-        {/* Decision: the chevron runs on after the last word, so a label that wraps on a phone
-            still ends in its disclosure mark instead of leaving it stranded at the far edge. */}
-        <span className="source-text">
-          <span
-            data-testid={text.offline ? "offline-label" : undefined}
-            className={text.marker === "problem" ? "text-danger" : undefined}
-          >
-            {text.label}
-          </span>
-          <span className="sr-only">. Show how this plan was made.</span>
-          <ChevronIcon
-            size={16}
-            className={`source-chevron${open ? " source-chevron--open" : ""}`}
-          />
-        </span>
-      </button>
-      <div id={detailsId} hidden={!open} className="source-details" data-testid="source-details">
-        {text.details.map((sentence) => (
-          <p key={sentence} className="mt-1 first:mt-0">
-            {sentence}
-          </p>
-        ))}
-      </div>
-    </div>
+      <SourceMark marker={text.marker} />
+      <span className="source-text">
+        <span data-testid={text.offline ? "offline-label" : undefined}>{text.claim}</span>
+        {text.problem ? (
+          <>
+            , <span className="text-danger">{text.problem}</span>
+          </>
+        ) : (
+          // Decision: the check says "checked" to the eye; this says it to a screen reader.
+          <span className="sr-only">, checked against opening hours and travel time</span>
+        )}
+      </span>
+    </p>
   );
 }

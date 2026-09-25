@@ -2,7 +2,6 @@ import { DEFAULT_START_DATE } from "../support/env";
 import { expect, test } from "../support/fixtures";
 import {
   BADGE,
-  badgeDetails,
   expectTimesInOrder,
   openPlanner,
   placeFromAnotherBase,
@@ -37,7 +36,6 @@ test.describe("when the planner service fails", () => {
 
     await expect(page.getByTestId("source-badge")).toContainText(BADGE.offline);
     await expect(page.getByTestId("offline-label")).toBeVisible();
-    expect(await badgeDetails(page, press)).toContain("could not be reached");
     expectTimesInOrder(await readStops(page));
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
   });
@@ -60,8 +58,9 @@ test.describe("when the planner service fails", () => {
     expect(await plansAnnounced(page), "gave up before the service's own deadline").toBe(0);
 
     await page.clock.runFor(CLIENT_DEADLINE_MS - API_DEADLINE_MS);
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.onDevice);
-    expect(await badgeDetails(page, press)).toContain("did not answer in time");
+    await expect(page.getByTestId("source-badge")).toContainText(
+      `${BADGE.onDevice}: the server timed out`,
+    );
     expectTimesInOrder(await readStops(page));
   });
 
@@ -81,8 +80,9 @@ test.describe("when the planner service fails", () => {
     await openPlanner(page);
     await planTrip(page, press);
 
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.onDevice);
-    expect(await badgeDetails(page, press)).toContain("did not pass the checks on this device");
+    await expect(page.getByTestId("source-badge")).toContainText(
+      `${BADGE.onDevice}: the server's plan broke a rule`,
+    );
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
     expect(moved, "the route never changed the plan").not.toBe("");
     expect((await readTrip(page, press)).flatMap(placeIds)).not.toContain(moved);
@@ -106,7 +106,9 @@ test.describe("when the planner service fails", () => {
 
     await expect(page.getByTestId("source-badge")).toContainText(BADGE.onDevice);
     await expect(page.getByTestId("offline-label")).toHaveCount(0);
-    expect(await badgeDetails(page, press)).toContain("had an error");
+    await expect(page.getByTestId("source-badge")).toContainText(
+      `${BADGE.onDevice}: the server failed`,
+    );
   });
 
   test("labels a plan built after an unreadable reply as on this device", async ({
@@ -119,8 +121,9 @@ test.describe("when the planner service fails", () => {
     await openPlanner(page);
     await planTrip(page, press);
 
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.onDevice);
-    expect(await badgeDetails(page, press)).toContain("a reply this page cannot read");
+    await expect(page.getByTestId("source-badge")).toContainText(
+      `${BADGE.onDevice}: the reply was unreadable`,
+    );
   });
 
   test("a traveler over the real rate limit still gets a plan, labelled as the service being busy", async ({
@@ -146,8 +149,9 @@ test.describe("when the planner service fails", () => {
     expect(status, "the API never rate limited this client").toBe(429);
 
     await planTrip(page, press);
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.onDevice);
-    expect(await badgeDetails(page, press)).toContain("busy right now");
+    await expect(page.getByTestId("source-badge")).toContainText(
+      `${BADGE.onDevice}: the server was busy`,
+    );
   });
 
   test("keeps the previous plan on screen and says which field to fix when the API refuses a request", async ({

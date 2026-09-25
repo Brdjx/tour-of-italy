@@ -14,7 +14,7 @@ import { isApiError, isRequestProblem } from "./apiError";
 // cause. A request the API rejected as invalid is not retried locally: the traveler needs to
 // fix the form, not get a plan for input the server refused.
 
-/** Why a plan was built in the browser. The source badge words each one differently. */
+/** Why a plan was built in the browser. The source line words each one differently. */
 export type FallbackCause =
   | "offline" // the request never reached the server (no connection, DNS, connection reset)
   | "timeout" // no answer before the client's deadline

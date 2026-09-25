@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../support/fixtures";
 import {
   BADGE,
+  CHECKED,
   expectTimesInOrder,
   openPlanner,
   placeIds,
@@ -13,8 +14,6 @@ import {
 
 // Editing a plan: swap, remove, reorder, undo. Every edit is timed and checked again in the
 // browser; an edit that breaks a rule must say so on the stop, never pass silently.
-
-const EDITED = "edited by you, still checked against hours and distance";
 
 function row(page: Page, index: number): Locator {
   return page.getByTestId("stop-row").nth(index);
@@ -50,7 +49,7 @@ test.describe("editing a plan", () => {
     expect([after[1]?.start, after[1]?.end]).toEqual(offeredTimes);
     expectTimesInOrder(after);
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
-    await expect(page.getByTestId("source-badge")).toContainText(EDITED);
+    await expect(page.getByTestId("source-badge")).toContainText(BADGE.edited);
   });
 
   test("removes a stop, retimes the day, and undo brings back the exact day", async ({
@@ -70,7 +69,7 @@ test.describe("editing a plan", () => {
     await press(page.getByTestId("undo-button"));
     await expect(page.getByTestId("stop-row")).toHaveCount(before.length);
     expect(await readStops(page)).toEqual(before);
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.ai);
+    await expect(page.getByTestId("source-badge")).toHaveText(BADGE.ai + CHECKED);
   });
 
   test("keeps an edit when the app is reopened, instead of bringing back the plan as it arrived", async ({
@@ -151,14 +150,14 @@ test.describe("editing a plan", () => {
     await expect(flagged.first().getByTestId("chip-explanation").first()).toBeVisible();
     const badge = page.getByTestId("source-badge");
     await expect(badge).toHaveAttribute("data-marker", "problem");
-    await expect(badge).toContainText(/Edited by you, \d+ problems? to fix/);
+    await expect(badge).toHaveText(/^Planned with AI, edited, \d+ problems? to fix$/);
 
     // One undo takes back the move that broke the rule; the moves before it broke none.
     await press(page.getByTestId("undo-button"));
     await expect(flagged).toHaveCount(0);
     for (moves--; moves > 0; moves--) await press(page.getByTestId("undo-button"));
     await expect(page.getByTestId("undo-button")).toHaveCount(0);
-    await expect(badge).toContainText(BADGE.ai);
+    await expect(badge).toHaveText(BADGE.ai + CHECKED);
   });
 
   test("opens the swap sheet on the first press right after a chip explanation was opened", async ({

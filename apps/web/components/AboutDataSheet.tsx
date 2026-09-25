@@ -296,6 +296,25 @@ function PlanSection({ model }: { model: string | null }) {
         A plan that fails is repaired once or replaced by one made by rules alone, which also plans
         when the AI is unavailable or there is no connection, and the page says which one it is.
       </p>
+      {/* Decision: what the source line under the trip's dates means, said once here, so the line
+          itself can stay one line of facts (components/SourceBadge.tsx). */}
+      <p className="about-text" data-testid="about-plan-line">
+        The line under the trip's dates says how the plan on screen was made. Its check means every
+        stop passed that check: gold when the AI planner chose the places and wrote the reasons, ink
+        when the reasons come from the rules. "Fixed after a check" means the AI's first draft broke
+        a rule, so code dropped or reordered stops, or asked the AI to fix it. "Planned without AI"
+        says why when the AI planner could not answer, and "Planned on this device" means no plan
+        this page could use came from the server, so it made one by rules. A shared link carries
+        only the trip's settings and places, so its plan is rebuilt here with the current data: its
+        times worked out again and its reasons from the rules. A saved trip keeps the times and
+        reasons it was saved with, unless the place data has changed since, when its times are
+        worked out again and its reasons come from the rules.
+      </p>
+      <p className="about-text" data-testid="about-plan-marks">
+        Every edit is checked again, and a red dot with a count in place of the check means the plan
+        breaks a rule now: the flagged stops and days say which. On each stop, a filled gold dot
+        marks a reason the AI wrote and an open dot one the rules wrote.
+      </p>
     </Section>
   );
 }

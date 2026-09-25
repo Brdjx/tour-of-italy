@@ -8,16 +8,20 @@ export const TRIP_DAYS = 3;
 /** The press fixture: tap on touch devices, click elsewhere. */
 export type Press = (target: Locator, options?: { force?: boolean }) => Promise<void>;
 
-/** The badge labels the page shows for each way a plan can be made (lib/sourceText.ts). */
+/** The source line's claims for each way a plan can be made (lib/sourceText.ts). */
 export const BADGE = {
-  ai: "Planned with AI, checked against hours and distance",
+  ai: "Planned with AI",
   aiRepaired: "Planned with AI, fixed after a check",
   rules: "Planned without AI",
-  offline: "Planned without AI, offline",
-  onDevice: "Planned without AI, on this device",
-  shared: "Shared plan, checked against hours and distance",
-  savedAi: "Planned with AI, saved trip, checked against hours and distance",
+  offline: "Planned on this device, offline",
+  onDevice: "Planned on this device",
+  shared: "Shared plan, rebuilt from its places",
+  savedAi: "Saved trip, planned with AI",
+  edited: "Planned with AI, edited",
 } as const;
+
+/** The words a screen reader hears after a checked plan's claim (components/SourceBadge.tsx). */
+export const CHECKED = ", checked against opening hours and travel time";
 
 /** Scripted model answers the local API plays (services/api/src/llm/fixture.ts). */
 export type Scenario = "valid" | "unknown-id-then-valid" | "always-invalid" | "injection-echo";
@@ -120,15 +124,6 @@ export async function placeFromAnotherBase(page: Page, anchorId: string): Promis
   const found = places.find((place) => place.city === city)?.id;
   if (!found) throw new Error(`no place in ${city} in /api/places`);
   return found;
-}
-
-/** Opens the source badge's details and returns their text. */
-export async function badgeDetails(page: Page, press: Press) {
-  const badge = page.getByTestId("source-badge");
-  await press(badge.getByRole("button"));
-  const details = badge.getByTestId("source-details");
-  await expect(details).toBeVisible();
-  return (await details.innerText()).replace(/\s+/g, " ").trim();
 }
 
 /**

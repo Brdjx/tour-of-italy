@@ -220,6 +220,21 @@ describe("the About this data overlay", () => {
     );
   });
 
+  it("says what the source line under the trip's dates means, which the line itself does not", () => {
+    renderSheet(async () => health(null, false));
+    const line = screen.getByTestId("about-plan-line").textContent ?? "";
+    expect(line).toContain("The line under the trip's dates says how the plan on screen was made.");
+    expect(line).toContain("gold when the AI planner chose the places and wrote the reasons");
+    expect(line).toContain(
+      '"Fixed after a check" means the AI\'s first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.',
+    );
+    expect(line).toContain("A shared link carries only the trip's settings and places");
+    expect(line).toContain("A saved trip keeps the times and reasons it was saved with");
+    const marks = screen.getByTestId("about-plan-marks").textContent ?? "";
+    expect(marks).toContain("Every edit is checked again");
+    expect(marks).toContain("a filled gold dot marks a reason the AI wrote");
+  });
+
   it("says how many places have an AI summary, which model wrote them and when, from the file", () => {
     renderSheet(async () => health(null, false));
     const text = screen.getByTestId("about-summaries-text").textContent;

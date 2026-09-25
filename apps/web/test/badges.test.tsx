@@ -15,18 +15,28 @@ afterEach(cleanup);
 
 describe("SourceBadge", () => {
   it.each([
-    ["ai", "Planned with AI, checked against hours and distance"],
+    ["ai", "Planned with AI"],
     ["ai_repaired", "Planned with AI, fixed after a check"],
     ["deterministic", "Planned without AI"],
-  ] as const)("says who planned a %s plan", (source, label) => {
+  ] as const)("says who planned a %s plan", (source, claim) => {
     render(<SourceBadge itinerary={{ ...aiPlan(), source }} origin="api" />);
-    expect(screen.getByTestId("source-badge").textContent).toContain(label);
+    expect(screen.getByTestId("source-badge").textContent).toContain(claim);
     expect(screen.queryByTestId("offline-label")).toBeNull();
+  });
+
+  it("is one line of words, not a control, and says the check to a screen reader", () => {
+    render(<SourceBadge itinerary={aiPlan()} origin="api" />);
+    const line = screen.getByTestId("source-badge");
+    expect(line.tagName).toBe("P");
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(line.querySelector("[aria-expanded], [aria-controls], [hidden]")).toBeNull();
+    expect(line.textContent).toBe("Planned with AI, checked against opening hours and travel time");
+    expect(line.querySelector("svg.source-mark--ai")).not.toBeNull();
   });
 
   it("marks a plan built in the browser with the offline label", () => {
     render(<SourceBadge itinerary={fixturePlan()} origin="offline" cause="offline" />);
-    expect(screen.getByTestId("offline-label").textContent).toBe("Planned without AI, offline");
+    expect(screen.getByTestId("offline-label").textContent).toBe("Planned on this device, offline");
     expect(screen.getByTestId("source-badge").dataset.marker).toBe("rules");
   });
 
@@ -34,15 +44,27 @@ describe("SourceBadge", () => {
     render(<SourceBadge itinerary={fixturePlan()} origin="offline" cause="server" />);
     expect(screen.queryByTestId("offline-label")).toBeNull();
     expect(screen.getByTestId("source-badge").textContent).toContain(
-      "Planned without AI, on this device",
+      "Planned on this device: the server failed",
     );
   });
 
-  it("uses the filled AI dot only for AI plans, the open dot otherwise", () => {
+  it("says why the AI planner was not used, on the line itself", () => {
+    const plan = fixturePlan();
+    const timedOut = { ...plan, meta: { ...plan.meta, fallbackReason: "timeout" as const } };
+    render(<SourceBadge itinerary={timedOut} origin="api" />);
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Planned without AI: the AI planner timed out",
+    );
+  });
+
+  it("uses the gold check only for AI plans, the ink check otherwise", () => {
     const { rerender } = render(<SourceBadge itinerary={aiPlan()} origin="api" />);
     expect(screen.getByTestId("source-badge").dataset.marker).toBe("ai");
     rerender(<SourceBadge itinerary={fixturePlan()} origin="api" />);
     expect(screen.getByTestId("source-badge").dataset.marker).toBe("rules");
+    expect(
+      screen.getByTestId("source-badge").querySelector("svg.source-mark--rules"),
+    ).not.toBeNull();
     rerender(<SourceBadge itinerary={aiPlan()} origin="shared" />);
     expect(screen.getByTestId("source-badge").dataset.marker).toBe("rules");
   });
@@ -50,24 +72,11 @@ describe("SourceBadge", () => {
   it("stops claiming the plan was checked once an edit breaks a rule", () => {
     render(<SourceBadge itinerary={aiPlan()} origin="api" errors={2} edited />);
     const badge = screen.getByTestId("source-badge");
-    expect(badge.textContent).toContain("Edited by you, 2 problems to fix");
-    expect(badge.textContent).not.toContain("checked against hours");
+    expect(badge.textContent).toBe("Planned with AI, edited, 2 problems to fix");
+    expect(badge.textContent).not.toContain("checked");
     expect(badge.dataset.marker).toBe("problem");
-  });
-
-  it("opens the pipeline details on click and closes on Escape, with the fallback reason", async () => {
-    const user = userEvent.setup();
-    const plan = fixturePlan();
-    const timedOut = { ...plan, meta: { ...plan.meta, fallbackReason: "timeout" as const } };
-    render(<SourceBadge itinerary={timedOut} origin="api" />);
-    const button = screen.getByRole("button", { expanded: false });
-    const details = screen.getByTestId("source-details");
-    expect(details.hidden).toBe(true);
-    await user.click(button);
-    expect(details.hidden).toBe(false);
-    expect(details.textContent).toContain("didn't return a valid plan in time");
-    await user.keyboard("{Escape}");
-    expect(details.hidden).toBe(true);
+    expect(badge.querySelector("svg")).toBeNull();
+    expect(screen.getByText("2 problems to fix").className).toContain("text-danger");
   });
 });
 

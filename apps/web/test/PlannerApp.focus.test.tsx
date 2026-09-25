@@ -173,7 +173,7 @@ describe("notes and labels", () => {
     });
     expect(screen.queryByTestId("offline-label")).toBeNull();
     expect(screen.getByTestId("source-badge").textContent).toContain(
-      "Planned without AI, on this device",
+      "Planned on this device: the server failed",
     );
   });
 
@@ -181,13 +181,13 @@ describe("notes and labels", () => {
     const target = must(firstBreakingMove(aiPlan()), "a move that breaks a rule in the fixture");
     const user = await planned();
     const badge = () => screen.getByTestId("source-badge").textContent ?? "";
-    expect(badge()).toContain("Planned with AI, checked against hours and distance");
+    expect(badge()).toContain("Planned with AI, checked against opening hours and travel time");
     await user.click(screen.getByTestId(`day-tab-${target.day + 1}`));
     await user.click(within(row(target.stop)).getByTestId("move-down"));
     expect(document.querySelector('[data-flagged="true"]')).not.toBeNull();
-    expect(badge()).toMatch(/^Edited by you, \d+ problems? to fix/);
+    expect(badge()).toMatch(/^Planned with AI, edited, \d+ problems? to fix$/);
     expect(badge()).not.toContain("checked against");
     await user.click(screen.getByTestId("undo-button"));
-    expect(badge()).toContain("Planned with AI, checked against hours and distance");
+    expect(badge()).toContain("Planned with AI, checked against opening hours and travel time");
   });
 });

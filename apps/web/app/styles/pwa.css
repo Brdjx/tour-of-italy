@@ -31,7 +31,7 @@
     background: var(--surface-warm);
   }
 
-  /* The same open dot the source badge uses for a plan built on this device. */
+  /* An open dot: the page is working from this device alone. */
   .offline-dot {
     display: inline-block;
     width: 10px;

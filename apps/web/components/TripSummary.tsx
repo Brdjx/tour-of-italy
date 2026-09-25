@@ -14,7 +14,7 @@ import { TRIP_SHEET_ID } from "./TripPane";
 // The block that opens the plan view, in place of a navigation bar. The trip's dates are the
 // page's heading, with the pace under them; Edit trip and Copy link sit on the right from 640 px,
 // and on phones they share one row under the pace, each with its icon and words. Under it, one line says
-// how the plan was made (its details open on tap), with Undo once there is an edit. While a plan
+// how the plan was made (the source line), with Undo at its end once there is an edit. While a plan
 // is on its way, Edit trip and Copy link dim and do nothing until it arrives or fails, and the
 // source line waits; while a shared or saved plan loads, the whole block is a skeleton.
 
@@ -27,6 +27,7 @@ export interface HeaderPlan {
   flaggedStops: number; // stops with one of them
   edited: boolean;
   privateText: PrivateAiText; // what a saved trip of it leaves out to keep the notes private
+  now: Date; // today, for the source line's saved day
 }
 
 interface TripSummaryProps {
@@ -115,6 +116,7 @@ export function TripSummary(props: TripSummaryProps) {
             saved={plan.saved}
             errors={plan.errors}
             edited={plan.edited}
+            now={plan.now}
           />
           {props.undoLabel ? <UndoPill label={props.undoLabel} onUndo={props.onUndo} /> : null}
         </div>

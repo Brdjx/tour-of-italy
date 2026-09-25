@@ -194,8 +194,19 @@ function knownToData(itinerary: Itinerary, ctx: PlannerContext): boolean {
   );
 }
 
-/** The sentence shown when a restored plan has stops that broke a rule since it was saved. */
-export function restoredNote(flagged: number): string | null {
-  if (flagged === 0) return null;
-  return "Your last plan is back. Some stops no longer fit the current data and are marked.";
+/**
+ * The note over a restored plan, when there is something to know: a saved trip timed again with
+ * newer place data (the source line no longer says so), or stops that broke a rule since.
+ */
+export function restoredNote(flagged: number, retimed = false): string | null {
+  if (flagged === 0 && !retimed) return null;
+  return [
+    "Your last plan is back.",
+    ...(retimed
+      ? [
+          "It is a saved trip whose times were worked out again with newer place data, so its why lines come from the rules.",
+        ]
+      : []),
+    ...(flagged > 0 ? ["Some stops no longer fit the current data and are marked."] : []),
+  ].join(" ");
 }

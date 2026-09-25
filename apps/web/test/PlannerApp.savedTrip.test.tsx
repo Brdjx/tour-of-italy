@@ -196,10 +196,10 @@ describe("opening a saved trip link", () => {
       trip.itinerary.days[0]?.stops.map((stop) => stop.placeId),
     );
     expect(fetchTrip).toHaveBeenCalledWith(ID);
-    expect(screen.getByTestId("source-badge").textContent).toContain("Planned with AI, saved trip");
-    expect(screen.getByTestId("source-details").textContent).toContain(
-      "Saved on 20 September 2026",
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Saved trip, planned with AI, saved 20 Sep",
     );
+    expect(screen.getByTestId("source-badge").dataset.marker).toBe("ai");
     expect(screen.getByTestId("plan-summary").textContent).toBe(trip.itinerary.summary);
     expect(screen.queryByTestId("share-notice")).toBeNull();
     await waitFor(() =>
@@ -242,13 +242,25 @@ describe("opening a saved trip link", () => {
     await screen.findAllByTestId("stop-row");
 
     expect(screen.getByTestId("share-notice").textContent).toContain(
-      "The place data has changed since it was saved",
+      "The place data has changed since it was saved, so its times were worked out again",
     );
-    expect(screen.getByTestId("source-badge").textContent).toContain("saved trip");
-    expect(screen.getByTestId("source-details").textContent).toContain(
-      "its times were worked out again",
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Saved trip, planned with AI, saved 20 Sep",
     );
+    expect(screen.getByTestId("source-badge").dataset.marker).toBe("rules");
     expect(window.location.search).toBe("");
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem(LAST_PLAN_KEY) ?? "{}").origin).toBe("saved"),
+    );
+    cleanup();
+
+    // After a reload the note still says the times were worked out again.
+    setup();
+
+    await screen.findAllByTestId("stop-row");
+    expect(screen.getByTestId("share-notice").textContent).toContain(
+      "It is a saved trip whose times were worked out again with newer place data",
+    );
   });
 
   it("says plainly over the form when the saved trip does not exist", async () => {
@@ -312,11 +324,11 @@ describe("opening a saved trip link", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(fetchTrip).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("share-notice")).toBeNull();
-    expect(screen.getByTestId("source-badge").textContent).toContain("saved trip");
+    expect(screen.getByTestId("source-badge").textContent).toContain("Saved trip");
     expect(window.location.search).toBe("");
   });
 
-  it("says it was edited after a reload, never that its times are as they were saved", async () => {
+  it("says it was edited after a reload", async () => {
     window.history.replaceState(null, "", `/?t=${ID}`);
     const { user } = setup({ fetchTrip: async () => savedTrip() });
     const rows = await screen.findAllByTestId("stop-row");
@@ -329,11 +341,10 @@ describe("opening a saved trip link", () => {
     setup();
 
     await screen.findAllByTestId("stop-row");
-    expect(screen.getByTestId("source-badge").textContent).toContain("edited by you");
-    const details = screen.getByTestId("source-details").textContent ?? "";
-    expect(details).toContain("Saved on 20 September 2026.");
-    expect(details).not.toContain("as they were saved");
-    expect(details).toContain("You changed this plan");
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Saved trip, planned with AI, saved 20 Sep, edited",
+    );
+    expect(screen.queryByTestId("share-notice")).toBeNull();
   });
 
   it("wins over the plan kept on this device, and is kept as a saved trip after a reload", async () => {
@@ -352,7 +363,9 @@ describe("opening a saved trip link", () => {
     setup();
 
     await screen.findAllByTestId("stop-row");
-    expect(screen.getByTestId("source-badge").textContent).toContain("Planned with AI, saved trip");
+    expect(screen.getByTestId("source-badge").textContent).toContain(
+      "Saved trip, planned with AI, saved 20 Sep",
+    );
   });
 });
 
@@ -400,7 +413,7 @@ describe("a link still on its way when the traveler plans a trip", () => {
     expect(rows.map((row) => row.dataset.placeId)).toEqual(
       mine.days[0]?.stops.map((stop) => stop.placeId),
     );
-    expect(screen.getByTestId("source-badge").textContent).not.toContain("saved trip");
+    expect(screen.getByTestId("source-badge").textContent).not.toContain("Saved trip");
     expect(screen.queryByTestId("share-notice")).toBeNull();
     expect(fetchTrip).toHaveBeenCalledTimes(1); // not fetched again once the places loaded
     expect(window.location.search).toBe("");
@@ -424,7 +437,7 @@ describe("a link still on its way when the traveler plans a trip", () => {
     await planThenRetry(user);
     await act(async () => answer(savedTrip()));
 
-    expect(screen.getByTestId("source-badge").textContent).not.toContain("saved trip");
+    expect(screen.getByTestId("source-badge").textContent).not.toContain("Saved trip");
     expect(screen.getByTestId("trip-summary-meta").textContent).toContain("Relaxed pace");
     expect(window.location.search).toBe("");
   });

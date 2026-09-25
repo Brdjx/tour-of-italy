@@ -1,7 +1,7 @@
 import { expect, test } from "../support/fixtures";
 import {
   BADGE,
-  badgeDetails,
+  CHECKED,
   expectTimesInOrder,
   openPlanner,
   placeIds,
@@ -70,8 +70,7 @@ test.describe("planning a trip", () => {
 
     const badge = page.getByTestId("source-badge");
     await expect(badge).toHaveAttribute("data-source", "ai_repaired");
-    await expect(badge).toContainText(BADGE.aiRepaired);
-    expect(await badgeDetails(page, press)).toContain("first draft broke a rule");
+    await expect(badge).toHaveText(BADGE.aiRepaired + CHECKED);
     for (const stops of await readTrip(page, press)) expectTimesInOrder(stops);
   });
 
@@ -87,9 +86,7 @@ test.describe("planning a trip", () => {
     await expect(badge).toHaveAttribute("data-source", "deterministic");
     await expect(badge).toContainText(BADGE.rules);
     await expect(badge).not.toContainText("Planned with AI");
-    expect(await badgeDetails(page, press)).toContain(
-      "The AI planner's answer still broke a rule after a second try, so this plan was built by rules.",
-    );
+    await expect(badge).toHaveText(`Planned without AI: the AI's plan broke a rule${CHECKED}`);
     for (const stops of await readTrip(page, press)) expectTimesInOrder(stops);
   });
 
@@ -106,8 +103,10 @@ test.describe("planning a trip", () => {
 
     expect(planUrls).toHaveLength(1);
     expect(new URL(planUrls[0] ?? "").searchParams.get("mode")).toBe("deterministic");
-    await expect(page.getByTestId("source-badge")).toHaveAttribute("data-source", "deterministic");
-    expect(await badgeDetails(page, press)).toContain("You asked for a plan without AI");
+    const badge = page.getByTestId("source-badge");
+    await expect(badge).toHaveAttribute("data-source", "deterministic");
+    // Asked for, so there is no fallback to explain.
+    await expect(badge).toHaveText(BADGE.rules + CHECKED);
   });
 
   test("shows no invented place, prompt text or markup when the model's answer carries an injection", async ({

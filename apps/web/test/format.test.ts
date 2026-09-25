@@ -12,6 +12,7 @@ import {
   priceSymbols,
   ratingText,
   shortDate,
+  shortDayOfTimestamp,
   transferText,
   travelText,
   typeWord,
@@ -57,6 +58,13 @@ describe("dates", () => {
     expect(longDate("garbage")).toBe("garbage");
     expect(calendarDate("2026-09-25")).toBe("25 September 2026");
     expect(calendarDate("garbage")).toBe("garbage");
+  });
+
+  it("names a saved day on the reader's calendar, with its year only when it is not this one", () => {
+    const now = new Date(2026, 8, 25, 12);
+    expect(shortDayOfTimestamp(new Date(2026, 8, 20, 23, 30).toISOString(), now)).toBe("20 Sep");
+    expect(shortDayOfTimestamp(new Date(2025, 11, 31, 9).toISOString(), now)).toBe("31 Dec 2025");
+    expect(shortDayOfTimestamp("garbage", now)).toBe("");
   });
 });
 

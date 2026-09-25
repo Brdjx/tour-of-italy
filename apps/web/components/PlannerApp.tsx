@@ -106,7 +106,7 @@ export function PlannerApp({
     const message = "Showing your last plan.";
     dispatch({ type: "plan", itinerary, origin, cause, saved, edited, message });
     setForm((current) => ({ key: current.key + 1, values: valuesFromRequest(itinerary.request) }));
-    setNotice(restoredNote(flagged));
+    setNotice(restoredNote(flagged, saved?.retimed === true));
   };
   const forgetLastPlan = useLastPlan(ctx, plan, restore, { now: today });
 
@@ -292,6 +292,7 @@ export function PlannerApp({
                       flaggedStops: flaggedStopCount(plan.errors),
                       edited: isEdited(plan),
                       privateText,
+                      now: today(),
                     }
                   : null
               }

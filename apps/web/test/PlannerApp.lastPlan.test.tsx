@@ -55,9 +55,7 @@ describe("PlannerApp last plan", () => {
     const rows = await screen.findAllByTestId("stop-row");
     expect(rows[0]?.dataset.placeId).toBe(plan.days[0]?.stops[0]?.placeId);
     // No cause was saved with this plan, so it says where it was built, not why.
-    expect(screen.getByTestId("source-badge").textContent).toContain(
-      "Planned without AI, on this device",
-    );
+    expect(screen.getByTestId("source-badge").textContent).toContain("Planned on this device");
     await waitFor(() =>
       expect(screen.getByTestId("live-region").textContent).toBe("Showing your last plan."),
     );

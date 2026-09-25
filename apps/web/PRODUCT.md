@@ -22,7 +22,7 @@ Plans you can trust. The model proposes and code decides: Claude only picks and 
 
 ## Operating Context
 
-- One page. Before a plan: the start date, the pace, "More options" (interests, budget, bases, must-see, skip, notes) and "Plan my trip". After a plan: a one-line trip summary with "Edit trip", day tabs, a timetable and a map per day, a source badge, stop actions (swap, remove, move up, move down, undo), a share link, and "About this data".
+- One page. Before a plan: the start date, the pace, "More options" (interests, budget, bases, must-see, skip, notes) and "Plan my trip". After a plan: a one-line trip summary with "Edit trip", day tabs, a timetable and a map per day, the source line (one line on how the plan was made), stop actions (swap, remove, move up, move down, undo), a share link, and "About this data".
 - Installable web app that plans on the device when the API cannot answer.
 - Screens from a 375 px phone to desktop, phones and tablets in both orientations, light and dark.
 - Live at https://italy-planner.brdjx.com.
@@ -33,7 +33,7 @@ Plans you can trust. The model proposes and code decides: Claude only picks and 
 - Static Next.js export plus one API function, on one origin. A strict content security policy: fonts, photos and the map's tiles all come from the site itself, so the page makes no third-party requests.
 - Dependencies come from an approved list; anything else is asked for first.
 - Travel times come from a straight-line distance model, not a routing service.
-- Terms in use: base, day trip, stop, pace (relaxed, balanced, packed), "Plan my trip", "Edit trip", "More options", "About this data", and the source badge labels ("Planned with AI, checked against hours and distance", "Planned without AI").
+- Terms in use: base, day trip, stop, pace (relaxed, balanced, packed), "Plan my trip", "Edit trip", "More options", "About this data", and the source line's claims ("Planned with AI", "Planned with AI, fixed after a check", "Planned without AI", "Planned without AI: the AI planner timed out", "Planned on this device, offline", "Shared plan, rebuilt from its places", "Saved trip, planned with AI, saved 25 Sep").
 
 ## Brand Commitments
 
