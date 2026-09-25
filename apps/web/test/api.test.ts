@@ -211,6 +211,20 @@ describe("successful calls", () => {
       base: "",
     });
     expect(health.commit).toBe("abc");
+    // The planner's state, when the API sends it (About this data names the model from it).
+    const withModel = await fetchHealth({
+      fetchImpl: fetchReturning(
+        jsonResponse({
+          ok: true,
+          version: "0.1.0",
+          commit: "abc",
+          llmAvailable: true,
+          model: "claude-sonnet-5",
+        }),
+      ),
+      base: "",
+    });
+    expect(withModel).toMatchObject({ llmAvailable: true, model: "claude-sonnet-5" });
   });
 
   it("clears its deadline timer so a finished call cannot abort later", async () => {

@@ -1,10 +1,11 @@
 /*
- * A stop's details, in a sheet (components/StopDetailsSheet.tsx on components/Sheet.tsx; the
- * sheet's shape and motion are in sheet.css). The head holds the place's name with its subtitle
- * under it; the body the photo large and square-cornered with its credit, the facts for the date
- * as a small board of hairline rows, what the data cannot confirm, and the listing's description
- * set apart as its own words. The parts drop in one after another as the sheet arrives, like the
- * More options fields.
+ * A place read in a sheet: a stop's details (components/StopDetailsSheet.tsx) and a highlight's
+ * place sheet (components/PlaceSheet.tsx), both on components/Sheet.tsx, whose shape and motion
+ * are in sheet.css, and both built from components/PlaceParts.tsx. The head holds the place's
+ * name with its subtitle under it; the body the photo large and square-cornered with its full
+ * credit, the AI summary under its own label, the facts as a small board of hairline rows, what
+ * the data cannot confirm, and the listing's description set apart as its own words. The parts
+ * drop in one after another as the sheet arrives, like the More options fields.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -24,12 +25,40 @@
 
   /* ----- The body ----- */
 
-  .stop-details {
+  .place-details {
     container-type: inline-size;
   }
 
-  .stop-details > * + * {
+  .place-details > * + * {
     margin-top: var(--board-gap);
+  }
+
+  /* The AI summary: its label in the muted label role after the AI's gold dot, the words leaning
+     (commentary leans; checked facts and the listing's words stand upright). */
+  .place-summary-source {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+  }
+
+  .place-summary-source .reason-mark {
+    align-self: flex-start;
+    margin-top: 0.4em;
+  }
+
+  .place-summary-text {
+    max-width: 62ch;
+    margin-top: 4px;
+    color: var(--fg);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    text-wrap: pretty;
   }
 
   /* The facts for the date: a small board of hairline rows, term in the muted label role and
@@ -78,6 +107,25 @@
   .fact-note {
     display: block;
     margin-top: 2px;
+    color: var(--muted);
+  }
+
+  /* The hours by weekday (the place sheet): the days, then the hours in tabular figures. */
+  .week-hours {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 2px 12px;
+  }
+
+  /* Decision: each day's line on the list's two columns (subgrid), not display: contents,
+     which takes a list item out of the accessibility tree in some browsers. */
+  .week-hours > li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+
+  .week-days {
     color: var(--muted);
   }
 
@@ -139,24 +187,24 @@
   /* ----- Arrival: the parts drop in 28 ms apart as the sheet comes up ----- */
 
   /* The sheet shows them again each time it opens, since a closed dialog is not displayed. */
-  .form-sheet[open] .stop-details > * {
+  .form-sheet[open] .place-details > * {
     animation: field-in 240ms var(--ease-content) 80ms both;
   }
 
-  .form-sheet[open] .stop-details > :nth-child(2) {
+  .form-sheet[open] .place-details > :nth-child(2) {
     animation-delay: 108ms;
   }
 
-  .form-sheet[open] .stop-details > :nth-child(3) {
+  .form-sheet[open] .place-details > :nth-child(3) {
     animation-delay: 136ms;
   }
 
-  .form-sheet[open] .stop-details > :nth-child(n + 4) {
+  .form-sheet[open] .place-details > :nth-child(n + 4) {
     animation-delay: 164ms;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .form-sheet[open] .stop-details > * {
+    .form-sheet[open] .place-details > * {
       animation: none;
     }
   }

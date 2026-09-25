@@ -79,9 +79,17 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("the data notes, an error, and the 404 page pass the audits", async ({ page, press }) => {
       await openPlanner(page);
-      await press(page.getByTestId("data-notes").locator("summary"));
-      await expect(page.getByTestId("data-notes")).toHaveAttribute("open", "");
+      await press(page.getByTestId("data-notes-link"));
+      await expect(page.getByTestId("about-sheet")).toBeVisible();
       await auditState(page, "data notes open");
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("about-sheet")).toBeHidden();
+
+      await press(page.getByTestId("highlight-button").first());
+      await expect(page.getByTestId("place-sheet")).toBeVisible();
+      await auditState(page, "place sheet open");
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("place-sheet")).toBeHidden();
 
       await page.route("**/api/places", (route) => route.abort("connectionreset"));
       await page.reload();

@@ -74,13 +74,16 @@ export function AppHeader({ titleRef }: { titleRef?: Ref<HTMLHeadingElement> }) 
   );
 }
 
-/** The foot of the page: "About this data" as a quiet link, a skeleton of it while it loads. */
+/**
+ * The foot of the page: "About this data" as a quiet link that opens the data notes over the
+ * page, a skeleton of it while the data loads.
+ */
 export function AppFooter({ dataState }: { dataState: TripDataState }) {
   const loading = dataState.status === "loading";
   return (
     <footer className="app-footer" aria-busy={loading ? true : undefined}>
       {dataState.status === "ready" ? (
-        <DataNotesPanel summary={dataState.data.summary} />
+        <DataNotesPanel data={dataState.data} />
       ) : loading ? (
         <div className="data-notes-link" aria-hidden="true">
           <Skeleton width={112} height={12} testId="data-notes-skeleton" />

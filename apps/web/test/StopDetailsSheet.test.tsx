@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DayTimetable } from "../components/DayTimetable";
 import { StopDetailsSheet } from "../components/StopDetailsSheet";
 import { photoForPlace } from "../lib/placePhotos";
+import { summaryForPlace } from "../lib/placeSummaries";
 import { buildDayView, type RowView } from "../lib/timetable";
 import { ctx, fixturePlan, must } from "./fixtures";
 
@@ -86,6 +87,11 @@ describe("the stop details sheet", () => {
     const photo = must(sheet().querySelector(".place-photo--wide img"), "the large photo");
     expect(photo.getAttribute("alt")).toBe(photoForPlace(place)?.alt);
     expect(sheet().querySelector(".photo-credit")?.textContent).toContain("Wikimedia Commons");
+    // The place's AI summary sits under the photo, labelled as the AI's, before the facts.
+    const summary = within(sheet()).getByTestId("place-summary");
+    expect(summary.querySelector("p")?.textContent).toBe(summaryForPlace(place.id));
+    expect(summary.previousElementSibling?.className).toBe("place-details-photo");
+    expect(summary.nextElementSibling?.getAttribute("data-testid")).toBe("stop-fact-sheet");
   });
 
   it("closes with Escape and gives focus back to the Details button that opened it", async () => {

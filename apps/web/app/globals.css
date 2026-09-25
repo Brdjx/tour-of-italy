@@ -12,6 +12,7 @@
 @import "./styles/plan.css";
 @import "./styles/sheet.css";
 @import "./styles/details.css";
+@import "./styles/about.css";
 @import "./styles/tricolore.css";
 
 /* Decision: a stand-in with TikTok Sans's measurements while the font loads, so text does not

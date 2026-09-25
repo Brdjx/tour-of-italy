@@ -4,8 +4,7 @@ import type { TripRequest } from "@italy/planner";
 import { type ReactNode, useRef } from "react";
 import type { TripFormValues } from "../lib/tripForm";
 import type { TripDataState } from "../lib/useTripData";
-import { CloseIcon } from "./icons";
-import { Sheet } from "./Sheet";
+import { Sheet, SheetTitleBar } from "./Sheet";
 import { TripForm } from "./TripForm";
 
 // The trip settings. Before any plan, the form is the page (one calm column). Once a plan is on
@@ -78,26 +77,15 @@ export function TripPane(props: TripPaneProps) {
       testId="trip-sheet"
       initialFocus={headingRef}
       header={
-        <>
-          <h2
-            id="trip-sheet-title"
-            ref={headingRef}
-            tabIndex={-1}
-            className="form-sheet-title t-title outline-none"
-            data-testid="form-heading"
-          >
-            Edit your trip
-          </h2>
-          <button
-            type="button"
-            className="pill pill--quiet pill--round form-sheet-close"
-            onClick={props.onBack}
-            aria-label="Back to plan"
-            data-testid="back-to-plan"
-          >
-            <CloseIcon size={22} />
-          </button>
-        </>
+        <SheetTitleBar
+          titleId="trip-sheet-title"
+          titleRef={headingRef}
+          title="Edit your trip"
+          titleTestId="form-heading"
+          closeLabel="Back to plan"
+          closeTestId="back-to-plan"
+          onClose={props.onBack}
+        />
       }
     >
       {props.hasPlan ? (

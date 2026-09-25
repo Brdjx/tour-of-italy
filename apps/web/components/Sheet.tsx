@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { CloseIcon } from "./icons";
 
 // A sheet over the page, in the Apple manner: on phones it rises from the bottom with a grabber
 // and can be dragged down to close; from 768 px it is a centred panel. Both sit over a dimmed,
@@ -226,5 +227,58 @@ export function Sheet(props: SheetProps) {
       <div className="form-sheet-body">{children}</div>
     </dialog>,
     host,
+  );
+}
+
+interface SheetTitleBarProps {
+  titleId: string;
+  titleRef: RefObject<HTMLHeadingElement | null>; // the sheet's initialFocus
+  title: ReactNode;
+  titleTestId?: string;
+  // A line under the title. When given (even as null while the sheet empties on close), the
+  // title and it stand together in one block, so the close pill stays at the top.
+  subtitle?: ReactNode;
+  closeLabel: string; // "Close details", "Back to plan"
+  closeTestId: string;
+  onClose: () => void;
+}
+
+/**
+ * The header of a sheet that is for reading: its title (focused on open) and the round close
+ * pill, as Edit trip, a stop's or a place's details and About this data all show it. More options
+ * keeps its own header, with Clear options and Done.
+ */
+export function SheetTitleBar(props: SheetTitleBarProps) {
+  const heading = (
+    <h2
+      id={props.titleId}
+      ref={props.titleRef}
+      tabIndex={-1}
+      className="form-sheet-title t-title outline-none"
+      data-testid={props.titleTestId}
+    >
+      {props.title}
+    </h2>
+  );
+  return (
+    <>
+      {props.subtitle === undefined ? (
+        heading
+      ) : (
+        <div className="details-sheet-heading">
+          {heading}
+          {props.subtitle}
+        </div>
+      )}
+      <button
+        type="button"
+        className="pill pill--quiet pill--round form-sheet-close"
+        onClick={props.onClose}
+        aria-label={props.closeLabel}
+        data-testid={props.closeTestId}
+      >
+        <CloseIcon size={22} />
+      </button>
+    </>
   );
 }

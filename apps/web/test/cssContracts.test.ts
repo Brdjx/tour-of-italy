@@ -268,3 +268,63 @@ describe("a stop's photo", () => {
     expect(reduced).toMatch(/\.stop-thumb,[^{]*{\s*transition: none;/);
   });
 });
+
+describe("a highlight tile", () => {
+  const compose = read("styles/compose.css");
+  const hover = compose.slice(compose.indexOf("@media (hover: hover) {\n    .highlight-button"));
+
+  it("says it opens something under a pointer, as a stop's photo does, and keeps its ring", () => {
+    // At rest the hairline is there and transparent on every screen, so a screen that starts
+    // reporting a pointer does not flash it; under the pointer it turns ink.
+    expect(block(compose, ".highlight .place-photo--square {")).toContain(
+      "outline: 1px solid transparent",
+    );
+    expect(block(hover, ".highlight-button .place-photo {")).toContain("transition: outline-color");
+    expect(block(hover, ".highlight-button:hover .place-photo {")).toContain(
+      "outline-color: var(--fg)",
+    );
+    expect(block(hover, ".highlight-button:hover .place-photo-img {")).toContain(
+      "transform: scale(1.04)",
+    );
+    const own = compose.slice(
+      compose.indexOf("scroll-snap-align: start;\n  }\n\n  .highlight-button"),
+    );
+    expect(block(own, ".highlight-button {")).toContain("cursor: pointer");
+    expect(block(compose, ".highlight-button:focus-visible {")).toContain(
+      "outline: 2px solid var(--focus)",
+    );
+    expect(compose.indexOf(".highlight-button:focus-visible {")).toBeGreaterThan(
+      compose.indexOf(".highlight-button:hover .place-photo {"),
+    );
+  });
+
+  it("keeps its photo row, name row and city row level across the grid (subgrid)", () => {
+    expect(compose).toMatch(/grid-template-rows: repeat\(3, auto\);/);
+    expect(block(compose, ".highlight,\n  .highlight-button {")).toContain(
+      "grid-template-rows: subgrid",
+    );
+  });
+
+  it("does not clip its hover hairline or focus ring once it has swept in", () => {
+    const reveal = compose.slice(compose.indexOf("@keyframes tile-reveal {"));
+    expect(block(reveal, "to {")).toContain("clip-path: inset(-4px)");
+  });
+
+  it("keeps the photo and the chevron still for a traveler who asked for reduced motion", () => {
+    const reduced = compose.slice(compose.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(block(reduced, ".highlight-button:hover .place-photo-img {")).toContain(
+      "transform: none",
+    );
+    expect(block(reduced, ".highlight-button:hover .highlight-chevron {")).toContain(
+      "translate: none",
+    );
+  });
+});
+
+describe("About this data", () => {
+  it("is a wide panel from 768 px, and a tall sheet on phones", () => {
+    const about = read("styles/about.css");
+    expect(block(about, ".about-sheet {")).toContain("width: min(760px, calc(100% - 48px))");
+    expect(globals).toContain('@import "./styles/about.css";');
+  });
+});

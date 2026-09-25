@@ -218,12 +218,17 @@
     background: var(--danger);
   }
 
-  /* "About this data": a quiet link at the foot of the page that opens the notes in place. */
+  /* "About this data": a quiet link at the foot of the page that opens the data notes over the
+     page (components/AboutDataSheet.tsx, about.css). A button drawn as a text link. */
   .data-notes-link {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
     color: var(--fg);
+    font: inherit;
     font-size: 0.875rem;
     font-weight: 500;
     text-decoration: underline;
@@ -231,7 +236,6 @@
     text-decoration-thickness: 1px;
     text-underline-offset: 4px;
     cursor: pointer;
-    list-style: none;
     transition: text-decoration-color var(--dur-color) ease;
   }
 
@@ -242,11 +246,6 @@
   .data-notes-link:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
-  }
-
-  .data-notes-body {
-    max-width: 65ch;
-    padding: 4px 0 8px;
   }
 
   @media (prefers-reduced-motion: reduce) {

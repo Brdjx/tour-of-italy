@@ -1,6 +1,6 @@
 import { hoursOn, type Place, tripDates } from "@italy/planner";
 import { describe, expect, it } from "vitest";
-import { rangesText, type StopFactSheet, stopFacts } from "../lib/stopFacts";
+import { placeFacts, rangesText, type StopFactSheet, stopFacts, weekRows } from "../lib/stopFacts";
 import { must, places } from "./fixtures";
 
 // A stop's details sheet states facts for its date. The hours must be the planner's own answer
@@ -169,5 +169,68 @@ describe("stopFacts: booking, price and the description", () => {
       ];
       for (const text of ours) expect(text, item.id).not.toMatch(/[—–]/);
     }
+  });
+});
+
+describe("placeFacts: a place without a date", () => {
+  const facts = (id: string | Place) => placeFacts(typeof id === "string" ? place(id) : id);
+  const keys = (result: StopFactSheet) => result.facts.map((entry) => entry.key);
+
+  it("gives the typical visit, the week's hours, booking, price and rating, in that order", () => {
+    const colosseum = facts("place_001");
+    expect(keys(colosseum)).toEqual(["visit", "hours", "booking", "price", "rating"]);
+    expect(fact(colosseum, "visit")).toMatchObject({ label: "Typical visit", value: "2 h" });
+    expect(fact(colosseum, "hours").week).toEqual([{ days: "Every day", hours: "09:00 to 19:00" }]);
+    expect(fact(colosseum, "rating").value).toBe("4.8 of 5 in the data");
+    expect(colosseum.description).toBe(place("place_001").description.trim());
+  });
+
+  it("runs days with the same hours together from Monday, and names the closed ones", () => {
+    expect(fact(facts("place_003"), "hours").week).toEqual([
+      { days: "Mon to Sat", hours: "12:30 to 14:30 and 19:30 to 22:30" },
+      { days: "Sun", hours: null },
+    ]);
+    expect(fact(facts("place_059"), "hours").week).toEqual([
+      { days: "Mon to Fri", hours: null },
+      { days: "Sat and Sun", hours: "09:00 to 19:00" },
+    ]);
+    expect(fact(facts("place_059"), "dates").value).toBe(
+      "Third Saturday and Sunday of the month only",
+    );
+  });
+
+  it("says when hours are estimated, missing, or not set at all", () => {
+    const rasputin = fact(facts("place_037"), "hours");
+    expect(rasputin.note).toBe("Estimated, not listed.");
+    expect(rasputin.week).toEqual([{ days: "Every day", hours: "18:00 to 24:00" }]);
+    expect(fact(facts("place_021"), "hours")).toMatchObject({ value: "Not in the data" });
+    expect(fact(facts("place_018"), "hours")).toMatchObject({ value: "No set hours" });
+    expect(facts("place_018").unconfirmed.map((entry) => entry.key)).toContain("hours");
+  });
+
+  it("states booking only when the listing does, and a rating the data lacks", () => {
+    expect(keys(facts("place_020"))).not.toContain("booking");
+    const unrated = { ...place("place_001"), rating: null };
+    expect(fact(facts(unrated), "rating")).toMatchObject({
+      value: "Not in the data",
+      numeric: false,
+    });
+    const bare = { ...place("place_001"), description: " " };
+    expect(facts(bare).description).toBeNull();
+  });
+});
+
+describe("weekRows", () => {
+  it("reads a week with two matching days apart and a closed week as closed", () => {
+    const open = [{ open: 540, close: 1080 }];
+    expect(weekRows({ 0: [], 1: open, 2: [], 3: open, 4: open, 5: open, 6: open })).toEqual([
+      { days: "Mon", hours: "09:00 to 18:00" },
+      { days: "Tue", hours: null },
+      { days: "Wed to Sat", hours: "09:00 to 18:00" },
+      { days: "Sun", hours: null },
+    ]);
+    expect(weekRows({ 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] })).toEqual([
+      { days: "Every day", hours: null },
+    ]);
   });
 });

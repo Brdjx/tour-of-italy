@@ -1,13 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DataNotesPanel, namesText } from "../components/DataNotesPanel";
 import { ErrorState, Notice } from "../components/ErrorState";
 import { SourceBadge } from "../components/SourceBadge";
 import { LiveRegion, Toast } from "../components/StatusRegion";
 import { WarningChips } from "../components/WarningChip";
 import type { Chip } from "../lib/chips";
-import { aiPlan, dataset, fixturePlan } from "./fixtures";
+import { aiPlan, fixturePlan } from "./fixtures";
 
 // Badges, chips, and banners carry the plan's caveats. None of them may depend on hover, and
 // each must say its piece in plain words.
@@ -149,29 +148,6 @@ describe("WarningChips", () => {
   it("renders nothing when there are no chips", () => {
     const { container } = render(<WarningChips chips={[]} />);
     expect(container.innerHTML).toBe("");
-  });
-});
-
-describe("DataNotesPanel", () => {
-  it("lists every issue kind with counts, explanations and place names", async () => {
-    const user = userEvent.setup();
-    render(<DataNotesPanel summary={dataset.summary} />);
-    const panel = screen.getByTestId("data-notes");
-    // No bare count that reads like a number of problems; the headline says it in words.
-    const summary = panel.querySelector("summary");
-    expect(summary?.textContent).not.toMatch(/\(\d+\)/);
-    expect(screen.getByTestId("data-headline").textContent).toBe(dataset.summary.headline);
-    await user.click(screen.getByText("About this data"));
-    expect((panel as HTMLDetailsElement).open).toBe(true);
-    const first = dataset.summary.items[0];
-    expect(screen.getByText(first?.explanation ?? "")).toBeTruthy();
-  });
-
-  it("shortens long place lists", () => {
-    const many = Array.from({ length: 11 }, (_, index) => ({ name: `P${index}` }));
-    expect(namesText(many)).toBe("P0, P1, P2, P3, P4, P5, P6, P7 and 3 more");
-    expect(namesText([{ name: "A" }, { name: "B" }])).toBe("A and B");
-    expect(namesText([{ name: "A" }])).toBe("A");
   });
 });
 

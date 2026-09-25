@@ -14,10 +14,16 @@
     overflow: visible;
   }
 
-  /* On short screens the form comes first; the drawing steps aside. */
+  /* On short screens the form comes first; the drawing steps aside. Decision: it folds to no
+     height and hides rather than leaving the layout (display: none), because a drawing that left
+     and came back would draw itself again, and the rail is drawn once, when the page opens. A
+     resized window, or a keyboard that resizes the page on some phones, can cross 720 px and
+     back; so does a full-page screenshot, which caught the rail mid-draw. */
   @media (max-height: 720px) and (max-width: 639px) {
     .base-line {
-      display: none;
+      height: 0;
+      margin-top: 0;
+      visibility: hidden;
     }
   }
 
@@ -93,8 +99,10 @@
  * Highlights: real photos of a few places. Below 1024 px they follow the form as one row that
  * scrolls sideways and snaps to each photo, running out to the screen edges so the cut-off photo
  * says there is more. From 1024 px they sit beside the form (the compose column widens, the form
- * keeps its 560 px) as a tight grid. The tiles reveal in a diagonal sweep from the top left:
- * each waits by its row plus its column.
+ * keeps its 560 px) as a tight grid. Each tile is one button that opens the place's sheet
+ * (components/PlaceSheet.tsx): on a pointer an ink hairline draws round its photo and the photo
+ * leans in, as on a stop's photo, and the chevron after the name nudges onward. The tiles reveal
+ * in a diagonal sweep from the top left: each waits by its row plus its column.
  */
 @layer components {
   .highlights {
@@ -115,17 +123,18 @@
   /* One row. Decision: the row bleeds to the viewport edges and pads back to the column, so the
      first photo lines up with the form and the last scrolls clear of the edge. The bleed is in
      cqw (the column's width, .highlights is the container), not %, because scroll-padding
-     resolves % against the row itself. Each tile is wide enough for its one-line credit at
-     375 px, and more than half of the next tile shows, which is what says the row scrolls. */
+     resolves % against the row itself. More than half of the next tile shows, which is what
+     says the row scrolls. The 4 px above and below are room for the hover hairline and the focus
+     ring, which a scrolling row would otherwise clip. */
   .highlights-grid {
     --row-bleed: calc(50vw - 50cqw);
     display: grid;
-    grid-template-rows: repeat(4, auto);
+    grid-template-rows: repeat(3, auto);
     grid-auto-flow: column;
     grid-auto-columns: min(56vw, 220px);
     gap: 14px;
-    margin-inline: calc(-1 * var(--row-bleed));
-    padding-inline: var(--row-bleed);
+    margin: -4px calc(-1 * var(--row-bleed));
+    padding: 4px var(--row-bleed);
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-padding-inline: var(--row-bleed);
@@ -133,46 +142,58 @@
     scrollbar-width: thin;
   }
 
-  /* Touch screens scroll the row with a swipe; the bar would only cover the credits. */
+  /* Touch screens scroll the row with a swipe; the bar would only cover the names. */
   @media (hover: none) {
     .highlights-grid {
       scrollbar-width: none;
     }
   }
 
-  /* Decision: each tile's photo, name, city and credit sit on four rows the whole grid shares
-     (subgrid, through the figure and its caption), so a name that wraps to two lines moves its
-     row's cities and credits down together instead of leaving its own credit out of line. */
-  .highlight {
+  /* Decision: each tile's photo, name and city sit on three rows the whole grid shares (subgrid,
+     through the tile and its button), so a name that wraps to two lines moves its row's cities
+     down together instead of leaving its own city out of line. */
+  .highlight,
+  .highlight-button {
     display: grid;
     min-width: 0;
-    grid-row: span 4;
+    grid-row: span 3;
     grid-template-rows: subgrid;
     row-gap: 0;
+  }
+
+  .highlight {
     scroll-snap-align: start;
   }
 
-  .highlight > figure {
-    display: grid;
-    grid-row: span 4;
-    grid-template-rows: subgrid;
-    row-gap: 0;
+  .highlight-button {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--dur-press) var(--ease-out);
   }
 
+  .highlight-button:active {
+    transform: scale(0.98);
+  }
+
+  /* Decision: the hairline's resting state is set outside the hover query, transparent. Set only
+     inside it, a screen that starts reporting a pointer (a tablet given a mouse) would fade the
+     outline from the text colour to transparent, a dark frame for a moment round every photo. */
   .highlight .place-photo--square {
     width: 100%;
+    outline: 1px solid transparent;
+    outline-offset: 2px;
   }
 
   .highlight-skeleton {
     display: block;
     aspect-ratio: 1;
-  }
-
-  .highlight-caption {
-    display: grid;
-    grid-row: span 3;
-    grid-template-rows: subgrid;
-    row-gap: 0;
   }
 
   .highlight-name {
@@ -182,6 +203,18 @@
     font-stretch: 112.5%;
     font-weight: 500;
     line-height: 1.25;
+    text-wrap: pretty;
+  }
+
+  /* The chevron says the tile opens something, on touch screens too: it points onward, as on
+     Details and More options, which open sheets the same way. */
+  .highlight-chevron {
+    display: inline-block;
+    margin-left: 3px;
+    color: var(--muted);
+    vertical-align: -1px;
+    transform: rotate(-90deg);
+    transition: translate var(--dur-press) var(--ease-out);
   }
 
   .highlight-city {
@@ -189,27 +222,37 @@
     font-size: 0.8125rem;
   }
 
-  .highlight-caption .photo-credit {
-    margin-top: 4px;
-    font-size: 0.75rem;
+  /* On a pointer, as on a stop's photo: an ink hairline 2 px out round the photo, the photo
+     leaning in a little inside its square, the chevron nudging onward. Before the focus ring, so
+     a focused tile under the pointer keeps its ring. */
+  @media (hover: hover) {
+    .highlight-button .place-photo {
+      transition: outline-color var(--dur-color) ease;
+    }
+
+    .highlight-button:hover .place-photo {
+      outline-color: var(--fg);
+    }
+
+    .highlight-button .place-photo-img {
+      transition:
+        opacity var(--dur-fade) ease,
+        transform var(--dur-move) var(--ease-out);
+    }
+
+    .highlight-button:hover .place-photo-img {
+      transform: scale(1.04);
+    }
+
+    .highlight-button:hover .highlight-chevron {
+      translate: 2px 0;
+    }
   }
 
-  /* The compact credit: "Photo: <author>, <licence>", in the narrow width of small print so it
-     fits one line under most photos. Decision: nothing is cut. A long credit wraps, the licence
-     never breaks inside itself, and the subgrid rows above keep the row's credits level. An
-     ellipsis left the author as "Feat..." in the three-column grid, and a CC BY-SA credit needs
-     both the author and the licence. The paragraph is positioned so the author link's
-     screen-reader text stays inside it; unpositioned, that text escaped to the page and made it
-     scroll sideways from a photo scrolled out of the row. */
-  .photo-credit--compact {
-    position: relative;
-    font-stretch: 87.5%;
-    line-height: 1.5;
-    text-wrap: pretty;
-  }
-
-  .photo-credit--compact > :last-child {
-    white-space: nowrap;
+  /* The focus ring goes round the whole tile, the one control: photo, name and city. */
+  .highlight-button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
 
   /* In a row the sweep runs left to right: step = column. */
@@ -242,7 +285,7 @@
     }
     to {
       opacity: 1;
-      clip-path: inset(0 0 0 0);
+      clip-path: inset(-4px);
     }
   }
 
@@ -276,16 +319,14 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-auto-columns: auto;
       gap: 14px 6px;
+      margin: 0;
+      padding: 0;
       overflow: visible;
       scroll-snap-type: none;
     }
 
     .highlight-name {
       margin-top: 6px;
-    }
-
-    .highlight-caption .photo-credit {
-      margin-top: 2px;
     }
 
     /* Two columns: step = row + column. */
@@ -298,16 +339,16 @@
     }
 
     /* Decision: in two columns only the first four show. Six made a column twice the height of
-       the form beside it; four stand level with it and each still has room for its credit. */
+       the form beside it; four stand level with it. */
     .highlight:nth-child(n + 5) {
       display: none;
     }
   }
 
   /* Decision: three columns, all six photos, once the side column gives each photo 140 px or
-     more (from about 1130 px of window). Below that, three columns cut every credit down to
-     "Photo: Fe...", so four photos in two larger columns read better. A container query, because it is the column's width that
-     decides, not the window's. */
+     more (from about 1130 px of window). Below that, three columns squeeze the longer names
+     into three lines, so four photos in two larger columns read better. A container query,
+     because it is the column's width that decides, not the window's. */
   @media (min-width: 1024px) {
     @container (min-width: 440px) {
       .highlights-grid {
@@ -336,6 +377,25 @@
   @media (prefers-reduced-motion: reduce) {
     .highlight {
       animation: fade-in 150ms ease both;
+    }
+
+    .highlight-button,
+    .highlight-chevron,
+    .highlight-button .place-photo-img {
+      transition: none;
+    }
+
+    .highlight-button:active {
+      transform: none;
+    }
+
+    /* The hairline still comes on hover; the photo and the chevron stay still. */
+    .highlight-button:hover .place-photo-img {
+      transform: none;
+    }
+
+    .highlight-button:hover .highlight-chevron {
+      translate: none;
     }
   }
 }

@@ -62,11 +62,13 @@ export const DataIssuesResponseSchema = z
   });
 export type DataIssuesResponse = z.output<typeof DataIssuesResponseSchema>;
 
-/** GET /api/health. */
+/** GET /api/health. The planner's state is optional, so an older API still parses. */
 export const HealthSchema = z.object({
   ok: z.boolean(),
   version: z.string().max(40),
   commit: z.string().max(80),
+  llmAvailable: z.boolean().optional(),
+  model: z.string().max(100).nullable().optional(),
 });
 export type Health = z.output<typeof HealthSchema>;
 

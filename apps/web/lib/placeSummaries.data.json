@@ -1,0 +1,829 @@
+{
+  "summaries": [
+    {
+      "placeId": "place_001",
+      "text": "The Colosseum is an iconic historic site in Rome's Celio area that draws heavy crowds. It offers access to the underground and arena floor, which the listing calls worth the premium ticket.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_002",
+      "text": "Trastevere Neighborhood is a quarter of cobblestone streets and ivy-covered walls with a lively evening energy. It suits a stroll at dusk followed by dinner.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_003",
+      "text": "Da Enzo al 29 is a tiny, no-frills restaurant in Trastevere, set two streets back from the main drag. It serves Roman dishes such as cacio e pepe and coda alla vaccinara.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_004",
+      "text": "The Roman Forum is a historic site in Rome's Celio area where the city actually happened. A walk through it in the quiet early morning feels genuinely ancient.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_005",
+      "text": "The Pantheon is an ancient building in Rome's Pigna area, described as the best-preserved on earth. Its oculus is the striking centrepiece, and the site draws many visitors.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_006",
+      "text": "Campo de' Fiori Market is a lively morning market selling flowers, produce and street food in a photogenic Rome piazza. By afternoon it clears out and the square becomes a bar scene.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_007",
+      "text": "The Borghese Gallery is a villa museum holding Bernini sculptures and Caravaggio paintings. A strict time limit shapes the visit, and booking months ahead is needed.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_008",
+      "text": "Piazza Navona is a baroque square centred on Bernini's Fountain of the Four Rivers. It is touristy but beautiful, especially at night when it is lit up and the gelato places stay open.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_009",
+      "text": "Osteria Fernanda is a modern Roman kitchen in Trastevere that serves the classics with some experimentation. The carbonara is textbook and the wine list is a strong point.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_010",
+      "text": "The Vatican Museums hold the Sistine Chapel along with Egyptian antiquities and the Gallery of Maps. It is an iconic art museum in Borgo, often crowded with tourists and suited to a rainy day.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_011",
+      "text": "Giolitti is Rome's oldest gelato shop, a local favorite where nocciola and stracciatella are the classics. Its cones can come piled with whipped cream for a more theatrical version.",
+      "attempts": 2,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_012",
+      "text": "The Mouth of Truth is a marble drain cover made famous in a film, and a visit is a brief stop for a photo. It draws a long queue and a tourist-heavy crowd, while the experience itself is short.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_013",
+      "text": "Pigneto Neighborhood is a working-class quarter in Rome that has become a hub for aperitivo bars, independent cinema and young Roman life. It sees few tourists and suits an evening visit.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_014",
+      "text": "The Aventine Keyhole is a door keyhole of the Knights of Malta. A look through it shows St. Peter's dome framed by a garden archway, a quiet and photogenic view.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_015",
+      "text": "Mercato Testaccio is a modern covered food market in Rome where locals do their shopping. The stands in the back sell supplì, fried rice balls, and the listing suggests arriving hungry.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_016",
+      "text": "Palatine Hill has some of the best views in Rome and is far less crowded than the Forum. Its imperial palaces are fascinating ruins, and its garden terraces are beautiful.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_017",
+      "text": "Castel Sant'Angelo is a former tomb, fortress and prison in Borgo. Its rooftop terrace looks out over the Tiber and the city, and many visitors cross the bridge without going inside.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_018",
+      "text": "The Trevi Fountain is a spectacular and photogenic historic site in Rome that draws heavy tourist crowds. It is often nearly empty early in the morning, and a ticket pilot has helped thin peak crowds.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_019",
+      "text": "The Spanish Steps are a grand, photogenic historic site with a view, surrounded by luxury shops. It draws heavy tourist crowds, and prices on the nearby streets are inflated.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_020",
+      "text": "Il Sorpasso is a Prati institution serving aperitivo, lunch and dinner. It offers outdoor seating, a mezze platter and natural wine, with a relaxed view of the neighbourhood going by.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_021",
+      "text": "The ride follows the Via Appia Antica by rented bike on a Sunday morning when the road is closed to cars. It passes Roman aqueducts, ancient tombs and open countryside close to the city center.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_022",
+      "text": "Roscioli Salumeria is half deli, half restaurant in Campo de' Fiori, with seats at the bar among aging prosciutto and cheese or tables in the back room. It is known for carbonara and wine.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_023",
+      "text": "This viewpoint is the Pincian terrace above Piazza del Popolo, reached on foot at sunrise. The city spreads out below in golden light, with the terrace almost completely empty.",
+      "attempts": 2,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_024",
+      "text": "Fontanella Borghese Book Market is a street-level market of antique books and prints. Its stalls hold old maps, vintage magazines and prints of Rome, suited to a slow wander.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_025",
+      "text": "Hard Rock Cafe Rome is a tourist-heavy restaurant in Trevi. Its own listing questions eating here, given how much extraordinary food Rome offers elsewhere.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_026",
+      "text": "The Uffizi Gallery holds room after room of Italian Renaissance art, including Botticelli's Birth of Venus and da Vinci's Annunciation. It is an iconic museum that draws many tourists.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_027",
+      "text": "Piazzale Michelangelo is a viewpoint in Oltrarno with the classic panoramic view of Florence, the Duomo and the Arno. It is crowded at sunset and calmer early, before tour buses arrive.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_028",
+      "text": "The Oltrarno Neighborhood sits on the other side of the Arno, with artisan workshops and wine bars. It has a far less touristy feel than the north bank and is where Florentines spend their evenings.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_029",
+      "text": "Buca Mario is a Florentine restaurant in Santa Croce known for classic bistecca alla fiorentina. The large T-bone is meant for sharing between two, with Chianti on the side.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_030",
+      "text": "Mercato Centrale Firenze is a covered market whose ground floor holds butchers, fishmongers and produce stalls used by Florentines. The upstairs food hall is more tourist-oriented but decent.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_031",
+      "text": "Mercato Centrale is an upstairs food hall with many vendors serving lampredotto, fresh pasta and craft beer. It suits grazing and people-watching on a rainy afternoon, and draws many tourists.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_032",
+      "text": "The Accademia Gallery in San Marco is an art museum where Michelangelo's David is seen in person. Its scale and detail stop people mid-step, and the gallery draws heavy tourist crowds.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_033",
+      "text": "Buca dell'Orafo is an old-school trattoria tucked under an arch near the Ponte Vecchio. It serves Florentine dishes such as ribollita and pappardelle with wild boar in an unchanged setting.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_034",
+      "text": "Boboli Gardens is a large terraced Renaissance garden behind Palazzo Pitti, with shade, fountains and statues. Its upper terraces give views back over Florence.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_035",
+      "text": "This is a cycling day through the vine-covered hills around Greve in Chianti, past castle ruins and olive groves. The young Chianti can be drunk for almost nothing at the cantina.",
+      "attempts": 2,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_036",
+      "text": "Santa Croce Basilica holds the tombs of Michelangelo, Galileo and Machiavelli. The Bardi and Peruzzi chapels at the back hold frescoes by Giotto, making it a visit rich in art and history.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_037",
+      "text": "Aperitivo at Rasputin is a tiny, slightly ramshackle bar in Oltrarno with a generous free aperitivo spread. It is a genuinely local institution where the food can stand in for dinner.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_038",
+      "text": "This day trip leads to Siena's medieval city center, the Piazza del Campo and its cathedral. It offers a smaller, less crowded and different flavor of Tuscany.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_039",
+      "text": "Il Latini is a loud, lively trattoria with communal tables shared with strangers. The food keeps arriving until diners stop it, from crostini and ribollita to bistecca and cantucci with vin santo.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_040",
+      "text": "San Miniato al Monte is a Romanesque church reached by a hike up past Piazzale Michelangelo. It draws few tourists, offers wide views, and its mosaic facade glitters in afternoon sun.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_041",
+      "text": "Osteria dell'Enoteca serves creative Tuscan cooking alongside a deep wine list. It suits a special occasion dinner, with a romantic feel and a following among locals.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_042",
+      "text": "Trattoria da Cesare al Casaletto is a restaurant a bit out from the center in a residential neighborhood, loved by locals. It is known for its suppli and its cacio e pepe.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_043",
+      "text": "Osteria Francescana is Massimo Bottura's three-Michelin-star restaurant in Modena. A meal here is a romantic splurge, described in the listing as once in a lifetime.",
+      "attempts": 2,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_044",
+      "text": "This experience visits a small family producer in Modena to taste real Aceto Balsamico Tradizionale aged 12-25 years. It offers a vinegar quite unlike what supermarkets sell.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_045",
+      "text": "The Ferrari Museum is a beautiful space where design and story hold interest beyond Formula 1. It also offers test track laps, described as expensive but memorable.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_046",
+      "text": "Via Drapperie is a medieval street in the Quadrilatero lined with butchers, fishmongers, pasta makers and deli counters stacked with tortellini and mortadella. It suits eating while walking.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_047",
+      "text": "Tagliatelle al Ragù at Trattoria Anna Maria serves a slow-cooked, rich Bolognese on fresh egg tagliatelle with nothing else. Anna Maria herself is often there.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_048",
+      "text": "Torre degli Asinelli is a leaning medieval tower in Bologna, climbed by 498 steps. The top gives a 360-degree view over the entire city and the Apennines.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_049",
+      "text": "This walk follows Bologna's covered porticoes, a UNESCO World Heritage Site, and stays sheltered from rain. The classic route runs from Piazza Maggiore to San Luca Sanctuary.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_050",
+      "text": "Enoteca Italiana is a relaxed wine bar in Saragozza serving charcuterie and small dishes of Emilian food. A visit means grazing through the region's specialities with a glass of wine.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_051",
+      "text": "The Pinacoteca Nazionale di Bologna is a quiet national art gallery with Bolognese and Venetian painting, often with few other visitors. Its highlights include a Raphael and the Carracci altarpieces.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_052",
+      "text": "Piazza Maggiore at Night is Bologna's main square, framed by the Basilica of San Petronio, the Neptune fountain and Palazzo d'Accursio. At night students fill the piazza and cafes spill out.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_053",
+      "text": "This day trip visits the home of Parmigiano-Reggiano and Prosciutto di Parma, where guided tours of the production facilities can be arranged. It is a food experience and a local favorite.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_054",
+      "text": "Gelato at La Sorbetteria Castiglione is a gelato stop in Castiglione, Bologna. Its crema di formaggio is savory-sweet, and the queue that is always there moves fast.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_055",
+      "text": "The Duomo di Milano is an elaborate Gothic cathedral with a rooftop terrace that gives dramatic views. Its marble turns orange at sunset, and it draws large tourist crowds.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_056",
+      "text": "The Last Supper is Leonardo da Vinci's painting in the refectory of Santa Maria delle Grazie in Milan. It is smaller and more intimate than many expect, seen on a brief, strictly timed visit.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_057",
+      "text": "Navigli Canals at Aperitivo Hour is Milan's canal district, where canal-side bars fill on warm evenings for aperitivo. A Campari Spritz comes with free food, and the pace is unhurried.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_058",
+      "text": "The Pinacoteca di Brera is Milan's main art museum, set in a beautiful palazzo. It is a quiet place to see paintings by Caravaggio, Raphael and Bellini alongside northern Italian Renaissance works.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_059",
+      "text": "The Brera Antique Market fills the streets around the Pinacoteca di Brera with antique and vintage stalls. It offers a window into Milan beyond the fashion district.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_060",
+      "text": "Galleria Vittorio Emanuele II is a 19th-century iron-and-glass shopping arcade linking the Duomo to La Scala. Its architecture draws visitors, and the historic Camparino bar serves Campari inside.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_061",
+      "text": "Trattoria Milanese is an old-school trattoria near the Duomo, little changed in decades. The saffron risotto and osso buco are the draws, and the bill is honest.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_062",
+      "text": "Fondazione Prada is a contemporary art venue set in a former distillery complex. Its gold-leafed 'haunted house' tower works as an art installation of its own, within buildings designed by Rem Koolhaas.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_063",
+      "text": "Bellagio is a scenic, romantic town on Lake Como with terraced gardens, silk shops and lake-view restaurants. The ferry crossing to it gives a wide panorama over the lake.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_064",
+      "text": "Villa del Balbianello is a villa on a dramatic promontory above Lake Como, with gardens and wide views. It is reached only by boat or a steep hike, and its setting is scenic and romantic.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_065",
+      "text": "Ceresio 7 is a rooftop pool bar on a design-district building, where aperitivo at sunset comes with views of the Milan skyline. The crowd is fashion-adjacent and the setting is romantic and photogenic.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_066",
+      "text": "The Rialto Bridge is a marble arch over the Grand Canal in San Polo, still in use and known for its views. It is quiet early in the morning and becomes very crowded with photographers later.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_067",
+      "text": "Doge's Palace is a Gothic building and former seat of power in Venice, with an extraordinary interior. A visit includes the Bridge of Sighs and a view from the loggia across the lagoon.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_068",
+      "text": "The crawl moves from bar to bar through Cannaregio, eating small cicchetti snacks with glasses of prosecco or spritz. It follows the traditional Venetian way of eating, away from the San Marco crowds.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_069",
+      "text": "The Peggy Guggenheim Collection is a modern art museum in a palazzo on the Grand Canal, showing Picasso, Dalí and Pollock. It has a legendary terrace and feels manageable to see.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_070",
+      "text": "Burano Island Trip is a vaporetto ride into the lagoon to an island of brightly painted houses. It is quiet on weekday mornings, and the seafood lunch is a draw in itself.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_071",
+      "text": "This is a gondola ride through Venice's back canals, away from the heavily trafficked Grand Canal. It is a romantic, scenic and photogenic experience, and an iconic splurge.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_072",
+      "text": "Dorsoduro Neighborhood is a livable part of Venice with the Zattere promenade, the Accademia and campo squares where students and locals outnumber tourists. It is especially lovely at dusk.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_073",
+      "text": "Osteria da Rioba is a canal-side osteria in Cannaregio serving spaghetti alle vongole with fresh clams, white wine, parsley and olive oil. The whole fish is also on offer, with canal tables.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_074",
+      "text": "St. Mark's Basilica is a Byzantine cathedral whose interior is covered in gold mosaics. An upstairs gallery gives floor-level views of the mosaics, and the site draws many tourists.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_075",
+      "text": "Early Morning in Cannaregio shows Venice as its residents know it, with delivery boats, market vendors setting up and locals walking to work. The residential streets feel quiet and photogenic.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_076",
+      "text": "Osteria Alla Staffa is a tiny osteria tucked behind the tourist restaurants near San Marco. It serves honest cicchetti and a rotating selection of local wine, with no English menu.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_077",
+      "text": "Trevi Fountain by Night is a viewpoint in Trevi where the fountain is lit and the marble glows. It feels calmer than the daytime chaos once the tourist buses have gone.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_078",
+      "text": "Enoteca al Volto is a quiet wine bar in San Marco with a dark wood interior that has changed little in decades. It pours a long list of wines, including local white, alongside cicchetti.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_079",
+      "text": "Prosciutto e Melone at Cremeria Mascareta is a tiny late-night wine bar run by a passionate sommelier. It offers a cheese plate, and the sommelier pours wines to suit a flavor a guest names.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_080",
+      "text": "Borghese Park is a large green space of gardens, lakes and tree-lined paths linking the Borghese Gallery to views over the city. A visit means wandering the paths or rowing a boat on the lake.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_081",
+      "text": "Pitti Palace is a Renaissance palace in the Oltrarno, once the Medici's home, holding multiple museums. Its Royal Apartments and Palatine Gallery are opulent and suit a rainy day.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_082",
+      "text": "Rossopomodoro is a Neapolitan pizza chain in Brera serving proper wood-fired pizza. It suits a quick, honest, affordable meal between museums, and it is family-friendly.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_083",
+      "text": "Acetaia Giusti is a balsamic vinegar producer with an acetaia above its restaurant where barrels sit aging. A visit includes tasting the progression from 12 to 25 years.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_084",
+      "text": "Ponte Vecchio is a historic bridge in Florence lined with jewelers and busy with tourists. The view from the Arno banks and the adjacent Ponte Santa Trinità is better than the view from the bridge itself.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_085",
+      "text": "Como Town Lakefront is a promenade along the water beside a medieval center and a cathedral. It is a relaxing, scenic outdoor walk, especially lovely on a quiet morning.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_086",
+      "text": "Museo del Novecento, Milan shows 20th-century Italian art above the Piazza del Duomo, with a circular ramp through the collection and a Boccioni sculpture room. It is often uncrowded.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_087",
+      "text": "The Flavors of Bologna Cooking Class takes place in a home kitchen, where a local nonna teaches how to make fresh tagliatelle, tortellini and tiramisu. It is a food experience favoured by locals.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v2",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_088",
+      "text": "The San Giorgio Maggiore Campanile is a quieter alternative to the San Marco bell tower. A vaporetto ride and a lift to the top lead to a wide view over the Venice lagoon.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_089",
+      "text": "Pienza is a tiny Renaissance hill town whose entire center is a UNESCO site. A visit brings Pecorino cheese from the valley below and, on a clear day, views over the Val d'Orcia.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_090",
+      "text": "The Isola della Scala Risotto Festival is an annual October gathering in Vialone Nano rice country. It brings hundreds of vendors, competing chefs and plates of risotto all'Amarone.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_091",
+      "text": "Caffè Florian is a historic cafe with outside tables on Piazza San Marco, where a string quartet plays as pigeons swirl overhead. A Campari here is about the experience rather than the coffee.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_092",
+      "text": "This traditional cantina in Parma serves only local products, such as thin-sliced Culatello, aged Parmigiano-Reggiano, porcini mushrooms in oil and house Lambrusco.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_093",
+      "text": "The piazza is a place to stand outside and look up at Brunelleschi's dome, built without power tools. The marble facade of the Baptistery adds to the view, even without going inside.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_094",
+      "text": "The top floor of the La Rinascente department store holds a rooftop bar and food hall. It offers direct, eye level views of the Duomo's flying buttresses and spires.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_095",
+      "text": "Orto Botanico di Padova is a historic university botanical garden and UNESCO site, beautiful and peaceful. It suits a quiet outdoor visit for anyone curious about the history of science.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_096",
+      "text": "Al Quadri is a historic cafe on Piazza San Marco with a two-Michelin-star kitchen upstairs. The downstairs cafe offers a glass of wine by the piazza while the orchestra plays.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_097",
+      "text": "The Passeggiata del Gianicolo is a long, quiet promenade along the Janiculum hill with panoramic views over Rome. It is reached by walking uphill from Trastevere through the botanical gardens.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_098",
+      "text": "The Basilica di Sant'Ambrogio is a quiet Romanesque church in Milan, filled with early Christian mosaics and Lombard gold. It is almost never crowded, so the interior can be taken in calmly.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_099",
+      "text": "Eataly Roma Ostiense is a large Italian food superstore for stocking up on olive oil, pasta and wine to take home. It also has food stalls for grazing, and suits a last-day visit.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_100",
+      "text": "The walk moves through independent aperitivo bars in Isola and Porta Ticinese, heading south from Corso Como through Navigli. It centres on Negronis and plenty of food along the way.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_101",
+      "text": "The Museo Nazionale del Bargello is a quiet sculpture museum set in a former prison in Santa Croce. Its collection includes Donatello's bronze David and many Renaissance bronzes.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_102",
+      "text": "The Quadrilatero della Moda is Milan's fashion district, where luxury houses keep flagship stores along Via Montenapoleone and Via della Spiga. The shop windows and architecture reward a stroll.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    },
+    {
+      "placeId": "place_103",
+      "text": "Palazzo Vecchio is Florence's town hall, with extraordinary frescoed halls to explore inside. A climb up its tower gives a wide view over the city, and it is often overlooked in favor of the Uffizi.",
+      "attempts": 1,
+      "model": "claude-opus-5-5",
+      "promptVersion": "place-summary-v1",
+      "writtenOn": "2026-09-25"
+    }
+  ],
+  "leftOut": []
+}

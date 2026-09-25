@@ -4,8 +4,10 @@ import {
   openStatusOn,
   type Place,
   type TimeRange,
+  type Weekday,
+  type WeeklyHours,
 } from "@italy/planner";
-import { formatClock, longDate, shortDate, typeWord } from "./format";
+import { formatClock, formatDuration, longDate, ratingText, shortDate, typeWord } from "./format";
 
 // The facts a stop's details sheet shows for its date: the opening hours on that date from the
 // planner's own hours logic (openStatusOn and isOpenDuring, the answers the scheduler and the
@@ -13,8 +15,18 @@ import { formatClock, longDate, shortDate, typeWord } from "./format";
 // cannot confirm, each with the listing's own words where it has them. The listing's description is
 // kept apart as the listing's words, never as ours. Every function here is total: a bad date
 // gives a plain fallback, because a throw inside render would blank the whole plan.
+//
+// placeFacts is the same reading without a date, for a place opened outside a plan (the
+// highlights' place sheet): the typical visit, the hours by weekday as the planner holds them,
+// the dates it opens, booking when the listing states it, price and rating.
 
-export type StopFactKey = "hours" | "dates" | "booking" | "price";
+export type StopFactKey = "hours" | "dates" | "booking" | "price" | "visit" | "rating";
+
+/** One line of a week's hours: "Mon to Sat", "09:00 to 19:00"; `hours` null when closed. */
+export interface WeekRow {
+  days: string;
+  hours: string | null;
+}
 
 export interface StopFact {
   key: StopFactKey;
@@ -22,6 +34,7 @@ export interface StopFact {
   value: string; // "09:00 to 19:00"
   numeric: boolean; // the value is clock times, set in tabular figures
   note: string | null; // a checked line under the value: "Your visit fits inside these hours."
+  week?: WeekRow[]; // the hours by weekday, shown in place of the value (placeFacts only)
 }
 
 export type CaveatKey =
@@ -55,6 +68,34 @@ export function stopFacts(place: Place, date: string, visit: Visit): StopFactShe
   const dates = datesFact(place);
   if (dates) facts.push(dates);
   facts.push(bookingFact(place), priceFact(place));
+  const description = place.description.trim();
+  return {
+    facts,
+    unconfirmed: caveats(place),
+    description: description === "" ? null : description,
+  };
+}
+
+/**
+ * Everything the place sheet says about a place without a trip date: the typical visit, the hours
+ * by weekday, the dates it opens, booking when the listing states it, price and rating; then what
+ * the data cannot confirm and the listing's description, as for a stop.
+ */
+export function placeFacts(place: Place): StopFactSheet {
+  const facts: StopFact[] = [
+    {
+      key: "visit",
+      label: "Typical visit",
+      value: formatDuration(place.durationMin),
+      numeric: true,
+      note: null,
+    },
+    weekFact(place),
+  ];
+  const dates = datesFact(place);
+  if (dates) facts.push(dates);
+  if (place.bookingRequired !== null || place.bookAhead) facts.push(bookingFact(place));
+  facts.push(priceFact(place), ratingFact(place));
   const description = place.description.trim();
   return {
     facts,
@@ -126,6 +167,53 @@ function visitNote(place: Place, date: string, visit: Visit): string | null {
   return null;
 }
 
+// ---------- Hours by weekday ----------
+
+const WEEK_ORDER: readonly Weekday[] = [1, 2, 3, 4, 5, 6, 0];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * The week from Monday, days with the same hours run together: "Mon to Sat 09:00 to 19:00",
+ * "Sun closed". One line reads "Every day" when all seven match.
+ */
+export function weekRows(hours: WeeklyHours): WeekRow[] {
+  const runs: { days: Weekday[]; hours: string | null }[] = [];
+  for (const day of WEEK_ORDER) {
+    const ranges = hours[day] ?? [];
+    const text = ranges.length === 0 ? null : rangesText(ranges);
+    const last = runs.at(-1);
+    if (last && last.hours === text) last.days.push(day);
+    else runs.push({ days: [day], hours: text });
+  }
+  if (runs.length === 1) return [{ days: "Every day", hours: runs[0]?.hours ?? null }];
+  return runs.map((run) => {
+    const first = DAY_SHORT[run.days[0] ?? 0];
+    const last = DAY_SHORT[run.days.at(-1) ?? 0];
+    const days =
+      run.days.length === 1
+        ? first
+        : run.days.length === 2
+          ? `${first} and ${last}`
+          : `${first} to ${last}`;
+    return { days, hours: run.hours };
+  });
+}
+
+/** The hours by weekday as the planner holds them, or what stands in for them. */
+function weekFact(place: Place): StopFact {
+  const base = { key: "hours" as const, label: "Hours", numeric: false, note: null };
+  if (place.hoursConfidence === "unknown" || place.hours === null) {
+    return { ...base, value: "Not in the data" };
+  }
+  if (place.hoursConfidence === "open_access") return { ...base, value: "No set hours" };
+  const week = weekRows(place.hours);
+  const value = week.map((row) => `${row.days} ${row.hours ?? "closed"}`).join(", ");
+  if (place.hoursConfidence === "derived") {
+    return { ...base, value, numeric: true, week, note: "Estimated, not listed." };
+  }
+  return { ...base, value, numeric: true, week };
+}
+
 function weekdayName(date: string): string {
   return longDate(date).split(" ")[0] ?? "that day";
 }
@@ -161,6 +249,12 @@ function priceFact(place: Place): StopFact {
   const level = place.priceLevel;
   const value = level === null ? "Not in the data" : `Level ${level} of 4 in the data`;
   return { key: "price", label: "Price", value, numeric: false, note: null };
+}
+
+function ratingFact(place: Place): StopFact {
+  const rating = ratingText(place.rating);
+  const value = rating === null ? "Not in the data" : `${rating} of 5 in the data`;
+  return { key: "rating", label: "Rating", value, numeric: rating !== null, note: null };
 }
 
 // ---------- What the data cannot confirm ----------

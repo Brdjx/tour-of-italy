@@ -47,7 +47,8 @@ Plans you can trust. The model proposes and code decides: Claude only picks and 
 
 - `data/italy.json`: name, type, city, neighborhood, hours, typical visit length, price level, rating, description, coordinates and tags for each place.
 - `docs/data-issues.md` and the in-app data notes; eval results in `packages/evals/results/latest.md`.
-- The data has no photos. Photos come only from Wikimedia Commons: real, freely licensed, credited on each photo, downloaded once and served from the site. A place without a verified photo of itself gets a city or topic photo that is not presented as that place. No generated or stock images of real places.
+- The data has no photos. Photos come only from Wikimedia Commons: real, freely licensed, credited in full wherever a photo is shown large (a stop's or a place's sheet, one tap from its thumbnail or highlight tile) and all listed in "About this data", downloaded once and served from the site. A place without a verified photo of itself gets a city or topic photo that is not presented as that place. No generated or stock images of real places.
+- Each place has a one or two sentence summary written once by Claude from that place's own listing and nothing else, saved with the model and prompt version, and shown labelled "Summary by AI, from the listing". A code check refused any summary with a number, time, date, price, booking claim, meal, name or superlative the listing lacks; the same check runs over the saved file in the tests.
 - There are no testimonials, user numbers, reviews or press. Do not invent any.
 
 ## Product Principles

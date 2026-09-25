@@ -67,14 +67,22 @@ test.describe("the trip form", () => {
 });
 
 test.describe("around the plan", () => {
-  test("the data notes open and explain how the data was cleaned", async ({ page, press }) => {
+  test("the data notes open over the page and explain how the data was cleaned", async ({
+    page,
+    press,
+  }) => {
     await openPlanner(page);
-    const notes = page.getByTestId("data-notes");
+    const link = page.getByTestId("data-notes-link");
+    await press(link);
+    const about = page.getByTestId("about-sheet");
+    await expect(about).toBeVisible();
+    await expect(page.getByTestId("about-title")).toBeFocused();
     await expect(page.getByTestId("data-headline")).not.toBeEmpty();
-    await press(notes.locator("summary"));
-    await expect(notes).toHaveAttribute("open", "");
-    await expect(notes.locator("li").first()).toBeVisible();
-    await expect(notes).toContainText(/\(\d+ places?\)/);
+    await expect(about.getByTestId("about-issue").first()).toBeVisible();
+    await expect(about).toContainText(/\d+ places?/);
+    await page.keyboard.press("Escape");
+    await expect(about).toBeHidden();
+    await expect(link).toBeFocused();
   });
 
   test("an unknown address shows the app's own 404 page with a way back", async ({

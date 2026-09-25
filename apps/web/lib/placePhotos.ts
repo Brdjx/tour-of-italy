@@ -114,3 +114,33 @@ export function photoForPlace(place: {
 export function placeHasOwnPhoto(placeId: string): boolean {
   return byPlace.has(placeId);
 }
+
+/** One photo's credit, for the list in "About this data". */
+export interface PhotoCreditRow {
+  key: string; // a place id, "city:<City>" or "type:<type>"
+  kind: PhotoKind;
+  subject: string; // the place id, the city or the type
+  author: string;
+  license: string;
+  licenseUrl: string | null;
+  sourceUrl: string;
+  title: string; // the Commons file's name: "Bologna, Strada Maggiore, Piazetta dei Servi"
+}
+
+/** Every photo the site serves, with its credit, in the order of the data file (by key). */
+export function photoCredits(rows: readonly PhotoRow[] = ROWS): PhotoCreditRow[] {
+  return rows.map((row) => {
+    const [prefix, rest] = row.key.includes(":") ? row.key.split(":", 2) : [null, row.key];
+    const kind: PhotoKind = prefix === "city" ? "city" : prefix === "type" ? "topic" : "place";
+    return {
+      key: row.key,
+      kind,
+      subject: rest ?? row.key,
+      author: row.author,
+      license: row.license,
+      licenseUrl: row.licenseUrl,
+      sourceUrl: row.sourceUrl,
+      title: row.file.replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, ""),
+    };
+  });
+}

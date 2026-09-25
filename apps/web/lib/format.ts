@@ -92,6 +92,13 @@ export function dayOfTimestamp(iso: string): string {
   return `${date.getDate()} ${MONTH_LONG[date.getMonth()] ?? ""} ${date.getFullYear()}`;
 }
 
+/** "25 September 2026", for a day something was written. */
+export function calendarDate(date: string): string {
+  const parsed = parseIsoDate(date);
+  if (!parsed) return date;
+  return `${parsed.day} ${MONTH_LONG[parsed.month - 1] ?? ""} ${parsed.year}`;
+}
+
 /** "€€" for level 2; empty for unknown (the chip says "Price unknown" instead). */
 export function priceSymbols(level: PriceLevel | null): string {
   return level === null ? "" : "€".repeat(level);
@@ -132,6 +139,21 @@ export function placeSubtitle(place: {
 }): string {
   const where = place.neighborhood ?? place.city;
   return `${TYPE_WORDS[place.type] ?? "Place"} in ${where}`;
+}
+
+/**
+ * "Historic site in Celio, Rome": the type, the neighbourhood and the city, for a place shown
+ * outside a plan (the place sheet), where no day's base says which city it is in.
+ */
+export function placeWhere(place: {
+  type: PlaceType;
+  neighborhood: string | null;
+  city: string;
+}): string {
+  const type = TYPE_WORDS[place.type] ?? "Place";
+  const area = place.neighborhood?.trim();
+  if (!area || area.toLowerCase() === place.city.toLowerCase()) return `${type} in ${place.city}`;
+  return `${type} in ${area}, ${place.city}`;
 }
 
 export function typeWord(type: PlaceType): string {

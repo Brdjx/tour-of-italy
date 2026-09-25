@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-25T10:00:00.000Z",
+  "generatedAt": "2026-09-25T12:00:00.000Z",
   "title": "Design System: 3 Days in Italy",
   "extensions": {
     "colorMeta": {
@@ -463,7 +463,7 @@
       {
         "name": "sheet-blur",
         "value": "10px",
-        "purpose": "Backdrop blur behind the Edit trip and More options sheets; a second sheet only dims."
+        "purpose": "Backdrop blur behind every sheet (Edit trip, More options, a stop's or a place's details, About this data); a second sheet only dims."
       },
       {
         "name": "recede-page",
@@ -587,7 +587,9 @@
       "stack": "24px (--sheet-stack): a sheet over another starts this much lower",
       "pad": "16px on phones, 28px from 768px (--sheet-pad)",
       "grabber": "36 x 5px pill in line-strong (--sheet-grabber)",
-      "panelWidth": "min(560px, 100% - 48px) from 768px"
+      "panelWidth": "min(560px, 100% - 48px) from 768px",
+      "aboutPanelWidth": "min(760px, 100% - 48px) from 768px: About this data, whose body scrolls on its own",
+      "kinds": "Edit trip and About this data are tall (to 12px under the status bar on phones); More options, a stop's details and a place's details fit their content"
     }
   },
   "components": [
@@ -659,9 +661,33 @@
       "name": "Sheet",
       "kind": "custom",
       "refersTo": "sheet",
-      "description": "Edit trip, More options and a stop's details: a bottom sheet on phones with a grabber and rounded top corners, a centred 20px-rounded panel from 768px, over a blurred scrim. Photos inside stay square.",
+      "description": "Edit trip, More options, a stop's details, a place's details and About this data: a bottom sheet on phones with a grabber and rounded top corners, a centred 20px-rounded panel from 768px (up to 560px; About this data up to 760px), over a blurred scrim. Photos inside stay square.",
       "html": "<div class=\"ds-sheet-stage\"><div class=\"ds-sheet\" role=\"dialog\" aria-label=\"More options\"><span class=\"ds-grabber\"></span><div class=\"ds-sheet-head\"><h2 class=\"ds-sheet-title\">More options</h2><button class=\"ds-close\" aria-label=\"Close\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><path d=\"M6 6l12 12\"/><path d=\"M18 6 6 18\"/></svg></button></div><p class=\"ds-sheet-lede\">Interests, bases and places to include.</p></div></div>",
       "css": ".ds-sheet-stage { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); position:relative; display:flex; align-items:flex-end; min-height:220px; background:var(--scrim,rgb(17 17 15 / 0.42)); backdrop-filter:blur(10px); } .ds-sheet { position:relative; width:100%; padding:18px 16px 24px; border-radius:20px 20px 0 0; background:var(--surface,#fff); color:var(--fg,#11110f); box-shadow:var(--shadow-sheet,0 -14px 40px -8px rgb(17 17 15 / 0.22)); animation:ds-sheet-up 450ms linear(0,0.022 3%,0.086 6.5%,0.446 20.3%,0.731 34.8%,0.899 52%,0.978 77%,1) both; } .ds-grabber { position:absolute; top:6px; left:50%; width:36px; height:5px; border-radius:999px; background:var(--line-strong,#85837a); translate:-50% 0; } .ds-sheet-head { display:flex; min-height:44px; align-items:center; justify-content:space-between; gap:12px; } .ds-sheet-title { margin:0; font-size:1.25rem; font-stretch:125%; font-weight:500; line-height:1.2; letter-spacing:-0.02em; } .ds-close { display:inline-flex; width:44px; height:44px; margin-right:-10px; align-items:center; justify-content:center; border:0; border-radius:999px; background:none; color:var(--fg,#11110f); cursor:pointer; transition:background-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-close:hover { background:var(--hover,#f3f3f0); } .ds-close:active { transform:scale(0.94); } .ds-close:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; } .ds-sheet-lede { margin:4px 0 0; color:var(--muted,#6a6a63); font-size:0.9375rem; line-height:1.4; } @keyframes ds-sheet-up { from { transform:translateY(100%); } } @media (prefers-reduced-motion: reduce) { .ds-sheet { animation:ds-sheet-fade 150ms ease both; } } @keyframes ds-sheet-fade { from { opacity:0; } }"
+    },
+    {
+      "name": "Highlight Tile",
+      "kind": "card",
+      "refersTo": "highlight-tile",
+      "description": "One button per highlight: the square photo, the name in the tab role with a muted chevron that points onward, the city in muted. No credit line: it opens the place sheet, where the photo's full credit is. On a pointer an ink hairline draws round the photo and the photo leans in; focus rings the whole tile. Photo, name and city rows are shared across the grid (subgrid).",
+      "html": "<div class=\"ds-tiles\"><button class=\"ds-tile\" aria-label=\"Colosseum, Rome: photo, details and credit\"><span class=\"ds-tile-photo\"><span></span></span><span class=\"ds-tile-name\">Colosseum<svg class=\"ds-chev\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></span><span class=\"ds-tile-city\">Rome</span></button><button class=\"ds-tile\" aria-label=\"Torre degli Asinelli Climb, Bologna: photo, details and credit\"><span class=\"ds-tile-photo\"><span></span></span><span class=\"ds-tile-name\">Torre degli Asinelli Climb<svg class=\"ds-chev\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></span><span class=\"ds-tile-city\">Bologna</span></button></div>",
+      "css": ".ds-tiles { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); grid-template-rows:repeat(3, auto); grid-auto-flow:column; gap:0 8px; padding:4px; max-width:420px; } .ds-tile { display:grid; grid-row:span 3; grid-template-rows:subgrid; padding:0; border:0; background:none; color:var(--fg,#11110f); font:inherit; text-align:left; cursor:pointer; transition:transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-tile:active { transform:scale(0.98); } .ds-tile:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; } .ds-tile-photo { display:block; aspect-ratio:1; overflow:hidden; background:var(--tile,#f4f4f1); outline:1px solid transparent; outline-offset:2px; transition:outline-color 140ms ease; } .ds-tile-photo span { display:block; width:100%; height:100%; background:var(--line,#dcdad3); transition:transform 220ms cubic-bezier(0.16,1,0.3,1); } @media (hover:hover) { .ds-tile:hover .ds-tile-photo { outline-color:var(--fg,#11110f); } .ds-tile:hover .ds-tile-photo span { transform:scale(1.04); } .ds-tile:hover .ds-chev { translate:2px 0; } } .ds-tile-name { margin-top:8px; font-size:0.9375rem; font-stretch:112.5%; font-weight:500; line-height:1.25; } .ds-chev { display:inline-block; margin-left:3px; color:var(--muted,#6a6a63); vertical-align:-1px; transform:rotate(-90deg); transition:translate 100ms cubic-bezier(0.16,1,0.3,1); } .ds-tile-city { color:var(--muted,#6a6a63); font-size:0.8125rem; } @media (prefers-reduced-motion: reduce) { .ds-tile, .ds-tile-photo span, .ds-chev { transition:none; } .ds-tile:hover .ds-tile-photo span { transform:none; } .ds-tile:hover .ds-chev { translate:none; } .ds-tile:active { transform:none; } }"
+    },
+    {
+      "name": "Place Summary",
+      "kind": "text",
+      "refersTo": "place-summary-label",
+      "description": "A place's AI summary in its sheet: the label in the muted label role after the AI's gold dot, the words leaning. Written once from the place's own listing and checked by code before it was saved.",
+      "html": "<figure class=\"ds-summary\"><figcaption><span aria-hidden=\"true\"></span>Summary by AI, from the listing</figcaption><p>The Colosseum is an iconic historic site in Rome's Celio area that draws heavy crowds. It offers access to the underground and arena floor, which the listing calls worth the premium ticket.</p></figure>",
+      "css": ".ds-summary { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); max-width:504px; margin:0; } .ds-summary figcaption { display:flex; align-items:baseline; gap:7px; color:var(--muted,#6a6a63); font-size:0.8125rem; font-stretch:87.5%; font-weight:600; letter-spacing:0.02em; } .ds-summary figcaption span { width:7px; height:7px; flex-shrink:0; align-self:flex-start; margin-top:0.4em; border-radius:999px; background:var(--gold,#a8864b); } .ds-summary p { margin:4px 0 0; color:var(--fg,#11110f); font-size:0.9375rem; line-height:1.5; font-style:oblique 6deg; }"
+    },
+    {
+      "name": "About This Data",
+      "kind": "dialog",
+      "refersTo": "about-panel",
+      "description": "About this data over a blurred page: a tall bottom sheet on phones, a 760px centred panel from 768px with its own scrolling body. How the data stands, then sections under hairlines: places by base and type, each kind of note with its places, hours, how a plan is made, the place summaries, every photo's credit, the map's credits. Every number computed from the loaded data.",
+      "html": "<div class=\"ds-about\" role=\"dialog\" aria-label=\"About this data\"><h2>About this data</h2><p class=\"ds-about-lead\">103 places loaded, all usable for planning.</p><h3>The places</h3><table><thead><tr><th>Base</th><th class=\"n\">In the city</th><th>Day trips</th><th class=\"n\">Places</th></tr></thead><tbody><tr><th>Rome</th><td class=\"n\">30</td><td>None</td><td class=\"n\">30</td></tr><tr><th>Bologna</th><td class=\"n\">9</td><td>Modena 3, Parma 2, Isola della Scala 1, Maranello 1</td><td class=\"n\">16</td></tr></tbody></table><div class=\"ds-about-group\"><p class=\"ds-about-head\">Hours estimated from the name <span>5 places</span></p><p class=\"ds-about-text\">Places named \"by Night\" or \"at Dawn\" are only planned at that time of day.</p><p class=\"ds-about-names\">Piazza del Popolo at Dawn, Piazza Maggiore at Night and 3 more</p></div></div>",
+      "css": ".ds-about { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); max-width:560px; padding:18px 24px 20px; border-radius:20px; background:var(--surface,#fff); color:var(--fg,#11110f); box-shadow:var(--shadow-float,0 14px 40px -8px rgb(17 17 15 / 0.22)); } .ds-about h2 { margin:0 0 10px; font-size:1.25rem; font-stretch:125%; font-weight:500; letter-spacing:-0.02em; } .ds-about-lead { margin:0 0 18px; font-size:1.0625rem; font-stretch:112.5%; font-weight:500; } .ds-about h3 { margin:0; padding-top:18px; border-top:1px solid var(--line,#dcdad3); font-size:1.0625rem; font-stretch:112.5%; font-weight:500; } .ds-about table { width:100%; margin-top:10px; border-collapse:collapse; font-size:0.875rem; } .ds-about th, .ds-about td { padding:7px 12px 7px 0; border-bottom:1px solid var(--line,#dcdad3); text-align:left; } .ds-about thead th { border-bottom-color:var(--fg,#11110f); color:var(--muted,#6a6a63); font-size:0.8125rem; font-stretch:87.5%; font-weight:600; letter-spacing:0.02em; } .ds-about tbody th { font-weight:500; } .ds-about .n { text-align:right; font-variant-numeric:tabular-nums; padding-right:0; } .ds-about-group { padding:10px 0; border-bottom:1px solid var(--line,#dcdad3); } .ds-about-group p { margin:0; } .ds-about-head { display:flex; justify-content:space-between; gap:12px; font-size:0.9375rem; font-weight:500; } .ds-about-head span { color:var(--muted,#6a6a63); font-size:0.8125rem; font-weight:400; } .ds-about-text { margin-top:3px !important; font-size:0.875rem; } .ds-about-names { margin-top:4px !important; color:var(--muted,#6a6a63); font-size:0.8125rem; }"
     },
     {
       "name": "Toast",
@@ -727,7 +753,7 @@
       },
       {
         "name": "The Commentary Leans Rule",
-        "body": "Checked facts stand upright. The one line of commentary per stop is set at a 6deg oblique.",
+        "body": "Checked facts stand upright. The one line of commentary per stop is set at a 6deg oblique, and so is a place's AI summary in its sheet: words the AI wrote lean, under a label that says so; the listing's own words stand upright beside their hairline.",
         "section": "typography"
       },
       {
@@ -737,7 +763,7 @@
       },
       {
         "name": "The Rounded Sheet Rule",
-        "body": "The sheets (Edit trip, More options and a stop's details) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.",
+        "body": "The sheets (Edit trip, More options, a stop's details, a place's details and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.",
         "section": "shapes"
       }
     ],
@@ -762,7 +788,9 @@
       "**Don't** present a city or topic photo full bleed as if it were the place.",
       "**Don't** show more than two thumbnails in a day's board.",
       "**Don't** use the flag's green or red as a UI colour, or put the flag anywhere but the top band and the flag mark.",
-      "**Don't** open a stop's details inside its row; they open in the sheet."
+      "**Don't** open a stop's details inside its row; they open in the sheet.",
+      "**Don't** put a credit line under a small photo; the full credit belongs where the photo is large, one tap away.",
+      "**Don't** show AI-written words without their label, upright, or as the listing's."
     ]
   }
 }

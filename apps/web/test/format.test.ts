@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  calendarDate,
   clockDateTime,
   formatClock,
   formatDuration,
   longDate,
   placeSubtitle,
+  placeWhere,
   plural,
   priceLabel,
   priceSymbols,
@@ -53,6 +55,8 @@ describe("dates", () => {
     expect(longDate("2028-02-29")).toBe("Tuesday 29 February");
     expect(shortDate("2026-02-30")).toBe("2026-02-30");
     expect(longDate("garbage")).toBe("garbage");
+    expect(calendarDate("2026-09-25")).toBe("25 September 2026");
+    expect(calendarDate("garbage")).toBe("garbage");
   });
 });
 
@@ -79,6 +83,23 @@ describe("places", () => {
       "Museum in Florence",
     );
     expect(typeWord("other")).toBe("Place");
+  });
+
+  it("names the city too outside a plan, once, and never an empty neighbourhood", () => {
+    expect(placeWhere({ type: "historic_site", neighborhood: "Celio", city: "Rome" })).toBe(
+      "Historic site in Celio, Rome",
+    );
+    expect(placeWhere({ type: "museum", neighborhood: null, city: "Florence" })).toBe(
+      "Museum in Florence",
+    );
+    expect(placeWhere({ type: "cafe", neighborhood: " ", city: "Milan" })).toBe("Cafe in Milan");
+    expect(placeWhere({ type: "market", neighborhood: "venice", city: "Venice" })).toBe(
+      "Market in Venice",
+    );
+    // A type the data never had still reads as a place.
+    expect(placeWhere({ type: "nope" as "other", neighborhood: null, city: "Rome" })).toBe(
+      "Place in Rome",
+    );
   });
 
   it("labels travel legs and transfers the same way as the planner", () => {

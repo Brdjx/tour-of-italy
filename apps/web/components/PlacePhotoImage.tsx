@@ -51,23 +51,13 @@ export function PlacePhotoImage({ photo, shape, sizes, eager = false }: PlacePho
   );
 }
 
-/** The whole credit as one line of text: "Photo: A. Rossi, CC BY-SA 3.0, Wikimedia Commons". */
-export function fullCredit(photo: PlacePhoto): string {
-  const note = photo.note ? `${photo.note} ` : "";
-  return `${note}Photo: ${photo.author}, ${photo.license}, Wikimedia Commons`;
-}
-
 /**
  * "Photo: A. Rossi, CC BY-SA 3.0, Wikimedia Commons": the author, the licence linked to the
  * licence itself (the 2.x and 3.0 licences ask for its URL), and the source linked to the photo's
- * Commons page. A city or general photo says so first.
- *
- * `compact` fits one line under most small photos: "Photo: A. Rossi, CC BY-SA 3.0", the author
- * linked to the photo's Commons page and the licence to the licence. A longer credit wraps
- * rather than being cut (compose.css), and the title carries the full credit.
+ * Commons page. A city or general photo says so first. Shown in full wherever a photo is large:
+ * the place and stop sheets; "About this data" lists every photo's credit the same way.
  */
-export function PhotoCredit({ photo, compact = false }: { photo: PlacePhoto; compact?: boolean }) {
-  if (compact) return <CompactCredit photo={photo} />;
+export function PhotoCredit({ photo }: { photo: PlacePhoto }) {
   return (
     <p className="photo-credit">
       {photo.note ? <span className="photo-credit-note">{photo.note} </span> : null}
@@ -81,25 +71,8 @@ export function PhotoCredit({ photo, compact = false }: { photo: PlacePhoto; com
   );
 }
 
-// Decision: the author's name is the link to the photo's Commons page, so the source still has a
-// link without the words "Wikimedia Commons" taking the line. Screen readers hear where it goes;
-// a city or general photo's note is in the title only, because its label chip is on the photo.
-function CompactCredit({ photo }: { photo: PlacePhoto }) {
-  return (
-    <p className="photo-credit photo-credit--compact" title={fullCredit(photo)}>
-      <span>Photo: </span>
-      <a href={photo.sourceUrl} target="_blank" rel="noreferrer noopener">
-        {photo.author}
-        <span className="sr-only">, the photo on Wikimedia Commons</span>
-      </a>
-      <span>, </span>
-      <LicenceLink photo={photo} />
-    </p>
-  );
-}
-
 /** The licence, linked to its text when it has one (public domain has none). */
-function LicenceLink({ photo }: { photo: PlacePhoto }) {
+export function LicenceLink({ photo }: { photo: Pick<PlacePhoto, "license" | "licenseUrl"> }) {
   return photo.licenseUrl ? (
     <a href={photo.licenseUrl} target="_blank" rel="noreferrer noopener">
       {photo.license}

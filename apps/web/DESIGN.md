@@ -194,6 +194,19 @@ components:
     rounded: "{rounded.pill}"
     width: "36px"
     height: "5px"
+  about-panel:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sheet}"
+    width: "760px"
+  highlight-tile:
+    textColor: "{colors.ink}"
+    typography: "{typography.tab}"
+    rounded: "{rounded.square}"
+    width: "220px"
+  place-summary-label:
+    textColor: "{colors.muted}"
+    typography: "{typography.label}"
   toast:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.fill-fg}"
@@ -238,7 +251,7 @@ A near-monochrome paper and ink palette with one warm gold and a caution yellow,
 - **Ink hover** (fill-hover): the fill under a pointer.
 
 ### Secondary
-- **Gold** (gold): marks that are not text. The day-tab indicator, the AI reason dot, the ring of the AI source check, the inset bar on the chosen search option, the rule beside source details, underline colour on hover. Dark #c29d55.
+- **Gold** (gold): marks that are not text. The day-tab indicator, the AI reason dot and the AI summary's dot, the ring of the AI source check, the inset bar on the chosen search option, the rule beside source details, underline colour on hover. Dark #c29d55.
 - **Gold text** (accent, focus): gold when it must be read, at 5.9:1 on the page. The tick of the AI source check, the caret, and every focus ring. Dark #d8bd82.
 - **Gold paper** (gold-soft): the count badge, text selection, and the base of the edited-row flash (22% in light, gold at 14% in dark). Dark #5a4a2a.
 - **Gold wash** (accent-soft): a chosen option's background. Dark #2a261c.
@@ -284,21 +297,21 @@ A near-monochrome paper and ink palette with one warm gold and a caution yellow,
 - **Tab** (500, width 112.5): day tab names and highlight place names.
 - **Time** (600, width 87.5, tabular figures): start times in the board's time column. End times sit under them in muted 400 at 0.9375rem.
 - **Body** (400): the default for prose; opened descriptions run 0.9375rem at 1.5 within 62ch.
-- **Body small** (400): facts, hints, the reason line, the source line under the trip heading, and fact values in a stop's details sheet. The subtitle under a place name starts with its meal role in ink at 500 ("Lunch, restaurant in Monti"), then the area in muted. Photo credits under highlights drop to 0.75rem.
-- **Label** (600, width 87.5, 0.02em): field labels, the highlights heading, fact terms in a stop's details sheet (muted), photo chips, the count badge and map stop numbers. Never uppercase.
+- **Body small** (400): facts, hints, the reason line, the source line under the trip heading, and fact values in a stop's or a place's sheet. The subtitle under a place name starts with its meal role in ink at 500 ("Lunch, restaurant in Monti"), then the area in muted; outside a plan it is the type, the neighbourhood and the city ("Historic site in Celio, Rome").
+- **Label** (600, width 87.5, 0.02em): field labels, the highlights heading, fact terms in a stop's or a place's sheet (muted), "Summary by AI, from the listing" (muted), the table heads in About this data (muted), photo chips, the count badge and map stop numbers. Never uppercase.
 
 ### Named Rules
 **The Width Is Rank Rule.** Change width to change importance. Use 150, 125, 112.5 and 87.5, and leave weight for state.
 
 **The Tabular Numbers Only Rule.** Times, dates, durations and counts get tabular figures; prose does not, because the feature widens commas and periods in this font.
 
-**The Commentary Leans Rule.** Checked facts stand upright. The one line of commentary per stop is set at a 6deg oblique.
+**The Commentary Leans Rule.** Checked facts stand upright. The one line of commentary per stop is set at a 6deg oblique, and so is a place's AI summary in its sheet: words the AI wrote lean, under a label that says so; the listing's own words stand upright beside their hairline.
 
 ## Layout
 
 One centred column on every screen, kept inside the safe areas. Both views open with the flag's band, 4px, under the status bar; it scrolls away with the page, so it never covers the pinned day tabs. Before a plan the column is narrow (column-compose); once a plan is on screen it widens (column-plan) and has no bar at the top. The trip header opens the plan view: the dates as the heading with the pace under them, Edit trip and Copy link at the right (on phones, one row of two equal pills under the pace), then one line saying how the plan was made, with Undo at its end after an edit. With no summary or notes between them, the day tabs follow the header without the tabs' own top margin. Its top space steps with the gutters (16px, 24px, 32px). The form lives in the Edit trip sheet once a plan exists.
 
-Below 1024px the compose view's highlights follow the form as one row that scrolls sideways and snaps to each photo, bleeding to the screen edges so a cut-off photo says there is more (tiles min(56vw, 220px), 14px apart). From 1024px they sit beside the form as a grid: two columns and four photos, or three columns and six once the side column is 440px wide. Side gutters step from gutter-phone to gutter-tablet at 640px and gutter-desktop at 1024px, never less than the safe-area inset.
+Below 1024px the compose view's highlights follow the form as one row that scrolls sideways and snaps to each photo, bleeding to the screen edges so a cut-off photo says there is more (tiles min(56vw, 220px), 14px apart, with 4px of room above and below so the hover hairline and the focus ring are never clipped). From 1024px they sit beside the form as a grid: two columns and four photos, or three columns and six once the side column is 440px wide. Each tile's photo, name and city sit on three rows the grid shares (subgrid), so a name that wraps keeps its row's cities level. Side gutters step from gutter-phone to gutter-tablet at 640px and gutter-desktop at 1024px, never less than the safe-area inset.
 
 The board is a two-column grid: a fixed time column (64px, 84px from 640px) that holds only the times, and the row body, 14px apart. Inside a row one step (sm, 8px) separates the name group, chips, reason and actions, measured from the visible text rather than from the transparent top of a 44px target. A stop's details are md (14px) apart in their sheet. Travel legs are dashed hairlines in the time column. Day tabs pin under the status bar, one equal column per day, full bleed on phones. The map follows the board on phones and tablets in portrait and sits beside it from 1024px with a 40px gap.
 
@@ -314,7 +327,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 - **Float** (`--shadow-float`): the toast, the swap side sheet from 768px, and the centred sheet panel from 768px.
 - **Sheet** (`--shadow-sheet`): bottom sheets on phones, cast upward.
 - **Menu** (`--shadow-menu`): the place search listbox.
-- **Scrim** (`--scrim`): the backdrop behind an open sheet, blurred behind the Edit trip and More options sheets.
+- **Scrim** (`--scrim`): the backdrop behind an open sheet, blurred behind every sheet (Edit trip, More options, a stop's or a place's details, About this data); a sheet over a sheet only dims.
 
 ### Named Rules
 **The Only Floating Things Cast Shadows Rule.** A row, a card, an input or a photo never has a shadow. If it does not float over the page, it is flat.
@@ -324,7 +337,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 Two shapes, and one named exception. Containers, inputs, choice chips, note chips, the listbox, the toast, banners and photos are square (0). Anything pressed is a pill (999px): buttons, the segmented pace control and its thumb, removable place tokens, stop actions, the count badge, the sheet grabber. Sheets round their corners (sheet, 20px): the top two on a phone bottom sheet, all four on the centred panel from 768px. Small status marks are dots (7px to 8px circles); the caution marker is a square. Map stops are 28px ink discs with a 2px paper ring; an approximate location is a paper disc with a dashed ink ring.
 
 ### Named Rules
-**The Rounded Sheet Rule.** The sheets (Edit trip, More options and a stop's details) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.
+**The Rounded Sheet Rule.** The sheets (Edit trip, More options, a stop's details, a place's details and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.
 
 ## Components
 
@@ -356,19 +369,28 @@ Round, calm and quick to answer a press.
 ### The departure board (signature)
 Times alone in the fixed left column in the time role, the place name in the title role, then the subtitle (meal role in ink, then area), facts and the reason line with its source dot (filled gold for the AI planner, an open ring for the rules). Rows are separated by hairlines under an ink rule beneath the day header. A flagged stop turns its times danger and puts a danger dot before its name. At most two rows a day carry a 72px square thumbnail: the highest-rated stops with a photo of their own. The thumbnail is a button ("Photo and details for" the place) that opens the stop's details sheet. On a pointer it takes an ink hairline 2px out, where the focus ring sits, and its photo leans in 4% inside its square (the photo stays still under reduced motion); it presses to 0.97 like a pill.
 - **Actions:** one line under the stop of quiet muted pills that turn ink on hover. Details (its chevron points onward, as it opens a sheet, and nudges 2px on hover), Swap and Remove, then the up and down pair at the right. On phones Swap and Remove are round icon pills (the swap arrows and a bin), with their words from 640px; the line wraps rather than pushing the page sideways.
-- **Details sheet:** the photo and Details open the stop in a sheet over the board, never in the row, so the board stays one calm list. The place's name is the title with its subtitle under it; then the photo large (3:2, square corners inside the rounded sheet, a city or general photo still on its mat) with its credit, the facts for the date as a small board of hairline rows (the visit's times first, then the hours on that date, the dates it opens, booking and price; term in the muted label role, value in body small ink; side by side once the details are 380px wide, stacked below), then what the data cannot confirm as a list with caution squares, then the listing's own description, upright, set off by a strong hairline at its left. The parts drop in 28ms apart as the sheet arrives. It is for reading: Swap, Remove and the moves stay on the row. Closing gives focus back to the photo or button that opened it.
+- **Details sheet:** the photo and Details open the stop in a sheet over the board, never in the row, so the board stays one calm list. The place's name is the title with its subtitle under it; then the photo large (3:2, square corners inside the rounded sheet, a city or general photo still on its mat) with its credit, the place's AI summary (as in the place sheet, below), the facts for the date as a small board of hairline rows (the visit's times first, then the hours on that date, the dates it opens, booking and price; term in the muted label role, value in body small ink; side by side once the details are 380px wide, stacked below), then what the data cannot confirm as a list with caution squares, then the listing's own description, upright, set off by a strong hairline at its left. The parts drop in 28ms apart as the sheet arrives. It is for reading: Swap, Remove and the moves stay on the row. Closing gives focus back to the photo or button that opened it.
 - **Arrival:** times flip from a top hinge (perspective 240px, from -88deg past flat to 6deg, then settle) over 320ms; the row body rises 8px; each row waits 42ms per row, capped at six rows.
 - **After an edit:** only moved times flip; the edited row flashes the gold wash over 1200ms.
 
 ### Photos
-Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) and 3:2 wide photos, never rounded. A city or topic photo sits inset on a 6px warm-paper mat with a square label chip, so it is never mistaken for the place itself. Images fade in over 180ms on load, over the tile colour. Every photo carries a muted credit line. Under a highlight the credit is compact: "Photo: author, licence" in the label width (87.5), one line under most photos, with the full credit in its title. Nothing is cut: a longer credit wraps, the licence never breaks inside itself, and the highlight grid shares its photo, name, city and credit rows across each row (subgrid) so a wrapped name or credit keeps its row level.
+Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) and 3:2 wide photos, never rounded. A city or topic photo sits inset on a 6px warm-paper mat with a square label chip, so it is never mistaken for the place itself. Images fade in over 180ms on load, over the tile colour. Every large photo carries its full credit in muted body small: "Photo: author, licence, Wikimedia Commons", the licence linked to its text and "Wikimedia Commons" to the photo's page, a city or general photo's note first in ink. Small photos carry no credit line: a highlight tile and a stop's thumbnail each open a sheet with the photo large and its full credit, and About this data lists every photo's credit. The photos are CC BY, CC BY-SA or public domain, whose attribution may be given "in any reasonable manner based on the medium"; one tap away, named on the tile ("photo, details and credit"), meets that.
+
+### Highlight tiles
+A few real places on the first screen, each one button: the square photo, the name in the tab role with a small muted chevron after it that points onward (it opens a sheet, like Details and More options), and the city in muted small text. Its name for assistive technology is "Colosseum, Rome: photo, details and credit". On a pointer an ink hairline draws round the photo 2px out (transparent at rest on every screen, so a screen that starts reporting a pointer never flashes it), the photo leans in 4% inside its square and the chevron nudges 2px; focus puts the gold ring round the whole tile, photo, name and city; a press scales the tile to 0.98. Under reduced motion the hairline still comes, and nothing moves. The tiles keep their diagonal sweep in from the top left, which ends unclipped (inset -4px) so the ring shows whole.
 
 ### Map
 Stops are ink discs with paper numbers; gold stays off the map. Discs closer than 22px centre to centre are nudged apart along the line between them, never more than 12px from their place, and ease back as the map zooms in. An earlier stop draws above a later one.
 
+### Place sheet
+A highlight tile opens its place in a sheet, the stop details sheet's sibling built from the same parts (`components/PlaceParts.tsx`), with no visit and no date: the name as the title, "type in neighbourhood, city" under it; the photo large with its full credit; the AI summary, its label ("Summary by AI, from the listing") in the muted label role after the AI's gold dot, its one or two sentences leaning; the facts that hold on any date as the same hairline board (the typical visit; the hours by weekday as the data states them, days with the same hours run together from Monday, "Mon to Sat 09:00 to 19:00", "Sun Closed", tabular; the dates it opens; booking when the listing states it; price; rating); what the data cannot confirm with caution squares; and the listing's own description last, upright, beside its strong hairline. The parts drop in 28ms apart. Closing gives focus back to the tile. A place with no saved summary shows none: the summaries are written once by Claude from each place's own listing and each passed a code check before it was saved.
+
+### About this data
+"About this data" at the foot of both views is a text button that opens the data notes over a blurred page, never under the footer: on phones the tall bottom sheet, from 768px a wide centred panel (min(760px, 100% - 48px), all four corners at 20px) whose body scrolls on its own. It leads with how the data stands ("103 places loaded, all usable for planning.") in the tab role, then sections under hairlines, each with a heading in the tab role: the places by base (a table under an ink rule: base, its own city, its day-trip towns with counts, total; counts right-aligned and tabular) and by type (term and count on hairline rows in as many columns as fit); what was cleaned or flagged and why, kind by kind (title, count at the right in muted, the explanation, the places in muted small text; more than eight fold behind "Show all N"); how opening hours and notes are treated, with the counts by source; how a plan is made (what the AI chooses and writes and what code decides, the model named only when the health check names a Claude model); the place summaries (how many places have one, the model and the day that wrote them, from the saved file); every photo's credit, folded behind "Show every photo's credit", each with the work's title linked to its Commons page; and the map's credits. Every number is computed from the loaded data. Links underline in the strong hairline and turn gold on hover. The parts drop in 28ms apart; focus goes to the title and back to the link.
+
 ### Toast, sheets and banners
 - **Toast:** square, ink, floating, centred, with a quiet Undo pill in gold text (toast-accent) and its own gold focus ring. It rises on the snappy spring.
-- **Sheets** (Edit trip, More options, a stop's details): the native dialog, so focus is trapped, the page is inert and Escape closes. On phones a bottom sheet with a 36px grabber that rises on the smooth spring and can be dragged down to close; Edit trip reaches to 12px under the status bar; More options and a stop's details are as tall as their content, up to the same line. From 768px a centred panel up to 560px wide that scales from 0.96 and fades in. The head holds the title in the title role and a quiet round close pill; the body scrolls, and in Edit trip Plan my trip is the sticky footer. Side padding is 16px on phones and 28px from 768px. More options' fields drop in 28ms apart once the sheet is most of the way up. Exits are shorter than entrances, and reduced motion leaves a fade.
+- **Sheets** (Edit trip, More options, a stop's details, a place's details, About this data): the native dialog, so focus is trapped, the page is inert and Escape closes. On phones a bottom sheet with a 36px grabber that rises on the smooth spring and can be dragged down to close; Edit trip and About this data reach to 12px under the status bar; More options and a stop's or a place's details are as tall as their content, up to the same line. From 768px a centred panel up to 560px wide (About this data up to 760px) that scales from 0.96 and fades in. The head holds the title in the title role and a quiet round close pill; the body scrolls, and in Edit trip Plan my trip is the sticky footer. Side padding is 16px on phones and 28px from 768px. More options' fields drop in 28ms apart once the sheet is most of the way up. Exits are shorter than entrances, and reduced motion leaves a fade.
 - **Swap sheet:** a bottom sheet on phones, a side sheet with a hairline edge from 768px, on the smooth spring over a scrim. Its alternatives rise in 28ms apart, capped at eight.
 - **Banners:** square with a hairline; errors carry a danger hairline and dot, notes sit on warm paper with a caution marker.
 
@@ -396,3 +418,5 @@ Stops are ink discs with paper numbers; gold stays off the map. Discs closer tha
 - **Don't** show more than two thumbnails in a day's board.
 - **Don't** use the flag's green or red as a UI colour, or put the flag anywhere but the top band and the flag mark.
 - **Don't** open a stop's details inside its row; they open in the sheet.
+- **Don't** put a credit line under a small photo; the full credit belongs where the photo is large, one tap away.
+- **Don't** show AI-written words without their label, upright, or as the listing's.
