@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import { DownIcon, RemoveIcon, SwapIcon, UpIcon } from "./icons";
 
-// The four edits on a stop: Details, Swap and Remove as quiet pills under the stop, and the two
-// moves in the time column (StopMoves). Buttons that cannot act right now (move up on the first
-// stop, remove on a day's only stop) stay focusable with aria-disabled, so keyboard focus is
-// never dropped to the page when a stop moves to the top or bottom. Remove still reports why it did nothing (the reducer answers with a status message);
-// the moves simply do nothing. Each accessible name starts with the visible word and adds the
-// stop's name.
+// The edits on a stop, on one line under it: Details, Swap and Remove, then Move up and Move down
+// as round icon pills at the end of the line. On phones Swap and Remove are round icon pills too,
+// and their words come back from 640 px (timetable.css), so the whole set fits one line at
+// 390 px. Buttons that cannot act right now (move up on the first stop, remove on a day's only
+// stop) stay focusable with aria-disabled, so keyboard focus is never dropped to the page when a
+// stop moves to the top or bottom. Remove still reports why it did nothing (the reducer answers
+// with a status message); the moves simply do nothing. Each accessible name starts with the
+// action's word and adds the stop's name, so an icon-only pill still says what it does.
 
 export interface StopActionHandlers {
   onSwap: () => void;
@@ -16,47 +18,56 @@ export interface StopActionHandlers {
   onMove: (direction: "up" | "down") => void;
 }
 
-interface StopActionsProps {
+interface StopActionsProps extends StopActionHandlers {
   name: string;
   canRemove: boolean;
-  onSwap: () => void;
-  onRemove: () => void;
-  details?: ReactNode; // the stop's Details toggle, first in the row
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  details?: ReactNode; // the stop's Details toggle, first in the line
 }
 
-// Pills: text actions with a label (timetable.css).
-const BUTTON = "stop-action";
+// Pills: one whose label hides on phones, and a round icon pill (timetable.css). The Details
+// pill keeps its word at every width; StopRow builds it.
+const COMPACT = "stop-action stop-action--compact";
 const ROUND = "stop-action stop-action--round";
 
-/** Details, Swap and Remove, under the stop. */
+/** Details, Swap, Remove, Move up and Move down, on one line under the stop. */
 export function StopActions(props: StopActionsProps) {
   const { name, canRemove } = props;
   return (
-    <fieldset className="stop-actions" data-testid="stop-actions">
-      <legend className="sr-only">Change {name}</legend>
-      {props.details}
-      <button
-        type="button"
-        className={BUTTON}
-        aria-label={`Swap ${name}`}
-        onClick={props.onSwap}
-        data-testid="swap-button"
-      >
-        <SwapIcon size={17} />
-        Swap
-      </button>
-      <button
-        type="button"
-        className={BUTTON}
-        aria-label={`Remove ${name}`}
-        aria-disabled={!canRemove}
-        onClick={props.onRemove}
-        data-testid="remove-button"
-      >
-        <RemoveIcon size={17} />
-        Remove
-      </button>
-    </fieldset>
+    <div className="stop-controls">
+      <fieldset className="stop-actions" data-testid="stop-actions">
+        <legend className="sr-only">Change {name}</legend>
+        {props.details}
+        <button
+          type="button"
+          className={COMPACT}
+          aria-label={`Swap ${name}`}
+          onClick={props.onSwap}
+          data-testid="swap-button"
+        >
+          <SwapIcon size={17} />
+          <span className="stop-action-label">Swap</span>
+        </button>
+        <button
+          type="button"
+          className={COMPACT}
+          aria-label={`Remove ${name}`}
+          aria-disabled={!canRemove}
+          onClick={props.onRemove}
+          data-testid="remove-button"
+        >
+          <RemoveIcon size={17} />
+          <span className="stop-action-label">Remove</span>
+        </button>
+      </fieldset>
+      <StopMoves
+        name={name}
+        canMoveUp={props.canMoveUp}
+        canMoveDown={props.canMoveDown}
+        onMove={props.onMove}
+      />
+    </div>
   );
 }
 
@@ -67,10 +78,10 @@ interface StopMovesProps {
   onMove: (direction: "up" | "down") => void;
 }
 
-/**
- * Move up and Move down, stacked in the time column under the stop's times, like the reorder
- * handles on a board: they sit next to the times they change.
- */
+/** Move up and Move down, the last two pills on the stop's line, grouped as the reorder pair. */
+// Decision: pushed to the end of the line, where iOS lists keep their reorder handles, so on
+// every row the pair sits in the same place at the right edge of the board and the eye finds it
+// without reading the row.
 export function StopMoves(props: StopMovesProps) {
   const { name, canMoveUp, canMoveDown } = props;
   const guard = (allowed: boolean, direction: "up" | "down") => () => {

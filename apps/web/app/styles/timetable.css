@@ -5,13 +5,19 @@
  * place like a split-flap board while the rest of the row rises in, in a sweep from the top left
  * to the bottom right. After an edit only the times that moved flip, and the edited row glows
  * gold for a moment. Photos, the opened stop and the day tabs are here too; the map is in
- * map.css.
+ * map.css. Inside a row one step (--board-step) separates every block, name group, chips, reason
+ * and actions, measured from what the eye sees: the transparent top of a 44 px chip or pill is
+ * taken off the margin, so a pill's label sits one step under the text above it.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
 @layer components {
   :root {
     --gutter: 64px;
+    --board-step: 8px; /* between the blocks of a row: name group, chips, reason, actions */
+    --board-gap: 14px; /* around an opened stop's details, and between their parts */
+    --chip-inset: 9px; /* a 26 px chip centred in its 44 px target */
+    --pill-inset: 12px; /* the label of a 44 px pill, from the top of its target */
   }
 
   @media (min-width: 640px) {
@@ -99,25 +105,16 @@
     padding-top: 2px;
   }
 
-  /* The time column: the times, then the two moves stacked under them. */
+  /* The time column holds the times and nothing else, like a printed board. */
   .stop-gutter {
-    display: flex;
     min-width: 0;
-    flex-direction: column;
-    align-items: flex-start;
   }
 
-  .stop-moves {
-    display: flex;
-    flex-direction: column;
-    margin: 6px 0 0 -13px;
-    padding: 0;
-    border: 0;
-  }
-
+  /* Decision: 4 px under the actions. Their pills already leave --pill-inset of air under the
+     labels, so the next leg starts 16 px below the last words of the row, not 26. */
   .stop-body {
     min-width: 0;
-    padding-bottom: 14px;
+    padding-bottom: 4px;
   }
 
   .stop-head {
@@ -127,29 +124,36 @@
     gap: 14px;
   }
 
-  .stop-role {
-    margin-bottom: 2px;
-    color: var(--accent);
-  }
-
   .stop-name {
     color: var(--fg);
     overflow-wrap: anywhere;
   }
 
+  /* "Lunch, restaurant in Monti": the meal a stop stands for starts the line in ink and weight
+     500, so it reads first without a label of its own above the name. */
   .stop-subtitle {
     margin-top: 2px;
     color: var(--muted);
     font-size: 0.875rem;
   }
 
+  .stop-role {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
   .stop-facts {
     display: flex;
     flex-wrap: wrap;
     gap: 2px 16px;
-    margin-top: 6px;
+    margin-top: 2px;
     color: var(--fg);
     font-size: 0.875rem;
+  }
+
+  /* One step between blocks, less the transparent top of the 44 px chip targets. */
+  .stop-body > .chips {
+    margin-top: calc(var(--board-step) - var(--chip-inset));
   }
 
   /* The why line: commentary leans, and a mark says who wrote it (gold for the AI planner, an
@@ -158,7 +162,7 @@
     display: flex;
     max-width: 62ch;
     gap: 10px;
-    margin-top: 8px;
+    margin-top: var(--board-step);
     color: var(--muted);
     font-size: 0.875rem;
     line-height: 1.4;
@@ -176,6 +180,10 @@
   .reason-mark--ai {
     border-color: var(--gold);
     background: var(--gold);
+  }
+
+  .chips + .stop-reason {
+    margin-top: calc(var(--board-step) - var(--chip-inset));
   }
 
   /* The train or drive from the previous base, timed in the time column like a stop. */
@@ -236,8 +244,7 @@
     animation-delay: calc(var(--row-delay) + 80ms);
   }
 
-  .timetable--draw > li [data-testid="travel-leg"],
-  .timetable--draw > li .stop-moves {
+  .timetable--draw > li [data-testid="travel-leg"] {
     animation: fade var(--dur-fade) ease both;
     animation-delay: var(--row-delay);
   }
@@ -348,6 +355,12 @@
     transition: transform var(--dur-press) var(--ease-out);
   }
 
+  /* Decision: 72 px at every width, about the height of the name, area and facts beside it, so
+     a highlight row keeps the same step down to its chips and reason as every other row. */
+  .stop-thumb .place-photo--square {
+    width: 72px;
+  }
+
   .stop-thumb:active {
     transform: scale(0.97);
   }
@@ -383,35 +396,160 @@
 
   /* ----- An opened stop ----- */
 
+  /* Photo and credit, the facts for the date as a small board of hairline rows, what the data
+     cannot confirm, then the listing's description set apart as its own words. */
   .stop-details {
     max-width: 560px;
-    margin-top: 14px;
+    margin-top: var(--board-gap);
     animation: rise var(--dur-move) var(--ease-content) both;
+    container-type: inline-size;
   }
 
+  .chips + .stop-details {
+    margin-top: calc(var(--board-gap) - var(--chip-inset));
+  }
+
+  .stop-details > * + * {
+    margin-top: var(--board-gap);
+  }
+
+  .stop-sheet {
+    border-top: 1px solid var(--line);
+  }
+
+  .stop-sheet-row {
+    display: grid;
+    gap: 2px;
+    padding: var(--board-step) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Decision: term and value side by side once the details are wide enough for a term column
+     and a value of about 30 characters; stacked, like a label over a field, below that. */
+  @container (min-width: 380px) {
+    .stop-sheet-row {
+      grid-template-columns: 8.5rem minmax(0, 1fr);
+      column-gap: 14px;
+    }
+  }
+
+  .stop-sheet-term {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.45;
+  }
+
+  @container (min-width: 380px) {
+    .stop-sheet-term {
+      padding-top: 1px;
+    }
+  }
+
+  .stop-sheet-value {
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .stop-sheet-note {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+  }
+
+  .stop-unconfirmed-title {
+    color: var(--fg);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .stop-unconfirmed-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  /* Each thing the data cannot confirm gets the caution square, the note marker. */
+  .stop-unconfirmed-list > li {
+    position: relative;
+    max-width: 62ch;
+    padding-left: 17px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .stop-unconfirmed-list > li::before {
+    position: absolute;
+    top: 0.45em;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    background: var(--warn);
+    content: "";
+  }
+
+  .listing-words {
+    quotes: "\201C" "\201D";
+  }
+
+  .stop-listing-source {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  /* The listing's own words: set off by a hairline, upright (it is not our commentary). */
   .stop-description {
     max-width: 62ch;
-    margin-top: 14px;
+    margin-top: 6px;
+    padding-left: 12px;
+    border-left: 1px solid var(--line-strong);
     color: var(--fg);
     font-size: 0.9375rem;
     line-height: 1.5;
   }
 
-  .stop-details-photo + .stop-description {
-    margin-top: 14px;
-  }
+  /* ----- Actions: quiet pills, ink on hover, one line under the stop ----- */
 
-  /* ----- Actions: quiet pills, ink on hover ----- */
-
-  .stop-actions {
+  /* The row's last block: its labels sit one step under the text above. The -12px left margin
+     lines the Details label up with the name. After chips the margin stays at zero, so no two
+     44 px targets overlap. Decision: the line may wrap, so under 375 px or with larger text the
+     reorder pair drops to a second line at the right instead of pushing the page sideways. */
+  .stop-controls {
     display: flex;
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
+    gap: 0 2px;
+    margin: calc(var(--board-step) - var(--pill-inset)) 0 0 -12px;
+  }
+
+  .chips + .stop-controls {
+    margin-top: 0;
+  }
+
+  .stop-details + .stop-controls {
+    margin-top: calc(var(--board-gap) - var(--pill-inset));
+  }
+
+  .stop-actions,
+  .stop-moves {
+    display: flex;
+    min-width: 0;
+    align-items: center;
     gap: 2px;
-    margin: 8px 0 0 -12px;
     padding: 0;
     border: 0;
+  }
+
+  .stop-moves {
+    margin-left: auto;
   }
 
   .stop-action {
@@ -436,6 +574,26 @@
     padding: 0;
   }
 
+  /* On phones Swap and Remove are round icon pills; their words come back from 640 px. The
+     accessible name (aria-label) says the action and the stop at every width. */
+  .stop-action--compact {
+    padding: 0;
+  }
+
+  .stop-action--compact .stop-action-label {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .stop-action--compact {
+      padding: 0 12px;
+    }
+
+    .stop-action--compact .stop-action-label {
+      display: inline;
+    }
+  }
+
   .stop-action:hover:not([aria-disabled="true"]) {
     background: var(--hover);
     color: var(--fg);
@@ -455,8 +613,17 @@
     opacity: 0.4;
   }
 
+  /* Decision: 8 px after the chevron on phones, whose own box already has air at its right, so
+     the five pills fit one line at 375 px; the even 12 px returns with the words at 640 px. */
   .stop-action--details {
+    padding: 0 8px 0 12px;
     color: var(--fg);
+  }
+
+  @media (min-width: 640px) {
+    .stop-action--details {
+      padding: 0 12px;
+    }
   }
 
   .stop-action-chevron {
@@ -600,7 +767,6 @@
     .timetable--draw > li .stop-head,
     .timetable--draw > li .stop-body > :not(.stop-head),
     .timetable--draw > li [data-testid="travel-leg"],
-    .timetable--draw > li .stop-moves,
     .stop-times--flip,
     .stop-details {
       animation: fade 150ms ease both;

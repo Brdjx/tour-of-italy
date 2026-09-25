@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useId, useState } from "react";
+import { type CSSProperties, Fragment, useId, useMemo, useState } from "react";
 import {
   clockDateTime,
   formatDuration,
@@ -10,20 +10,22 @@ import {
   ratingText,
 } from "../lib/format";
 import type { PlacePhoto } from "../lib/placePhotos";
+import { type StopFactSheet, stopFacts } from "../lib/stopFacts";
 import type { RowView } from "../lib/timetable";
 import { ClockText } from "./Clock";
 import { ChevronIcon } from "./icons";
 import { PhotoCredit, PlacePhotoImage } from "./PlacePhotoImage";
-import { type StopActionHandlers, StopActions, StopMoves } from "./StopActions";
+import { type StopActionHandlers, StopActions } from "./StopActions";
 import { TravelLeg } from "./TravelLeg";
 import { WarningChips } from "./WarningChip";
 
-// One stop on the day's board: the leg that leads to it, then the times in the left column and
-// the place on the right (meal label, name, type and neighbourhood, visit length, price, rating,
-// chips, the reason, and the edit actions). A stop with a photo of its own shows it small beside
-// the name; Details opens the stop in place with the dataset's description and the photo at
-// full width with its credit (a city or general photo, clearly labelled, when the place has none).
-// All text from the data or the AI is rendered as React text, never as HTML.
+// One stop on the day's board: the leg that leads to it, then the times alone in the left
+// column and the place on the right (name; the meal it stands for, type and neighbourhood; visit
+// length, price and rating; chips; the reason; and one line of edit actions). A few highlight
+// stops per day show their own photo small beside the name (DayTimetable picks them); Details
+// opens the stop in place with its photo and credit, the facts for this date, what the data
+// cannot confirm, and the listing's description as the listing's own words. All text from the
+// data or the AI is rendered as React text, never as HTML.
 
 interface StopRowProps extends StopActionHandlers {
   row: RowView;
@@ -34,6 +36,7 @@ interface StopRowProps extends StopActionHandlers {
   changed: boolean; // the last edit touched this row
   timesChanged: boolean; // the start or end moved in the last edit: the times flip
   photo: PlacePhoto | null;
+  thumbnail: boolean; // one of the day's highlights: its own photo shows beside the name
   eagerPhoto: boolean; // among the first photos on screen
 }
 
@@ -46,6 +49,12 @@ export function coveredLabel(meals: readonly string[]): string | null {
   return `${words} during this visit`;
 }
 
+/** The meal a stop stands for: "Lunch", "Dinner", "Lunch during this visit", or null. */
+export function roleText(row: RowView): string | null {
+  const role = row.stop.role;
+  return role === "visit" ? coveredLabel(row.coveredMeals) : ROLE_LABEL[role];
+}
+
 export function StopRow(props: StopRowProps) {
   const { row, dayIndex, date, isLast, dayStopCount, changed, timesChanged, photo } = props;
   const { stop, place } = row;
@@ -55,9 +64,8 @@ export function StopRow(props: StopRowProps) {
   const rating = ratingText(place?.rating ?? null);
   const price = place?.priceLevel ?? null;
   const style = { "--i": row.index } as CSSProperties;
-  const ownPhoto = photo?.kind === "place" ? photo : null;
-  const description = place?.description.trim() ?? "";
-  const hasDetails = photo !== null || description !== "";
+  const ownPhoto = props.thumbnail && photo?.kind === "place" ? photo : null;
+  const hasDetails = photo !== null || place !== undefined;
   const classes = ["stop-row"];
   if (row.flagged) classes.push("stop-row--flagged");
   if (changed) classes.push("stop-row--changed");
@@ -88,19 +96,12 @@ export function StopRow(props: StopRowProps) {
               <ClockText minutes={stop.end} />
             </time>
           </p>
-          <StopMoves
-            name={name}
-            canMoveUp={row.index > 0}
-            canMoveDown={!isLast}
-            onMove={props.onMove}
-          />
         </div>
         <div className="stop-body">
           <div className="stop-head">
             <div className="min-w-0">
-              <RoleLabel row={row} />
               <h3 className="stop-name t-title">{name}</h3>
-              {place ? <p className="stop-subtitle">{placeSubtitle(place)}</p> : null}
+              <Subtitle row={row} />
               <dl className="stop-facts">
                 <div>
                   <dt className="sr-only">Visit length</dt>
@@ -136,7 +137,7 @@ export function StopRow(props: StopRowProps) {
                 <PlacePhotoImage
                   photo={ownPhoto}
                   shape="square"
-                  sizes="(min-width: 640px) 96px, 72px"
+                  sizes="72px"
                   eager={props.eagerPhoto}
                 />
               </button>
@@ -145,27 +146,16 @@ export function StopRow(props: StopRowProps) {
           <WarningChips chips={row.chips} />
           {row.reason ? <Reason text={row.reason} ai={stop.reasonSource === "ai"} /> : null}
           {hasDetails && open ? (
-            <div id={detailsId} className="stop-details" data-testid="stop-details">
-              {photo ? (
-                <figure className="stop-details-photo">
-                  <PlacePhotoImage
-                    photo={photo}
-                    shape="wide"
-                    sizes="(min-width: 640px) 560px, 92vw"
-                  />
-                  <figcaption>
-                    <PhotoCredit photo={photo} />
-                  </figcaption>
-                </figure>
-              ) : null}
-              {description ? <p className="stop-description">{description}</p> : null}
-            </div>
+            <StopDetails id={detailsId} row={row} date={date} photo={photo} />
           ) : null}
           <StopActions
             name={name}
             canRemove={dayStopCount > 1}
+            canMoveUp={row.index > 0}
+            canMoveDown={!isLast}
             onSwap={props.onSwap}
             onRemove={props.onRemove}
+            onMove={props.onMove}
             details={
               hasDetails ? (
                 <button
@@ -192,15 +182,28 @@ export function StopRow(props: StopRowProps) {
   );
 }
 
-function RoleLabel({ row }: { row: RowView }) {
-  const role = row.stop.role;
-  const text = role === "visit" ? coveredLabel(row.coveredMeals) : ROLE_LABEL[role];
-  if (!text) return null;
+/**
+ * "Lunch, restaurant in Campo de' Fiori": the meal the stop stands for, in ink, starts the line,
+ * then the type and neighbourhood in muted text. A plain visit shows only the type and place.
+ */
+function Subtitle({ row }: { row: RowView }) {
+  const role = roleText(row);
+  const where = row.place ? placeSubtitle(row.place) : null;
+  if (!role && !where) return null;
   return (
-    <p className="stop-role t-label" data-testid="meal-label">
-      {text}
+    <p className="stop-subtitle">
+      {role ? (
+        <span className="stop-role" data-testid="meal-label">
+          {role}
+        </span>
+      ) : null}
+      {role && where ? `, ${lowerFirst(where)}` : where}
     </p>
   );
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /** The one line of commentary on a stop. It leans (the slant axis); checked facts stand upright. */
@@ -215,5 +218,102 @@ function Reason({ text, ai }: { text: string; ai: boolean }) {
         {text}
       </span>
     </p>
+  );
+}
+
+interface StopDetailsProps {
+  id: string;
+  row: RowView;
+  date: string;
+  photo: PlacePhoto | null;
+}
+
+/**
+ * An opened stop: the photo with its credit, the facts for this date in a small board of their
+ * own, what the data cannot confirm, and the listing's description set apart as a quotation.
+ */
+function StopDetails({ id, row, date, photo }: StopDetailsProps) {
+  const { place, stop } = row;
+  const sheet = useMemo<StopFactSheet | null>(
+    () => (place ? stopFacts(place, date, { start: stop.start, end: stop.end }) : null),
+    [place, date, stop.start, stop.end],
+  );
+  const cannotConfirmId = useId();
+  return (
+    <div id={id} className="stop-details" data-testid="stop-details">
+      {photo ? (
+        <figure className="stop-details-photo">
+          <PlacePhotoImage photo={photo} shape="wide" sizes="(min-width: 640px) 560px, 92vw" />
+          <figcaption>
+            <PhotoCredit photo={photo} />
+          </figcaption>
+        </figure>
+      ) : null}
+      {sheet ? (
+        <>
+          <dl className="stop-sheet" data-testid="stop-fact-sheet">
+            {sheet.facts.map((fact) => (
+              <div key={fact.key} className="stop-sheet-row" data-fact={fact.key}>
+                <dt className="stop-sheet-term">{fact.label}</dt>
+                <dd className="stop-sheet-value">
+                  {fact.numeric ? <TimesText text={fact.value} /> : fact.value}
+                  {fact.note ? <span className="stop-sheet-note">{fact.note}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {sheet.unconfirmed.length > 0 ? (
+            // Decision: a heading and a named list, not a <section>: a region landmark per
+            // opened stop would crowd a screen reader's landmark list with the same name.
+            <div className="stop-unconfirmed">
+              <h4 id={cannotConfirmId} className="stop-unconfirmed-title">
+                What the data cannot confirm
+              </h4>
+              <ul className="stop-unconfirmed-list" aria-labelledby={cannotConfirmId}>
+                {sheet.unconfirmed.map((caveat) => (
+                  <li key={caveat.key} data-testid="stop-caveat">
+                    {caveat.text}
+                    {caveat.quote ? (
+                      <>
+                        {" "}
+                        <q className="listing-words">{caveat.quote}</q>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {sheet.description ? (
+            <figure className="stop-listing" data-testid="stop-description">
+              <figcaption className="stop-listing-source">
+                The listing's description, in its own words
+              </figcaption>
+              <blockquote className="stop-description">{sheet.description}</blockquote>
+            </figure>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Clock times in tabular figures with normal-width colons, like ClockText, inside a line. */
+function TimesText({ text }: { text: string }) {
+  const parts = text.split(":");
+  return (
+    <span className="tabular">
+      {parts.map((part, index) =>
+        index === 0 ? (
+          part
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one fixed string never reorder.
+          <Fragment key={index}>
+            <span className="clock-colon">:</span>
+            {part}
+          </Fragment>
+        ),
+      )}
+    </span>
   );
 }

@@ -191,6 +191,55 @@ function transferFor(
   };
 }
 
+/**
+ * The day's times as one string, "place_001 540-660|place_007 700-820", in visiting order. Two
+ * versions of a day with the same times give the same string, however often the view is rebuilt.
+ */
+export function dayTimes(rows: readonly RowView[]): string {
+  return rows.map((row) => `${row.stop.placeId} ${row.stop.start}-${row.stop.end}`).join("|");
+}
+
+/** Places whose times differ between two dayTimes strings. A place new to the day did not move. */
+export function movedStops(before: string, now: string): Set<string> {
+  const earlier = parseDayTimes(before);
+  const moved = new Set<string>();
+  for (const [placeId, times] of parseDayTimes(now)) {
+    const was = earlier.get(placeId);
+    if (was !== undefined && was !== times) moved.add(placeId);
+  }
+  return moved;
+}
+
+function parseDayTimes(text: string): Map<string, string> {
+  const entries = text === "" ? [] : text.split("|");
+  return new Map(
+    entries.map((entry) => {
+      const cut = entry.lastIndexOf(" "); // times never hold a space; an id might
+      return [entry.slice(0, cut), entry.slice(cut + 1)] as const;
+    }),
+  );
+}
+
+/** The most stops a day's board shows a small photo for: a few highlights, not a photo per row. */
+export const DAY_THUMBNAILS = 2;
+
+/**
+ * Rows that show a thumbnail: the day's highest-rated stops that have a photo of their own, at
+ * most `max`, ties going to the earlier stop. Every other stop shows its photo only when opened.
+ */
+// Decision: a stop without a rating ranks below every rated stop, so a missing number never
+// wins a highlight over a place the data rates.
+export function thumbnailRows(
+  rows: readonly RowView[],
+  hasOwnPhoto: (place: Place) => boolean,
+  max: number = DAY_THUMBNAILS,
+): Set<number> {
+  const ranked = rows
+    .filter((row) => row.place !== undefined && hasOwnPhoto(row.place))
+    .sort((a, b) => (b.place?.rating ?? -1) - (a.place?.rating ?? -1) || a.index - b.index);
+  return new Set(ranked.slice(0, Math.max(0, max)).map((row) => row.index));
+}
+
 /** Every day's view, in order. Days whose view cannot be built are skipped. */
 export function buildTripView(
   itinerary: Itinerary,

@@ -1,9 +1,10 @@
 "use client";
 
-import { type Ref, useEffect, useRef } from "react";
+import type { Place } from "@italy/planner";
+import { type Ref, useEffect, useMemo, useRef } from "react";
 import { clockDateTime } from "../lib/format";
 import { photoForPlace } from "../lib/placePhotos";
-import type { DayView } from "../lib/timetable";
+import { type DayView, dayTimes, movedStops, thumbnailRows } from "../lib/timetable";
 import { ClockText } from "./Clock";
 import { StopRow } from "./StopRow";
 import { WarningChips } from "./WarningChip";
@@ -12,8 +13,13 @@ import { WarningChips } from "./WarningChip";
 // transfer from the previous base as the first timed row when there is one, and an ordered list
 // of stops with the travel legs between them. The list is also the text equivalent of the map.
 
-/** How many stops load their photo at once; the rest load as they scroll near. */
+/** Thumbnails on stops before this index load at once; the rest load as they scroll near. */
 const EAGER_PHOTOS = 3;
+
+/** A photo of the place itself, not a city or general stand-in, can be a highlight. */
+function hasOwnPhoto(place: Place): boolean {
+  return photoForPlace(place)?.kind === "place";
+}
 
 export interface DayTimetableProps {
   view: DayView;
@@ -30,15 +36,22 @@ export function DayTimetable(props: DayTimetableProps) {
   const headingId = `day-heading-${view.index}`;
   const count = view.rows.length;
   const transfer = view.transfer;
-  // Each stop's times at the last render, by place. A stop whose times differ from them was
-  // moved by an edit, and only its times flip; a new day has no stops in common, so nothing does.
-  const lastTimes = useRef(new Map<string, string>());
-  const timesOf = (start: number, end: number) => `${start}-${end}`;
+  // A few highlights, not a photo per row: the day's best-rated stops with a photo of their own.
+  const thumbnails = useMemo(() => thumbnailRows(view.rows, hasOwnPhoto), [view.rows]);
+  // Each stop's times as last shown. A stop whose times differ from them was moved by an edit,
+  // and only its times flip; a new day has no stops in common, so nothing does.
+  // Decision: worked out once per new set of times, not once per render. A re-render that
+  // rebuilds the same day (a status message, a check that finishes) used to clear the flip about
+  // 90 ms into its 320 ms; now each flip keeps its element until it has played.
+  const times = dayTimes(view.rows);
+  const shownTimes = useRef("");
+  const moved = useMemo(
+    () => (animate ? new Set<string>() : movedStops(shownTimes.current, times)),
+    [animate, times],
+  );
   useEffect(() => {
-    lastTimes.current = new Map(
-      view.rows.map((row) => [row.stop.placeId, timesOf(row.stop.start, row.stop.end)]),
-    );
-  });
+    shownTimes.current = times;
+  }, [times]);
   return (
     <section aria-labelledby={headingId} data-testid="day-timetable" data-day={view.index + 1}>
       <header className="day-header">
@@ -76,9 +89,7 @@ export function DayTimetable(props: DayTimetableProps) {
         aria-label="Stops in visiting order"
       >
         {view.rows.map((row) => {
-          const before = lastTimes.current.get(row.stop.placeId);
-          const timesChanged =
-            !animate && before !== undefined && before !== timesOf(row.stop.start, row.stop.end);
+          const timesChanged = moved.has(row.stop.placeId);
           return (
             <StopRow
               key={row.stop.placeId}
@@ -90,6 +101,7 @@ export function DayTimetable(props: DayTimetableProps) {
               changed={changedStop === row.index}
               timesChanged={timesChanged}
               photo={row.place ? photoForPlace(row.place) : null}
+              thumbnail={thumbnails.has(row.index)}
               eagerPhoto={row.index < EAGER_PHOTOS}
               onSwap={() => onSwap(row.index)}
               onRemove={() => onRemove(row.index)}

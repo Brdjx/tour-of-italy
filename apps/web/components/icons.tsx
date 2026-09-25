@@ -40,9 +40,14 @@ export function SwapIcon(props: IconProps) {
 }
 
 export function RemoveIcon(props: IconProps) {
+  // Decision: a bin, not a minus: on phones Remove is an icon-only pill, and a lone minus read
+  // as "collapse" rather than "take this stop out".
   return (
     <Svg {...props}>
-      <path d="M5 12h14" />
+      <path d="M4.5 7h15" />
+      <path d="M9.5 7V4.8h5V7" />
+      <path d="M6.5 7l.9 12.2h9.2l.9-12.2" />
+      <path d="M10.2 10.5v5.4M13.8 10.5v5.4" />
     </Svg>
   );
 }

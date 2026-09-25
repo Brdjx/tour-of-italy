@@ -1,7 +1,17 @@
 import { type Itinerary, placesOfAnchor, TRAVEL, type Violation } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { boundsOf, mapPoints, markerHtml } from "../lib/mapPoints";
-import { buildDayView, buildTripView, FREE_TIME_MIN, stopsText } from "../lib/timetable";
+import {
+  buildDayView,
+  buildTripView,
+  DAY_THUMBNAILS,
+  dayTimes,
+  FREE_TIME_MIN,
+  movedStops,
+  type RowView,
+  stopsText,
+  thumbnailRows,
+} from "../lib/timetable";
 import { ctx, fixturePlan, must, vaticanDay } from "./fixtures";
 
 // The timetable's arithmetic: legs, free time, transfers, flags and chips. A wrong number here
@@ -141,6 +151,61 @@ describe("buildDayView", () => {
     const { returnTravelMin: _omitted, ...withoutReturn } = day;
     const none = { ...plan, days: [withoutReturn, ...plan.days.slice(1)] };
     expect(buildDayView(none, 0, ctx, [])?.returnLeg).toBeNull();
+  });
+});
+
+describe("thumbnailRows", () => {
+  const rows = must(buildDayView(fixturePlan(), 0, ctx, [])).rows;
+  /** The rows with their ratings replaced, so the ranking is under the test's control. */
+  const rated = (ratings: (number | null)[]): RowView[] =>
+    ratings.map((rating, index) => {
+      const row = must(rows[index % rows.length]);
+      return { ...row, index, place: { ...must(row.place), rating } };
+    });
+  const every = () => true;
+
+  it("picks the day's highest-rated stops, at most two", () => {
+    expect(DAY_THUMBNAILS).toBe(2);
+    expect([...thumbnailRows(rated([4.2, 4.9, 4.5, 4.8]), every)].sort()).toEqual([1, 3]);
+  });
+
+  it("breaks a tie by visiting order and ranks a missing rating last", () => {
+    expect([...thumbnailRows(rated([4.7, 4.7, 4.7]), every)].sort()).toEqual([0, 1]);
+    expect([...thumbnailRows(rated([null, 3.1, null]), every)].sort()).toEqual([0, 1]);
+  });
+
+  it("only picks stops with a photo of their own", () => {
+    const withPhoto = new Set(["place_x"]);
+    const ratings = rated([4.9, 4.1, 4.8]).map((row, index) =>
+      index === 1 ? { ...row, place: { ...must(row.place), id: "place_x" } } : row,
+    );
+    const picked = thumbnailRows(ratings, (place) => withPhoto.has(place.id));
+    expect([...picked]).toEqual([1]);
+    expect(thumbnailRows([{ ...must(rows[0]), place: undefined }], every).size).toBe(0);
+  });
+});
+
+describe("movedStops", () => {
+  const rows = must(buildDayView(fixturePlan(), 0, ctx, [])).rows;
+  const shifted = (index: number, by: number): RowView[] =>
+    rows.map((row) =>
+      row.index === index
+        ? { ...row, stop: { ...row.stop, start: row.stop.start + by, end: row.stop.end + by } }
+        : row,
+    );
+
+  it("names only the stops whose times changed", () => {
+    const moved = movedStops(dayTimes(rows), dayTimes(shifted(1, 15)));
+    expect([...moved]).toEqual([rows[1]?.stop.placeId]);
+    expect(movedStops(dayTimes(rows), dayTimes(rows)).size).toBe(0);
+  });
+
+  it("never flips a stop that is new to the day, or anything on a first render", () => {
+    expect(movedStops("", dayTimes(rows)).size).toBe(0);
+    const swapped = rows.map((row, index) =>
+      index === 0 ? { ...row, stop: { ...row.stop, placeId: "place_new", start: 1 } } : row,
+    );
+    expect(movedStops(dayTimes(rows), dayTimes(swapped)).size).toBe(0);
   });
 });
 

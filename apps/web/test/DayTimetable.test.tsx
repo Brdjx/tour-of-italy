@@ -4,8 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DayTabs } from "../components/DayTabs";
 import { DayTimetable } from "../components/DayTimetable";
-import { buildDayView, buildTripView } from "../lib/timetable";
-import { ctx, fixturePlan, GENERATED_AT, makeRequest, places, vaticanDay, XSS } from "./fixtures";
+import { photoForPlace } from "../lib/placePhotos";
+import { buildDayView, buildTripView, DAY_THUMBNAILS } from "../lib/timetable";
+import {
+  ctx,
+  fixturePlan,
+  GENERATED_AT,
+  makeRequest,
+  must,
+  places,
+  vaticanDay,
+  XSS,
+} from "./fixtures";
 
 // The timetable is the product: it must list every stop in order with machine-readable times,
 // and render anything from the data or the AI as inert text.
@@ -57,9 +67,34 @@ describe("DayTimetable", () => {
     const vatican = screen
       .getAllByTestId("stop-row")
       .find((row) => row.textContent?.includes("Vatican Museums")) as HTMLElement;
-    expect(within(vatican).getByTestId("meal-label").textContent).toBe("Lunch during this visit");
+    const label = within(vatican).getByTestId("meal-label");
+    expect(label.textContent).toBe("Lunch during this visit");
+    // It leads the subtitle, in place of a label above the name.
+    expect(label.parentElement?.textContent).toMatch(/^Lunch during this visit, museum in /);
     // The rule sentence saying the same thing is not repeated under it.
     expect(vatican.textContent).not.toContain("Lunch is part of this outing.");
+  });
+
+  it("shows a small photo on at most two stops a day, the best-rated with photos of their own", () => {
+    for (const [index, day] of fixturePlan().days.entries()) {
+      const { view } = renderDay(fixturePlan(), index);
+      const rows = screen.getAllByTestId("stop-row");
+      const withThumb = rows.filter((row) => within(row).queryByTestId("stop-thumb"));
+      expect(withThumb.length, `day ${index + 1}`).toBeLessThanOrEqual(DAY_THUMBNAILS);
+      const own = view.rows.filter(
+        (row) => row.place && photoForPlace(row.place)?.kind === "place",
+      );
+      expect(withThumb.length).toBe(Math.min(DAY_THUMBNAILS, own.length));
+      const lowestShown = Math.min(
+        ...withThumb.map((row) => ctx.placesById.get(row.dataset.placeId ?? "")?.rating ?? -1),
+      );
+      for (const row of own) {
+        const shown = withThumb.some((item) => item.dataset.placeId === row.stop.placeId);
+        if (!shown) expect(row.place?.rating ?? -1).toBeLessThanOrEqual(lowestShown);
+      }
+      expect(day.stops.length).toBe(rows.length);
+      cleanup();
+    }
   });
 
   it("counts visits in the day header, the unit the pace limit uses", () => {
@@ -166,9 +201,61 @@ describe("DayTimetable", () => {
     expect(within(group).getByRole("button", { name: `Swap ${name}` })).toBeTruthy();
     const moves = screen.getAllByTestId("stop-moves")[0] as HTMLElement;
     expect(within(moves).getByRole("button", { name: `Move ${name} up` })).toBeTruthy();
+    // One line per stop, in reading order: Details, Swap, Remove, then the reorder pair.
+    const row = screen.getAllByTestId("stop-row")[0] as HTMLElement;
+    const actions = ["details-button", "swap-button", "remove-button", "move-up", "move-down"];
+    const order: string[] = [];
     await user.tab();
-    const focused = document.activeElement;
-    expect(focused?.closest("[data-testid='stop-row']")).toBeTruthy();
+    for (
+      let step = 0;
+      step < 20 && document.activeElement?.closest("[data-testid='stop-row']") === row;
+      step++
+    ) {
+      order.push((document.activeElement as HTMLElement).dataset.testid ?? "");
+      await user.tab();
+    }
+    expect(order.filter((id) => actions.includes(id))).toEqual(actions);
+  });
+
+  it("flips only the times an edit moved, and keeps the flip through a rebuild of the same day", () => {
+    const plan = fixturePlan();
+    const day = plan.days[0];
+    if (!day) throw new Error("no day");
+    const props = { changedStop: null, onSwap: noop, onRemove: noop, onMove: noop };
+    const first = must(buildDayView(plan, 0, ctx, []));
+    const { rerender, container } = render(
+      <DayTimetable view={first} animate={false} {...props} />,
+    );
+    expect(container.querySelectorAll(".stop-times--flip")).toHaveLength(0);
+    // The last stop starts ten minutes later: only its times move.
+    const later: Itinerary = {
+      ...plan,
+      days: [
+        {
+          ...day,
+          stops: day.stops.map((stop, index) =>
+            index === day.stops.length - 1
+              ? { ...stop, start: stop.start + 10, end: stop.end + 10 }
+              : stop,
+          ),
+        },
+        ...plan.days.slice(1),
+      ],
+    };
+    rerender(
+      <DayTimetable view={must(buildDayView(later, 0, ctx, []))} animate={false} {...props} />,
+    );
+    const flipped = () =>
+      [...container.querySelectorAll(".stop-times--flip")].map(
+        (times) => times.closest<HTMLElement>("[data-testid='stop-row']")?.dataset.placeId,
+      );
+    expect(flipped()).toEqual([day.stops.at(-1)?.placeId]);
+    const flipping = container.querySelector(".stop-times--flip");
+    // A re-render with the same times, even from a rebuilt view, keeps the same element flipping.
+    rerender(
+      <DayTimetable view={must(buildDayView(later, 0, ctx, []))} animate={false} {...props} />,
+    );
+    expect(container.querySelector(".stop-times--flip")).toBe(flipping);
   });
 
   it("marks a flagged stop for sighted and screen reader users", () => {
