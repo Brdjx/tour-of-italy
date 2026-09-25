@@ -4,21 +4,24 @@ import { typeWord } from "./format";
 // The "why" line under a stop, without the sentences the row already prints. Rule-based reasons
 // (planner reasons.ts) open with the type and area ("Cafe in Pigna.") and the rating ("Rated 4.3
 // out of 5."), which the row shows just above; meal reasons open with "Dinner at a restaurant
-// in Trastevere", which the meal label and subtitle already say. Only exact copies of those
-// sentences are removed, rebuilt from the place's own data, so a change in the planner's wording
-// can only make the line longer again, never drop a sentence that says something new. AI
-// reasons are free text and are left alone.
+// in Trastevere", which the meal label and subtitle already say, and "Close to your previous
+// stop.", which the board's leg line above the row says in minutes ("5 min walk"). Only exact
+// copies of those sentences are removed, rebuilt from the place's own data, so a change in the
+// planner's wording can only make the line longer again, never drop a sentence that says
+// something new. AI reasons are free text and are left alone.
 
 /** Types a meal reason names as the venue ("Lunch at a market in Testaccio"). */
 const MEAL_VENUE_TYPES: readonly Place["type"][] = ["restaurant", "cafe", "market", "shop"];
 
 const CLOSE = "close to your previous stop";
+const CLOSE_SENTENCE = "Close to your previous stop.";
 
 export interface ReasonContext {
   place: Place | undefined;
   role: StopRole;
   ratingShown: boolean; // the row prints the rating, so "Rated 4.3 out of 5." is a repeat
   coveredMeals?: readonly Meal[]; // the row says "Lunch during this visit"
+  legShown?: boolean; // the leg from the previous stop is printed above the row ("5 min walk")
 }
 
 /** The planner's sentence cleanup: control characters and runs of spaces become one space. */
@@ -59,6 +62,7 @@ function repeats(context: ReasonContext): string[] {
     const venue = MEAL_VENUE_TYPES.includes(place.type) ? ` at a ${words}` : "";
     const lead = clean(`${capitalize(role)}${venue} in ${area}`);
     out.push(`${lead}, ${CLOSE}.`, `${lead}.`);
+    if (context.legShown) out.push(CLOSE_SENTENCE);
   }
   const covered = coveredSentence(context.coveredMeals ?? []);
   if (covered) out.push(covered);
@@ -68,7 +72,7 @@ function repeats(context: ReasonContext): string[] {
 /**
  * The reason to show, or null when nothing new is left. `ai` reasons come back unchanged.
  * "Dinner at a restaurant in Trastevere, close to your previous stop." keeps its news as
- * "Close to your previous stop."
+ * "Close to your previous stop.", unless the leg above the row already says it (`legShown`).
  */
 export function displayReason(
   reason: string | undefined,
@@ -81,7 +85,8 @@ export function displayReason(
   for (const sentence of repeats(context)) {
     const at = text.indexOf(` ${sentence} `);
     if (at === -1) continue;
-    const replacement = sentence.endsWith(`, ${CLOSE}.`) ? ` ${capitalize(CLOSE)}. ` : " ";
+    const keepClose = sentence.endsWith(`, ${CLOSE}.`) && !context.legShown;
+    const replacement = keepClose ? ` ${CLOSE_SENTENCE} ` : " ";
     text = text.slice(0, at) + replacement + text.slice(at + sentence.length + 2);
   }
   const left = text.trim();

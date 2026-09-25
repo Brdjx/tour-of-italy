@@ -1,6 +1,6 @@
 import { transferMinutes } from "./anchors";
 import type { PlannerContext } from "./context";
-import { ruleReason, withMealsCovered } from "./reasons";
+import { isHighestRated, ruleReason, type TripDays } from "./reasons";
 import { scheduleDay } from "./schedule";
 import { addDays } from "./time";
 import type { Anchor, DayPlan, Stop, TripRequest, Violation } from "./types";
@@ -36,6 +36,10 @@ export function scheduleTrip(
 ): ScheduledTrip {
   const days: DayPlan[] = [];
   const violations: Violation[] = [];
+  const tripDays = selection.map((day, index) => ({
+    date: addDays(request.startDate, index),
+    anchorId: day.anchorId,
+  }));
   let lastAnchor: Anchor | undefined;
   selection.forEach((day, index) => {
     const date = addDays(request.startDate, index);
@@ -50,7 +54,10 @@ export function scheduleTrip(
     const scheduled = scheduleDay(day.placeIds, date, anchor, request, ctx, transferMin, {
       dayIndex: index,
     });
-    const stops = attachReasons(scheduled.stops, request, ctx, previous[index]?.stops ?? []);
+    const stops = attachReasons(scheduled.stops, request, ctx, previous[index]?.stops ?? [], {
+      days: tripDays,
+      index,
+    });
     const returnTravelMin = scheduled.returnTravelMin;
     days.push({ date, anchorId: anchor.id, transferMin, stops, returnTravelMin });
     violations.push(...scheduled.violations);
@@ -62,26 +69,37 @@ export function scheduleTrip(
 /**
  * Adds a reason to every stop. A stop keeps its reason from `previous` when the same place had
  * the same role there and the reason came from the AI; every other stop gets a fresh rule reason
- * (so "close to your previous stop" stays true after an edit).
+ * (so "close to your previous stop" stays true after an edit). With `trip` (every day's date and
+ * base, and which day these stops are on) the rule reasons also say what the date means for each
+ * stop; without it they say only what holds on any date.
  */
 export function attachReasons(
   stops: readonly Stop[],
   request: TripRequest,
   ctx: PlannerContext,
   previous: readonly Stop[] = [],
+  trip?: TripDays,
 ): Stop[] {
   const seated = stops.flatMap((stop) => (stop.role === "visit" ? [] : [stop.role]));
+  const places = stops.map((stop) => ctx.placesById.get(stop.placeId));
+  const ratings = places.map((place) => place?.rating);
+  const date = trip?.days[trip.index]?.date;
   return stops.map((stop, index) => {
     const kept = previous.find((old) => old.placeId === stop.placeId && old.role === stop.role);
     if (kept?.reason !== undefined && kept.reasonSource === "ai") {
       return { ...stop, reason: kept.reason, reasonSource: "ai" };
     }
-    const place = ctx.placesById.get(stop.placeId);
+    const place = places[index];
     if (!place) return { ...stop };
-    const prevId = index === 0 ? undefined : stops[index - 1]?.placeId;
-    const prevPlace = prevId === undefined ? null : (ctx.placesById.get(prevId) ?? null);
-    const rule = ruleReason(place, request, stop.role, prevPlace);
-    const reason = withMealsCovered(rule, place, stop, seated);
+    const prevPlace = index === 0 ? null : (places[index - 1] ?? null);
+    const day = {
+      start: stop.start,
+      end: stop.end,
+      seated,
+      highestRated: isHighestRated(ratings, index),
+      ...(date === undefined ? {} : { date, trip }),
+    };
+    const reason = ruleReason(place, request, stop.role, prevPlace, day);
     return { ...stop, reason, reasonSource: "rule" };
   });
 }

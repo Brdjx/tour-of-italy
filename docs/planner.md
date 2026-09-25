@@ -55,10 +55,10 @@ data/italy.json
 | `context.ts` | `PlannerContext`: places, bases, and lookups built once per dataset and frozen. |
 | `constraints.ts` | Hard-rule predicates shared by the scheduler, validator, swaps, and the AI shortlist. |
 | `score.ts` | How much a traveler would want a place next (interest, rating, iconic, distance, repeats). |
-| `reasons.ts` | Rule-based reason text per stop. |
+| `reasons.ts` | Rule-based reason text per stop: the request, what the stop's date means for it (shut on the trip's other days at its base, opening later that weekday, starting as or soon after it opens), the listing's iconic and local favorite tags, the day's highest rating, the rating, the listing's morning or evening tag when at least half the visit is then, and an outing's meal. |
 | `schedule.ts` | `scheduleDay`: times a fixed order; `inferRole` decides visit, lunch, or dinner from arrival. |
 | `scheduleChecks.ts` | The problems `scheduleDay` reports while timing. |
-| `trip.ts` | `scheduleTrip`: times a whole trip from ids per day and attaches reasons. |
+| `trip.ts` | `scheduleTrip`: times a whole trip from ids per day and attaches reasons, given every day's date and base so a reason can name the trip's other days. |
 | `plan.ts` | `planDeterministic` (the pipeline above) and the warning order. |
 | `planAnchors.ts` | Which arrangements of bases to try, in which tiers. |
 | `tripBuilder.ts` | `chooseTrip`: the best trip over the arrangements, transfer cost, mistimed must-includes. |

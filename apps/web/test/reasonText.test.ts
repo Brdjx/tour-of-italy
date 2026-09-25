@@ -51,6 +51,21 @@ describe("displayReason", () => {
     expect(displayReason(raw, false, context)).toMatch(/^Close to your previous stop\./);
   });
 
+  it("drops the closeness where the board prints the leg above the row, and keeps it elsewhere", () => {
+    const restaurant = place("place_003"); // Da Enzo al 29, a walk from Trastevere
+    const raw = ruleReason(restaurant, NO_REQUEST, "dinner", place("place_002"));
+    expect(raw).toBe(
+      "Close to your previous stop. Listed as a local favorite. Rated 4.6 out of 5.",
+    );
+    const board = { place: restaurant, role: "dinner" as const, ratingShown: true, legShown: true };
+    expect(displayReason(raw, false, board)).toBe("Listed as a local favorite.");
+    const old = `Dinner at a restaurant in ${restaurant.neighborhood}, close to your previous stop.`;
+    expect(displayReason(old, false, board)).toBeNull();
+    // The swap sheet prints no leg, so the sentence is news there.
+    const sheet = { place: restaurant, role: "dinner" as const, ratingShown: false };
+    expect(displayReason(raw, false, sheet)).toBe(raw);
+  });
+
   it("hides the line when nothing new is left", () => {
     const plain = [...ctx.places].find(
       (p) => p.type === "museum" && !p.tags.some((t) => t === "local-favorite" || t === "iconic"),
@@ -68,6 +83,28 @@ describe("displayReason", () => {
     const cafe = [...ctx.places].find((p) => p.type === "cafe") as Place;
     const text = `${placeSubtitle(cafe)} is where locals meet.`;
     expect(displayReason(text, false, visit(cafe))).toBe(text);
+  });
+
+  it("shows the default trip's why lines without the leg, the rating or the outing's meal", () => {
+    // The page's default request two weeks after 2026-09-25: Friday 9 to Sunday 11 October,
+    // nothing chosen. 11 October is not the month's last Sunday (the 25th is).
+    const plan = fixturePlan({ startDate: "2026-10-09", interests: [] });
+    const days = buildTripView(plan, ctx, []);
+    const rows = days.flatMap((day) => day.rows);
+    const close = rows.filter((row) => row.stop.reason?.startsWith("Close to your previous stop."));
+    expect(close.length).toBeGreaterThan(0);
+    for (const row of close) {
+      expect(row.index).toBeGreaterThan(0); // the leg above it is from the previous stop
+      expect(row.reason ?? "").not.toContain("Close to your previous stop.");
+    }
+    // The book market shuts on Sundays, and Sunday is the trip's last day.
+    const market = rows.find((row) => row.place?.id === "place_024");
+    expect(market?.reason).toContain("It cannot be visited on Sunday, the trip's last day.");
+    // The Vatican Museums shut on Sundays too, but their listing opens them on the month's last
+    // Sunday, which the planner does not read: their line says nothing of the date.
+    const vatican = rows.find((row) => row.place?.id === "place_010");
+    expect(vatican?.reason).toBeDefined();
+    expect(vatican?.reason ?? "").not.toMatch(/visited|Starts|opens/);
   });
 
   it("leaves no repeated subtitle or rating in any rule reason of real plans", () => {

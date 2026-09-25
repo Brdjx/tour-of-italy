@@ -88,6 +88,7 @@ export function buildDayView(
         role: stop.role,
         ratingShown: true,
         coveredMeals,
+        legShown: index > 0, // StopRow prints the leg from the previous stop above every row
       }),
     };
   });

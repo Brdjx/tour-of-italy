@@ -79,7 +79,8 @@ function rebuildDay(
     day.transferMin,
     timing,
   );
-  const stops = attachReasons(scheduled.stops, request, ctx, day.stops);
+  const trip = { days: itinerary.days, index: dayIndex };
+  const stops = attachReasons(scheduled.stops, request, ctx, day.stops, trip);
   const rebuiltDay = { ...day, stops, returnTravelMin: scheduled.returnTravelMin };
   const days = itinerary.days.map((old, index) => (index === dayIndex ? rebuiltDay : old));
   const kept = dropRemovedMustIncludes

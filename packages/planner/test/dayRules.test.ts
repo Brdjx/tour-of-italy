@@ -11,7 +11,7 @@ import {
 } from "../src/dayRules";
 import { planDeterministic } from "../src/plan";
 import { SUNSET_BY_MONTH } from "../src/planPolicy";
-import { withMealsCovered } from "../src/reasons";
+import { ruleReason } from "../src/reasons";
 import type { Place, StopRole } from "../src/types";
 import { makeRequest, realContext, realPlace } from "./plannerFixtures";
 
@@ -67,10 +67,13 @@ describe("outings and meals", () => {
 
   it("tells the traveler lunch is part of the outing, but only when the day has no lunch stop", () => {
     const siena = realPlace("place_038");
-    const stop = { start: at(10, 45), end: at(16, 45), role: "visit" as const };
-    expect(withMealsCovered("Historic site in Siena.", siena, stop)).toBe(
-      "Historic site in Siena. Lunch is part of this outing.",
+    const outing = { start: at(10, 45), end: at(16, 45) };
+    const none = { interests: [], mustInclude: [] };
+    expect(ruleReason(siena, none, "visit", null, { ...outing, seated: [] })).toContain(
+      "Lunch is part of this outing.",
     );
+    const seated = ruleReason(siena, none, "visit", null, { ...outing, seated: ["lunch"] });
+    expect(seated).not.toContain("Lunch");
     const itinerary = planDeterministic(
       makeRequest({ anchors: ["rome"], startDate: "2026-06-11" }),
       ctx,

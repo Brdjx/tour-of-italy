@@ -159,7 +159,7 @@ function Option({
 }) {
   const { place, stop } = alternative;
   const notes = placeNotes(place).map((note) => note.label);
-  // The sheet shows no rating, so only the type-and-area sentence is a repeat here.
+  // The sheet shows no rating and no leg, so only the type-and-area sentence is a repeat here.
   const reason = displayReason(stop.reason, stop.reasonSource === "ai", {
     place,
     role: stop.role,

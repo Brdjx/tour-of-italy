@@ -1,5 +1,5 @@
 import { ORDINAL_DAYS } from "../config";
-import { WEEKDAY_SHORT } from "../time";
+import { WEEKDAY_LONG, WEEKDAY_SHORT } from "../time";
 import type { DateRule, Place } from "../types";
 import { seasonText } from "./seasons";
 
@@ -79,8 +79,6 @@ export function dateRuleNotes(rules: DateRule[]): PlaceNote[] {
   return notes;
 }
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
 /** "Third Saturday and Sunday of the month only", "Last Sunday of the month only". */
 function dayOfMonthLabel(from: number, to: number, days: number[] | undefined): string {
   const ordinal = Object.entries(ORDINAL_DAYS).find(
@@ -88,7 +86,7 @@ function dayOfMonthLabel(from: number, to: number, days: number[] | undefined): 
   )?.[0];
   if (ordinal && days && days.length > 0) {
     const mondayFirst = [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
-    const names = mondayFirst.map((day) => DAY_NAMES[day] ?? "?");
+    const names = mondayFirst.map((day) => WEEKDAY_LONG[day] ?? "?");
     const which =
       names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
     return `${ordinal.charAt(0).toUpperCase()}${ordinal.slice(1)} ${which} of the month only`;

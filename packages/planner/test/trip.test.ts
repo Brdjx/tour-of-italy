@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { rescheduleDay } from "../src/alternatives";
 import { transferMinutes } from "../src/anchors";
 import * as planner from "../src/index";
-import { chooseWarnings, compareViolations, planWarnings } from "../src/plan";
+import { chooseWarnings, compareViolations, planDeterministic, planWarnings } from "../src/plan";
 import { attachReasons, scheduleTrip } from "../src/trip";
 import type { DayPlan, Itinerary } from "../src/types";
 import { validateItinerary } from "../src/validate";
@@ -104,6 +105,39 @@ describe("attachReasons", () => {
     const [result] = attachReasons([stop], makeRequest(), ctx, [old]);
     expect(result?.reasonSource).toBe("rule");
     expect(result?.reason).not.toBe("Great lunch.");
+  });
+
+  it("says what the stop's date means only when it is given the trip", () => {
+    const parma = {
+      placeId: "place_053", // the Parma tour, weekdays only, six hours
+      start: 705,
+      end: 1065,
+      travelFromPrevMin: 0,
+      role: "visit" as const,
+    };
+    const days = ["2026-10-09", "2026-10-10", "2026-10-11"].map((date) => ({
+      date,
+      anchorId: "bologna",
+    }));
+    const [dated] = attachReasons([parma], makeRequest(), ctx, [], { days, index: 0 });
+    expect(dated?.reason).toContain("The only day of this trip it can be visited.");
+    const [undated] = attachReasons([parma], makeRequest(), ctx);
+    // Without the trip only what holds on any date: the day has no lunch stop, and the visit is
+    // an outing under way through lunch.
+    expect(undated?.reason).toBe(
+      "Listed as a local favorite. Rated 4.7 out of 5. Lunch is part of this outing.",
+    );
+  });
+
+  it("keeps the date sentences on a day retimed after an edit", () => {
+    const market = "place_024"; // the Fontanella Borghese book market, shut on Sundays
+    const plan = planDeterministic(makeRequest({ startDate: "2026-10-09" }), ctx);
+    const index = plan.days.findIndex((day) => day.stops.some((s) => s.placeId === market));
+    expect(plan.days[index]?.date).toBe("2026-10-10"); // a Saturday, the day before a Sunday
+    const ids = plan.days[index]?.stops.map((stop) => stop.placeId) ?? [];
+    const edited = rescheduleDay(plan, index, ids, ctx).itinerary;
+    const stop = edited.days[index]?.stops.find((s) => s.placeId === market);
+    expect(stop?.reason).toContain("It cannot be visited on Sunday, the trip's last day.");
   });
 
   it("leaves an unknown place without a reason rather than inventing one", () => {

@@ -51,7 +51,7 @@ const PLANNER_CORE_FUNCTIONS = [
   "compareScored",
   // reasons.ts
   "ruleReason",
-  "withMealsCovered",
+  "isHighestRated",
   // orderDay.ts
   "orderDay",
   // schedule.ts, plan.ts, and validate.ts

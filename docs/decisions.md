@@ -134,6 +134,7 @@ Revisit if: a failure reaches production that no vector covers; add the vector, 
 - **A meal one price level over the budget** is used only when nothing within budget can take that meal, with an `OVER_BUDGET` warning.
 - **Swaps only offer what keeps the day valid**, checked by the scheduler and the validator (`alternatives.ts`).
 - **Warnings come from the validator only**, for new plans and edits alike.
+- **Rule reasons' date sentences are the planner's own hours answer** for that stop and date ("It cannot be visited on Sunday, the trip's last day.", "Starts as it opens."), stated as facts, never as causes, and left out when the listing says more than the planner reads or on a holiday most museums close (`reasons.ts`).
 - **Validator details**: the first stop is reached from the base; `SEASONAL_CLOSED` (another date helps) differs from `CLOSED_AT_TIME` (another time helps); a third meal counts as a visit; times are whole minutes up to 06:00 the next day; details are cut to 500 characters and never echo unknown ids.
 - **Must-include placeability**: `MUST_INCLUDE_MISSING` is an error only when the plan clearly had room; otherwise `MUST_INCLUDE_UNPLACEABLE` explains why (`validate/mustInclude.ts`).
 - **`TRIP_DAYS` is 3** and the suite passes at 3 and 4. A trip must end by 2100-12-31, so request and response schemas agree.
