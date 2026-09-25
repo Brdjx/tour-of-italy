@@ -25,6 +25,7 @@ import { OfflineBanner } from "./OfflineBanner";
 import { AppFooter, AppHeader, type PlanContent, PlanPane } from "./PlanPane";
 import { PlanView } from "./PlanView";
 import { LiveRegion, Toast } from "./StatusRegion";
+import { TricoloreBand } from "./Tricolore";
 import { type PageView, TripPane } from "./TripPane";
 import { TripSummary } from "./TripSummary";
 import { UpdatePrompt } from "./UpdatePrompt";
@@ -197,6 +198,7 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
       <div className="status-scrim" aria-hidden="true" />
       {/* The page itself, which scales back behind a sheet on phones (sheet.css). */}
       <div className="app-page">
+        <TricoloreBand />
         {view === "plan" ? (
           <a className="skip-link" href="#plan">
             Skip to your plan
@@ -211,6 +213,7 @@ export function PlannerApp({ loader, post, today = () => new Date() }: PlannerAp
               request={summaryRequest}
               onEdit={() => openForm(true)}
               editing={formOpen}
+              planning={planning}
               plan={
                 shownPlan
                   ? {

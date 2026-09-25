@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, Fragment, useId, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   clockDateTime,
   formatDuration,
@@ -10,11 +10,10 @@ import {
   ratingText,
 } from "../lib/format";
 import type { PlacePhoto } from "../lib/placePhotos";
-import { type StopFactSheet, stopFacts } from "../lib/stopFacts";
 import type { RowView } from "../lib/timetable";
 import { ClockText } from "./Clock";
 import { ChevronIcon } from "./icons";
-import { PhotoCredit, PlacePhotoImage } from "./PlacePhotoImage";
+import { PlacePhotoImage } from "./PlacePhotoImage";
 import { type StopActionHandlers, StopActions } from "./StopActions";
 import { TravelLeg } from "./TravelLeg";
 import { WarningChips } from "./WarningChip";
@@ -22,10 +21,10 @@ import { WarningChips } from "./WarningChip";
 // One stop on the day's board: the leg that leads to it, then the times alone in the left
 // column and the place on the right (name; the meal it stands for, type and neighbourhood; visit
 // length, price and rating; chips; the reason; and one line of edit actions). A few highlight
-// stops per day show their own photo small beside the name (DayTimetable picks them); Details
-// opens the stop in place with its photo and credit, the facts for this date, what the data
-// cannot confirm, and the listing's description as the listing's own words. All text from the
-// data or the AI is rendered as React text, never as HTML.
+// stops per day show their own photo small beside the name (DayTimetable picks them). The photo
+// and Details open the stop's details in a sheet over the board (StopDetailsSheet), so the board
+// itself stays one calm list. All text from the data or the AI is rendered as React text, never
+// as HTML.
 
 interface StopRowProps extends StopActionHandlers {
   row: RowView;
@@ -38,6 +37,9 @@ interface StopRowProps extends StopActionHandlers {
   photo: PlacePhoto | null;
   thumbnail: boolean; // one of the day's highlights: its own photo shows beside the name
   eagerPhoto: boolean; // among the first photos on screen
+  detailsId: string; // the details sheet, which the photo and Details open
+  detailsOpen: boolean; // that sheet is open on this stop
+  onDetails: (opener: HTMLElement) => void; // focus goes back to the opener when it closes
 }
 
 const ROLE_LABEL = { lunch: "Lunch", dinner: "Dinner" } as const;
@@ -58,8 +60,7 @@ export function roleText(row: RowView): string | null {
 export function StopRow(props: StopRowProps) {
   const { row, dayIndex, date, isLast, dayStopCount, changed, timesChanged, photo } = props;
   const { stop, place } = row;
-  const [open, setOpen] = useState(false);
-  const detailsId = useId();
+  const { detailsId, detailsOpen, onDetails } = props;
   const name = place?.name ?? "A place no longer in the data";
   const rating = ratingText(place?.rating ?? null);
   const price = place?.priceLevel ?? null;
@@ -69,7 +70,6 @@ export function StopRow(props: StopRowProps) {
   const classes = ["stop-row"];
   if (row.flagged) classes.push("stop-row--flagged");
   if (changed) classes.push("stop-row--changed");
-  if (open) classes.push("stop-row--open");
   return (
     <li
       id={`stop-${dayIndex}-${row.index}`}
@@ -124,14 +124,15 @@ export function StopRow(props: StopRowProps) {
                 )}
               </dl>
             </div>
-            {ownPhoto && !open ? (
+            {ownPhoto ? (
               <button
                 type="button"
                 className="stop-thumb"
-                onClick={() => setOpen(true)}
-                aria-expanded={false}
+                onClick={(event) => onDetails(event.currentTarget)}
+                aria-haspopup="dialog"
+                aria-expanded={detailsOpen}
                 aria-controls={detailsId}
-                aria-label={`Photo and details of ${name}`}
+                aria-label={`Photo and details for ${name}`}
                 data-testid="stop-thumb"
               >
                 <PlacePhotoImage
@@ -145,9 +146,6 @@ export function StopRow(props: StopRowProps) {
           </div>
           <WarningChips chips={row.chips} />
           {row.reason ? <Reason text={row.reason} ai={stop.reasonSource === "ai"} /> : null}
-          {hasDetails && open ? (
-            <StopDetails id={detailsId} row={row} date={date} photo={photo} />
-          ) : null}
           <StopActions
             name={name}
             canRemove={dayStopCount > 1}
@@ -161,17 +159,15 @@ export function StopRow(props: StopRowProps) {
                 <button
                   type="button"
                   className="stop-action stop-action--details"
-                  aria-expanded={open}
+                  aria-haspopup="dialog"
+                  aria-expanded={detailsOpen}
                   aria-controls={detailsId}
-                  aria-label={`${open ? "Hide" : "Show"} details of ${name}`}
-                  onClick={() => setOpen((now) => !now)}
+                  aria-label={`Details for ${name}`}
+                  onClick={(event) => onDetails(event.currentTarget)}
                   data-testid="details-button"
                 >
                   Details
-                  <ChevronIcon
-                    size={16}
-                    className={`stop-action-chevron${open ? " stop-action-chevron--open" : ""}`}
-                  />
+                  <ChevronIcon size={16} className="stop-action-chevron" />
                 </button>
               ) : null
             }
@@ -185,8 +181,9 @@ export function StopRow(props: StopRowProps) {
 /**
  * "Lunch, restaurant in Campo de' Fiori": the meal the stop stands for, in ink, starts the line,
  * then the type and neighbourhood in muted text. A plain visit shows only the type and place.
+ * The details sheet repeats it under the place's name.
  */
-function Subtitle({ row }: { row: RowView }) {
+export function Subtitle({ row }: { row: RowView }) {
   const role = roleText(row);
   const where = row.place ? placeSubtitle(row.place) : null;
   if (!role && !where) return null;
@@ -218,102 +215,5 @@ function Reason({ text, ai }: { text: string; ai: boolean }) {
         {text}
       </span>
     </p>
-  );
-}
-
-interface StopDetailsProps {
-  id: string;
-  row: RowView;
-  date: string;
-  photo: PlacePhoto | null;
-}
-
-/**
- * An opened stop: the photo with its credit, the facts for this date in a small board of their
- * own, what the data cannot confirm, and the listing's description set apart as a quotation.
- */
-function StopDetails({ id, row, date, photo }: StopDetailsProps) {
-  const { place, stop } = row;
-  const sheet = useMemo<StopFactSheet | null>(
-    () => (place ? stopFacts(place, date, { start: stop.start, end: stop.end }) : null),
-    [place, date, stop.start, stop.end],
-  );
-  const cannotConfirmId = useId();
-  return (
-    <div id={id} className="stop-details" data-testid="stop-details">
-      {photo ? (
-        <figure className="stop-details-photo">
-          <PlacePhotoImage photo={photo} shape="wide" sizes="(min-width: 640px) 560px, 92vw" />
-          <figcaption>
-            <PhotoCredit photo={photo} />
-          </figcaption>
-        </figure>
-      ) : null}
-      {sheet ? (
-        <>
-          <dl className="stop-sheet" data-testid="stop-fact-sheet">
-            {sheet.facts.map((fact) => (
-              <div key={fact.key} className="stop-sheet-row" data-fact={fact.key}>
-                <dt className="stop-sheet-term">{fact.label}</dt>
-                <dd className="stop-sheet-value">
-                  {fact.numeric ? <TimesText text={fact.value} /> : fact.value}
-                  {fact.note ? <span className="stop-sheet-note">{fact.note}</span> : null}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {sheet.unconfirmed.length > 0 ? (
-            // Decision: a heading and a named list, not a <section>: a region landmark per
-            // opened stop would crowd a screen reader's landmark list with the same name.
-            <div className="stop-unconfirmed">
-              <h4 id={cannotConfirmId} className="stop-unconfirmed-title">
-                What the data cannot confirm
-              </h4>
-              <ul className="stop-unconfirmed-list" aria-labelledby={cannotConfirmId}>
-                {sheet.unconfirmed.map((caveat) => (
-                  <li key={caveat.key} data-testid="stop-caveat">
-                    {caveat.text}
-                    {caveat.quote ? (
-                      <>
-                        {" "}
-                        <q className="listing-words">{caveat.quote}</q>
-                      </>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {sheet.description ? (
-            <figure className="stop-listing" data-testid="stop-description">
-              <figcaption className="stop-listing-source">
-                The listing's description, in its own words
-              </figcaption>
-              <blockquote className="stop-description">{sheet.description}</blockquote>
-            </figure>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-/** Clock times in tabular figures with normal-width colons, like ClockText, inside a line. */
-function TimesText({ text }: { text: string }) {
-  const parts = text.split(":");
-  return (
-    <span className="tabular">
-      {parts.map((part, index) =>
-        index === 0 ? (
-          part
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one fixed string never reorder.
-          <Fragment key={index}>
-            <span className="clock-colon">:</span>
-            {part}
-          </Fragment>
-        ),
-      )}
-    </span>
   );
 }

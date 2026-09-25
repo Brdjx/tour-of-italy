@@ -1,0 +1,163 @@
+/*
+ * A stop's details, in a sheet (components/StopDetailsSheet.tsx on components/Sheet.tsx; the
+ * sheet's shape and motion are in sheet.css). The head holds the place's name with its subtitle
+ * under it; the body the photo large and square-cornered with its credit, the facts for the date
+ * as a small board of hairline rows, what the data cannot confirm, and the listing's description
+ * set apart as its own words. The parts drop in one after another as the sheet arrives, like the
+ * More options fields.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  /* ----- The head: name and subtitle, then the close pill ----- */
+
+  /* Decision: the close pill stays at the top when a long name wraps, and the name's first line
+     sits on the pill's centre line (10 px + half its 24 px line = 22 px, half the 44 px pill). */
+  .details-sheet .form-sheet-head-row {
+    align-items: flex-start;
+  }
+
+  .details-sheet-heading {
+    min-width: 0;
+    padding: 10px 0 4px;
+  }
+
+  /* ----- The body ----- */
+
+  .stop-details {
+    container-type: inline-size;
+  }
+
+  .stop-details > * + * {
+    margin-top: var(--board-gap);
+  }
+
+  /* The facts for the date: a small board of hairline rows, term in the muted label role and
+     value in body small ink. */
+  .fact-board {
+    border-top: 1px solid var(--line);
+  }
+
+  .fact-row {
+    display: grid;
+    gap: 2px;
+    padding: var(--board-step) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Decision: term and value side by side once the details are wide enough for a term column
+     and a value of about 30 characters; stacked, like a label over a field, below that. */
+  @container (min-width: 380px) {
+    .fact-row {
+      grid-template-columns: 8.5rem minmax(0, 1fr);
+      column-gap: 14px;
+    }
+  }
+
+  .fact-term {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.45;
+  }
+
+  @container (min-width: 380px) {
+    .fact-term {
+      padding-top: 1px;
+    }
+  }
+
+  .fact-value {
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .fact-note {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+  }
+
+  /* What the data cannot confirm: each thing with the caution square, the note marker. */
+  .stop-unconfirmed-title {
+    color: var(--fg);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .stop-unconfirmed-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .stop-unconfirmed-list > li {
+    position: relative;
+    max-width: 62ch;
+    padding-left: 17px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .stop-unconfirmed-list > li::before {
+    position: absolute;
+    top: 0.45em;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    background: var(--warn);
+    content: "";
+  }
+
+  .listing-words {
+    quotes: "\201C" "\201D";
+  }
+
+  .stop-listing-source {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  /* The listing's own words: set off by a hairline, upright (it is not our commentary). */
+  .stop-description {
+    max-width: 62ch;
+    margin-top: 6px;
+    padding-left: 12px;
+    border-left: 1px solid var(--line-strong);
+    color: var(--fg);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  /* ----- Arrival: the parts drop in 28 ms apart as the sheet comes up ----- */
+
+  /* The sheet shows them again each time it opens, since a closed dialog is not displayed. */
+  .form-sheet[open] .stop-details > * {
+    animation: field-in 240ms var(--ease-content) 80ms both;
+  }
+
+  .form-sheet[open] .stop-details > :nth-child(2) {
+    animation-delay: 108ms;
+  }
+
+  .form-sheet[open] .stop-details > :nth-child(3) {
+    animation-delay: 136ms;
+  }
+
+  .form-sheet[open] .stop-details > :nth-child(n + 4) {
+    animation-delay: 164ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .form-sheet[open] .stop-details > * {
+      animation: none;
+    }
+  }
+}

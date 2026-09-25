@@ -11,6 +11,8 @@
 @import "./styles/compose.css";
 @import "./styles/plan.css";
 @import "./styles/sheet.css";
+@import "./styles/details.css";
+@import "./styles/tricolore.css";
 
 /* Decision: a stand-in with TikTok Sans's measurements while the font loads, so text does not
    reflow when it arrives. next/font has no metrics for this family, so these are computed the way
@@ -80,6 +82,18 @@
   --recede-page: 0.94; /* the page behind a phone sheet */
   --recede-sheet: 0.94; /* a sheet with another sheet over it */
   --recede-surround: #000000; /* what shows around the page as it scales back, as on iOS */
+  /* The Tricolore Rule (DESIGN.md): the flag's colours, for the band at the top of the page and
+     the flag mark beside the title only; gold stays the accent everywhere else. The values are
+     the government's specification (DPCM 14 April 2006, art. 31: Pantone textile 17-6153,
+     11-0601 and 18-1662) in Pantone's own sRGB. The flag does not change with the scheme. */
+  --flag-green: #008c45;
+  --flag-white: #f4f5f0;
+  --flag-red: #cd212a;
+  --flag-edge: var(--line); /* a hairline that holds the white band on white paper */
+  /* The light and shade the wind lays over the mark, paper and ink at low opacity (the stops'
+     opacities are the wave's, lib/flagWave.ts). The same on either page, like the flag. */
+  --flag-light: #ffffff;
+  --flag-shade: #11110f;
 
   /* Motion. Exponential ease-outs for things arriving, a shorter ease-in for things leaving, and
      two springs written as linear() curves. Only transform and opacity move. */
@@ -170,6 +184,11 @@
     --shadow-menu: 0 18px 50px rgb(0 0 0 / 0.45);
     --shadow-sheet: 0 -14px 40px -8px rgb(0 0 0 / 0.55);
     --scrim: rgb(0 0 0 / 0.56);
+    /* The same flag on the dark page, where its white band needs no edge. */
+    --flag-green: #008c45;
+    --flag-white: #f4f5f0;
+    --flag-red: #cd212a;
+    --flag-edge: transparent;
   }
 }
 
@@ -228,6 +247,10 @@ html {
      sticky "Plan my trip" bar and the toast at the bottom (WCAG 2.4.11, focus not obscured). */
   scroll-padding-top: calc(var(--safe-top) + 76px);
   scroll-padding-bottom: calc(var(--safe-bottom) + 96px);
+  /* A sheet stops the page scrolling (sheet.css). With a scrollbar that takes room (Windows, or
+     macOS set to always show them) the page would lose it and shift sideways on every open and
+     close; the gutter keeps its room. Overlay scrollbars take none, so nothing changes there. */
+  scrollbar-gutter: stable;
 }
 
 body {

@@ -7,10 +7,10 @@ import {
 } from "@italy/planner";
 import { formatClock, longDate, shortDate, typeWord } from "./format";
 
-// The facts an opened stop shows for its date: the opening hours on that date from the planner's
-// own hours logic (openStatusOn and isOpenDuring, the answers the scheduler and the validator
-// use), the dates it opens, booking and price with their basis, then what the data cannot
-// confirm, each with the listing's own words where it has them. The listing's description is
+// The facts a stop's details sheet shows for its date: the opening hours on that date from the
+// planner's own hours logic (openStatusOn and isOpenDuring, the answers the scheduler and the
+// validator use), the dates it opens, booking and price with their basis, then what the data
+// cannot confirm, each with the listing's own words where it has them. The listing's description is
 // kept apart as the listing's words, never as ours. Every function here is total: a bad date
 // gives a plain fallback, because a throw inside render would blank the whole plan.
 
@@ -49,7 +49,7 @@ export interface Visit {
   end: number;
 }
 
-/** Everything an opened stop says about its place on `date`, for the planned visit. */
+/** Everything a stop's details sheet says about its place on `date`, for the planned visit. */
 export function stopFacts(place: Place, date: string, visit: Visit): StopFactSheet {
   const facts: StopFact[] = [hoursFact(place, date, visit)];
   const dates = datesFact(place);

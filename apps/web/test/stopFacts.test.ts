@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { rangesText, type StopFactSheet, stopFacts } from "../lib/stopFacts";
 import { must, places } from "./fixtures";
 
-// An opened stop states facts for its date. The hours must be the planner's own answer (the one
-// the scheduler and validator use), what the data cannot confirm must be said with the listing's
-// own words, and our sentences must never be confused with the listing's.
+// A stop's details sheet states facts for its date. The hours must be the planner's own answer
+// (the one the scheduler and validator use), what the data cannot confirm must be said with the
+// listing's own words, and our sentences must never be confused with the listing's.
 
 const TUESDAY = "2026-10-06";
 const MONDAY = "2026-10-05";

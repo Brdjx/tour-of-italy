@@ -5,6 +5,7 @@ import type { TripDataState } from "../lib/useTripData";
 import { BaseLine } from "./BaseLine";
 import { DataNotesPanel } from "./DataNotesPanel";
 import { ErrorState } from "./ErrorState";
+import { FlagMark } from "./FlagMark";
 import { PlanSkeleton, type SkeletonReason } from "./skeleton/PlanSkeleton";
 import { Skeleton } from "./skeleton/Skeleton";
 
@@ -55,14 +56,15 @@ export function PlanPane(props: PlanPaneProps) {
 }
 
 /**
- * Before any plan: the title, the one line that says what the page does, and the line diagram
- * of the five bases the trip is planned from. The title takes focus after "Start a new trip".
+ * Before any plan: the title led by the flag mark, the one line that says what the page does,
+ * and the line diagram of the five bases the trip is planned from. The title takes focus after
+ * "Start a new trip".
  */
 export function AppHeader({ titleRef }: { titleRef?: Ref<HTMLHeadingElement> }) {
   return (
     <header className="app-header">
       <h1 ref={titleRef} tabIndex={-1} className="app-title outline-none">
-        3 Days in Italy
+        <FlagMark />3 Days in Italy
       </h1>
       <p className="app-tagline" data-testid="app-tagline">
         {TAGLINE}

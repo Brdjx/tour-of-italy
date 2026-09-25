@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-25T05:21:03.000Z",
+  "generatedAt": "2026-09-25T10:00:00.000Z",
   "title": "Design System: 3 Days in Italy",
   "extensions": {
     "colorMeta": {
@@ -363,6 +363,42 @@
           "#e5c48f",
           "#ffe9b3"
         ]
+      },
+      "flag-green": {
+        "role": "flag",
+        "displayName": "Flag Green",
+        "canonical": "#008c45",
+        "dark": "#008c45",
+        "cssVar": "--flag-green",
+        "oklch": "oklch(56.0% 0.148 151.7)",
+        "purpose": "The Tricolore Rule: the top band and the flag mark only. Government specification (DPCM 14 April 2006, art. 31: Pantone textile 17-6153, 11-0601, 18-1662) in Pantone's sRGB; the same in both schemes."
+      },
+      "flag-white": {
+        "role": "flag",
+        "displayName": "Flag White",
+        "canonical": "#f4f5f0",
+        "dark": "#f4f5f0",
+        "cssVar": "--flag-white",
+        "oklch": "oklch(96.8% 0.007 115.7)",
+        "purpose": "The Tricolore Rule: the top band and the flag mark only. Government specification (DPCM 14 April 2006, art. 31: Pantone textile 17-6153, 11-0601, 18-1662) in Pantone's sRGB; the same in both schemes."
+      },
+      "flag-red": {
+        "role": "flag",
+        "displayName": "Flag Red",
+        "canonical": "#cd212a",
+        "dark": "#cd212a",
+        "cssVar": "--flag-red",
+        "oklch": "oklch(54.7% 0.204 25.4)",
+        "purpose": "The Tricolore Rule: the top band and the flag mark only. Government specification (DPCM 14 April 2006, art. 31: Pantone textile 17-6153, 11-0601, 18-1662) in Pantone's sRGB; the same in both schemes."
+      },
+      "flag-edge": {
+        "role": "flag",
+        "displayName": "Flag Edge",
+        "canonical": "#dcdad3",
+        "dark": "transparent",
+        "cssVar": "--flag-edge",
+        "oklch": "oklch(88.8% 0.010 93.6)",
+        "purpose": "The hairline (line) along the flag's white band on white paper; none on the dark page."
       }
     },
     "typographyMeta": {
@@ -520,6 +556,11 @@
         "name": "reduced-motion",
         "value": "fade 150ms ease",
         "purpose": "Replaces every arrival; springs and presses stop."
+      },
+      {
+        "name": "tricolore-draw",
+        "value": "900ms ease-out after 60ms; flag bands 420ms, 70ms apart; wave 1600ms (SMIL, 12 even steps)",
+        "purpose": "The page's first moment, from the top left: the band draws in from the left, the flag mark's bands drop in, then one breath of wind ripples from the hoist to the fly (lift up to 2.4 of 20, the fly in by 1 of 30) with a fold of light and shade from the cloth's slope, and rest. Reduced motion: at rest, no draw, no wave."
       }
     ],
     "breakpoints": [
@@ -562,9 +603,9 @@
       "name": "Outline Pill",
       "kind": "button",
       "refersTo": "pill-line",
-      "description": "Outline pill: Edit trip and Copy link in the trip header, icon and words at every width (two equal pills in one row on phones).",
+      "description": "Outline pill: Edit trip and Copy link in the trip header, icon and words at every width (two equal pills in one row on phones). Dimmed to 40% and inert (aria-disabled, still focusable) while a plan is on its way.",
       "html": "<button class=\"ds-pill-line\">Edit trip</button>",
-      "css": ".ds-pill-line { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; min-height:44px; align-items:center; padding:0 16px 0 14px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); color:var(--fg,#11110f); font-size:0.9375rem; font-weight:500; cursor:pointer; transition:background-color 140ms ease, border-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-pill-line:hover { border-color:var(--fg,#11110f); background:var(--hover,#f3f3f0); } .ds-pill-line:active { transform:scale(0.97); } .ds-pill-line:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; }"
+      "css": ".ds-pill-line { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; min-height:44px; align-items:center; padding:0 16px 0 14px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); color:var(--fg,#11110f); font-size:0.9375rem; font-weight:500; cursor:pointer; transition:background-color 140ms ease, border-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-pill-line:hover { border-color:var(--fg,#11110f); background:var(--hover,#f3f3f0); } .ds-pill-line:active { transform:scale(0.97); } .ds-pill-line[aria-disabled=\"true\"] { opacity:0.4; pointer-events:none; } .ds-pill-line:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; }"
     },
     {
       "name": "Pace Control",
@@ -610,7 +651,7 @@
       "name": "Board Row",
       "kind": "custom",
       "refersTo": "board-time",
-      "description": "The departure board: tabular condensed times alone in their column, wide place name, the meal role in ink leading the subtitle, hairline under, split-flap arrival.",
+      "description": "The departure board: tabular condensed times alone in their column, wide place name, the meal role in ink leading the subtitle, hairline under, split-flap arrival. The photo and Details open the stop's details sheet.",
       "html": "<ol class=\"ds-board\"><li class=\"ds-row\"><p class=\"ds-times\"><span class=\"ds-start\">09:30</span><span class=\"ds-end\">11:00</span></p><div class=\"ds-body\"><h3 class=\"ds-name\">Roscioli</h3><p class=\"ds-sub\"><span class=\"ds-role\">Lunch</span>, restaurant in Centro Storico</p><p class=\"ds-reason\"><i class=\"ds-dot\"></i>Open early, close to the next stop.</p></div></li></ol>",
       "css": ".ds-board { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); list-style:none; margin:0; padding:0; border-top:1px solid var(--fg,#11110f); } .ds-row { display:grid; grid-template-columns:84px 1fr; column-gap:14px; padding:14px 0; border-bottom:1px solid var(--line,#dcdad3); } .ds-times { display:flex; flex-direction:column; margin:0; font-stretch:87.5%; font-variant-numeric:tabular-nums; transform-origin:50% 0; animation:ds-flap 320ms cubic-bezier(0.22,1,0.36,1) both; } .ds-start { font-size:1.3125rem; font-weight:600; line-height:1.15; color:var(--fg,#11110f); } .ds-end { margin-top:2px; font-size:0.9375rem; color:var(--muted,#6a6a63); } .ds-body { animation:ds-rise 320ms cubic-bezier(0.22,1,0.36,1) 40ms both; } .ds-name { margin:0; color:var(--fg,#11110f); font-size:1.25rem; font-stretch:125%; font-weight:500; line-height:1.2; letter-spacing:-0.02em; } .ds-sub { margin:2px 0 0; color:var(--muted,#6a6a63); font-size:0.875rem; } .ds-role { color:var(--fg,#11110f); font-weight:500; } .ds-reason { display:flex; gap:10px; margin:8px 0 0; color:var(--muted,#6a6a63); font-size:0.875rem; font-style:oblique 6deg; } .ds-dot { width:7px; height:7px; flex-shrink:0; margin-top:0.45em; border-radius:999px; background:var(--gold,#a8864b); } @keyframes ds-flap { 0% { opacity:0; transform:perspective(240px) rotateX(-88deg); } 60% { opacity:1; transform:perspective(240px) rotateX(6deg); } 100% { transform:perspective(240px) rotateX(0); } } @keyframes ds-rise { from { opacity:0; transform:translateY(8px); } } @media (prefers-reduced-motion: reduce) { .ds-times, .ds-body { animation:ds-fade 150ms ease both; } } @keyframes ds-fade { from { opacity:0; } }"
     },
@@ -618,7 +659,7 @@
       "name": "Sheet",
       "kind": "custom",
       "refersTo": "sheet",
-      "description": "Edit trip and More options: a bottom sheet on phones with a grabber and rounded top corners, a centred 20px-rounded panel from 768px, over a blurred scrim.",
+      "description": "Edit trip, More options and a stop's details: a bottom sheet on phones with a grabber and rounded top corners, a centred 20px-rounded panel from 768px, over a blurred scrim. Photos inside stay square.",
       "html": "<div class=\"ds-sheet-stage\"><div class=\"ds-sheet\" role=\"dialog\" aria-label=\"More options\"><span class=\"ds-grabber\"></span><div class=\"ds-sheet-head\"><h2 class=\"ds-sheet-title\">More options</h2><button class=\"ds-close\" aria-label=\"Close\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><path d=\"M6 6l12 12\"/><path d=\"M18 6 6 18\"/></svg></button></div><p class=\"ds-sheet-lede\">Interests, bases and places to include.</p></div></div>",
       "css": ".ds-sheet-stage { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); position:relative; display:flex; align-items:flex-end; min-height:220px; background:var(--scrim,rgb(17 17 15 / 0.42)); backdrop-filter:blur(10px); } .ds-sheet { position:relative; width:100%; padding:18px 16px 24px; border-radius:20px 20px 0 0; background:var(--surface,#fff); color:var(--fg,#11110f); box-shadow:var(--shadow-sheet,0 -14px 40px -8px rgb(17 17 15 / 0.22)); animation:ds-sheet-up 450ms linear(0,0.022 3%,0.086 6.5%,0.446 20.3%,0.731 34.8%,0.899 52%,0.978 77%,1) both; } .ds-grabber { position:absolute; top:6px; left:50%; width:36px; height:5px; border-radius:999px; background:var(--line-strong,#85837a); translate:-50% 0; } .ds-sheet-head { display:flex; min-height:44px; align-items:center; justify-content:space-between; gap:12px; } .ds-sheet-title { margin:0; font-size:1.25rem; font-stretch:125%; font-weight:500; line-height:1.2; letter-spacing:-0.02em; } .ds-close { display:inline-flex; width:44px; height:44px; margin-right:-10px; align-items:center; justify-content:center; border:0; border-radius:999px; background:none; color:var(--fg,#11110f); cursor:pointer; transition:background-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-close:hover { background:var(--hover,#f3f3f0); } .ds-close:active { transform:scale(0.94); } .ds-close:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; } .ds-sheet-lede { margin:4px 0 0; color:var(--muted,#6a6a63); font-size:0.9375rem; line-height:1.4; } @keyframes ds-sheet-up { from { transform:translateY(100%); } } @media (prefers-reduced-motion: reduce) { .ds-sheet { animation:ds-sheet-fade 150ms ease both; } } @keyframes ds-sheet-fade { from { opacity:0; } }"
     },
@@ -629,14 +670,23 @@
       "description": "Square ink toast with a gold-text Undo pill; the one ink surface that floats.",
       "html": "<div class=\"ds-toast\">Stop removed<button class=\"ds-undo\">Undo</button></div>",
       "css": ".ds-toast { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; align-items:center; gap:8px; padding:4px 4px 4px 16px; background:var(--toast-bg,#11110f); color:var(--toast-fg,#fff); font-size:0.9375rem; box-shadow:var(--shadow-float,0 14px 40px -8px rgb(17 17 15 / 0.22)); } .ds-undo { min-height:44px; padding:0 14px; border:0; border-radius:999px; background:none; color:var(--toast-accent,#d8bd82); font:inherit; font-size:0.875rem; font-weight:600; cursor:pointer; transition:transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-undo:active { transform:scale(0.96); } .ds-undo:focus-visible { outline:2px solid var(--toast-focus,#d8bd82); outline-offset:-2px; }"
+    },
+    {
+      "name": "Tricolore",
+      "kind": "custom",
+      "refersTo": "tricolore-band",
+      "description": "The Tricolore Rule's two places: the 4px band across the top of the page, drawn in from the left, and the flag mark at the title's cap height. Official colours; the white band keeps a hairline on white paper.",
+      "html": "<div class=\"ds-tri-stage\"><div class=\"ds-tri\" aria-hidden=\"true\"><span></span><span></span><span></span></div><h1 class=\"ds-tri-title\"><svg class=\"ds-flag\" viewBox=\"0 0 30 20\" aria-hidden=\"true\"><path d=\"M10 0H20V20H10Z\" fill=\"#f4f5f0\"/><path d=\"M10 0H20M10 20H20\" stroke=\"var(--line,#dcdad3)\" vector-effect=\"non-scaling-stroke\"/><path d=\"M0 0H10V20H0Z\" fill=\"#008c45\"/><path d=\"M20 0H30V20H20Z\" fill=\"#cd212a\"/></svg>3 Days in Italy</h1></div>",
+      "css": ".ds-tri-stage { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); background:var(--page,#fff); padding-bottom:16px; } .ds-tri { position:relative; display:grid; grid-template-columns:repeat(3,1fr); height:4px; overflow:hidden; } .ds-tri span:nth-child(1) { background:#008c45; } .ds-tri span:nth-child(2) { box-sizing:border-box; border-bottom:1px solid var(--line,#dcdad3); background:#f4f5f0; } .ds-tri span:nth-child(3) { background:#cd212a; } .ds-tri::after { content:\"\"; position:absolute; inset:0; background:var(--page,#fff); transform:scaleX(0); transform-origin:100% 50%; animation:ds-tri-draw 900ms cubic-bezier(0.16,1,0.3,1) 60ms both; } .ds-tri-title { margin:28px 16px 0; color:var(--fg,#11110f); font-size:2.5rem; font-stretch:150%; font-weight:400; line-height:1.05; letter-spacing:-0.01em; } .ds-flag { display:inline-block; height:0.71em; aspect-ratio:3/2; margin-right:0.32em; vertical-align:baseline; } @keyframes ds-tri-draw { from { transform:scaleX(1); } } @media (prefers-reduced-motion: reduce) { .ds-tri::after { display:none; } }"
     }
   ],
   "narrative": {
     "northStar": "The Departure Board",
-    "overview": "Each day is a board you check once and trust, drawn in the Goodpix language of paper and ink. The page is white, text is near-black ink, and ink is the only solid fill. Gold never fills; it draws: the chosen day, the AI mark, focus, a hairline beside opened details. Rows are separated by 1px hairlines rather than boxed, containers and photos are square, and anything you press is a round pill. The one rounded surface is a sheet, the owner's Apple-style exception.\n\nRank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.\n\nMotion is the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.",
+    "overview": "Each day is a board you check once and trust, drawn in the Goodpix language of paper and ink. The page is white, text is near-black ink, and ink is the only solid fill. Gold never fills; it draws: the chosen day, the AI mark, focus, a hairline beside opened details. Rows are separated by 1px hairlines rather than boxed, containers and photos are square, and anything you press is a round pill. The one rounded surface is a sheet, the owner's Apple-style exception. The flag's own colours appear in two places only, by the owner's request: a thin band across the top of the page and the flag mark that leads the first screen's title (the Tricolore Rule).\n\nRank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.\n\nMotion starts at the top left: the flag's band draws across the top of the page as it opens, the flag mark's bands drop in and one breath of wind passes through it, and the rail diagram draws from Milan down to Rome. Then the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.",
     "keyCharacteristics": [
       "Paper and ink, with ink as the one solid fill.",
       "Gold draws and marks; it does not fill (one exception, the count badge).",
+      "The flag's colours on the top band and the flag mark only.",
       "Hairlines between rows; boxes are rare.",
       "Square containers, inputs and photos; round pills for anything pressed; rounded corners on sheets only.",
       "No navbar in the plan view: the trip's dates are the page heading.",
@@ -661,6 +711,11 @@
         "section": "colors"
       },
       {
+        "name": "The Tricolore Rule",
+        "body": "The flag's colours appear in two places and nowhere else, by the owner's request: the band across the top of the page (4px, green, white and red in equal thirds, under the status bar, on the first screen and the plan alike) and the flag mark that leads the first screen's title (the flag's 2:3 at the title's cap height, square). They are never UI colours: no green for success, and errors keep their own danger red; gold remains the accent everywhere else. The band draws in once from the left and the mark's bands drop in, before one breath of wind ripples through it and it rests flat. The wind lays paper and ink over the colours at low opacity, lit where the cloth turns up toward the top left and shaded where it falls away, and at nothing once the flag is flat; never a flag colour anywhere else. Reduced motion shows both at rest, with no draw and no wave. Both are decoration, hidden from assistive technology.",
+        "section": "colors"
+      },
+      {
         "name": "The Width Is Rank Rule",
         "body": "Change width to change importance. Use 150, 125, 112.5 and 87.5, and leave weight for state.",
         "section": "typography"
@@ -682,7 +737,7 @@
       },
       {
         "name": "The Rounded Sheet Rule",
-        "body": "The Edit trip and More options sheets are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields and containers inside a sheet stay square, and nothing on the page rounds.",
+        "body": "The sheets (Edit trip, More options and a stop's details) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.",
         "section": "shapes"
       }
     ],
@@ -695,7 +750,8 @@
       "**Do** move only transform and opacity, use the motion tokens, and give every animation a reduced-motion crossfade or none.",
       "**Do** define every new colour as a semantic custom property with a checked dark value.",
       "**Do** keep every control at least 44px tall and every text input at 16px.",
-      "**Do** open the plan view with the trip header, not a navbar."
+      "**Do** open the plan view with the trip header, not a navbar.",
+      "**Do** keep the flag's colours to the top band and the flag mark, at the government's values."
     ],
     "donts": [
       "**Don't** fill with gold anywhere except the count badge.",
@@ -704,7 +760,9 @@
       "**Don't** fill errors with red or rely on colour alone to say something is wrong.",
       "**Don't** uppercase labels, and don't put a label above a heading; a stop's meal role starts the line under its name.",
       "**Don't** present a city or topic photo full bleed as if it were the place.",
-      "**Don't** show more than two thumbnails in a day's board."
+      "**Don't** show more than two thumbnails in a day's board.",
+      "**Don't** use the flag's green or red as a UI colour, or put the flag anywhere but the top band and the flag mark.",
+      "**Don't** open a stop's details inside its row; they open in the sheet."
     ]
   }
 }

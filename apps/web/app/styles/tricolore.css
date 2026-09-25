@@ -1,0 +1,153 @@
+/*
+ * The Tricolore Rule (DESIGN.md): the flag's colours appear in two places only, the band at the
+ * top of the page (components/Tricolore.tsx) and the flag mark that leads the first screen's
+ * title (components/FlagMark.tsx). Gold stays the accent everywhere else, and no other file uses
+ * the --flag-* tokens (test/cssContracts.test.ts).
+ *
+ * Motion: the band draws in once from the left, green then white then red, and the mark's bands
+ * drop in from the top, left to right, before one breath of wind passes through it with a fold
+ * of light and shade (SMIL, begun from FlagMark only when motion is allowed). Both are the start
+ * of the page's sweep from the top left. In CSS only transform and opacity move; reduced motion
+ * shows both at rest.
+ */
+
+/* In the components layer, so a Tailwind utility on the same element wins. */
+@layer components {
+  /* ----- The band ----- */
+
+  /* Decision: 4 px. Three is a hairline at phone scale and the white third needs one pixel of
+     edge; four reads as a flag's edge, not a rule. It sits in the flow at the top of the page,
+     under the status bar strip (the page pads by --safe-top), and scrolls away with the page, so
+     it never covers the pinned day tabs or anything else. */
+  .tricolore {
+    position: relative;
+    display: grid;
+    height: 4px;
+    flex: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+  }
+
+  .tricolore-green {
+    background: var(--flag-green);
+  }
+
+  /* Decision: the white third on white paper keeps a hairline along its lower edge, so the band
+     reads green, white, red and not green, gap, red. The dark page needs none (--flag-edge). */
+  .tricolore-white {
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--flag-edge);
+    background: var(--flag-white);
+  }
+
+  .tricolore-red {
+    background: var(--flag-red);
+  }
+
+  /* The draw: a sheet of the page's own paper over the band shrinks toward the right, so the
+     colours appear from the left in one stroke: green, then white, then red. */
+  .tricolore::after {
+    position: absolute;
+    inset: 0;
+    background: var(--page);
+    content: "";
+    transform: scaleX(0);
+    transform-origin: 100% 50%;
+    animation: tricolore-draw 900ms var(--ease-out) 60ms both;
+  }
+
+  @keyframes tricolore-draw {
+    from {
+      transform: scaleX(1);
+    }
+  }
+
+  /* ----- The flag mark ----- */
+
+  /* At the title's cap height and on its baseline, like a lockup, with the gap of a word space
+     and a little more. The 2:3 of the flag. 0.71em is TikTok Sans's cap height, for a browser
+     without the cap unit. */
+  .flag-mark {
+    display: inline-block;
+    width: auto;
+    height: 0.71em;
+    aspect-ratio: 3 / 2;
+    margin-right: 0.32em;
+    overflow: visible;
+    vertical-align: baseline;
+  }
+
+  @supports (height: 1cap) {
+    .flag-mark {
+      height: 1cap;
+    }
+  }
+
+  .flag-mark-band--green {
+    fill: var(--flag-green);
+  }
+
+  .flag-mark-white {
+    fill: var(--flag-white);
+  }
+
+  .flag-mark-band--red {
+    fill: var(--flag-red);
+  }
+
+  /* The white band's top and bottom edges, a hairline at every size. */
+  .flag-mark-edge {
+    fill: none;
+    stroke: var(--flag-edge);
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* The wind's light and shade, over all three bands: paper where the cloth turns up toward the
+     top left, ink where it falls away. Their stops sit at no opacity on the flat flag, so they
+     show only while it waves. */
+  .flag-mark-light {
+    stop-color: var(--flag-light);
+  }
+
+  .flag-mark-shade {
+    stop-color: var(--flag-shade);
+  }
+
+  /* Each band drops in from its top edge, 70 ms after the one to its left: the sweep from the
+     top left to the bottom right, in miniature. */
+  .flag-mark-band {
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: flag-band-in 420ms var(--ease-out) both;
+  }
+
+  .flag-mark-band--white {
+    animation-delay: 70ms;
+  }
+
+  .flag-mark-band--red {
+    animation-delay: 140ms;
+  }
+
+  @keyframes flag-band-in {
+    from {
+      opacity: 0;
+      transform: scaleY(0);
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tricolore::after {
+      display: none;
+      animation: none;
+    }
+
+    .flag-mark-band {
+      animation: none;
+    }
+  }
+}

@@ -81,16 +81,25 @@
     transition:
       background-color var(--dur-color) ease,
       border-color var(--dur-color) ease,
+      opacity var(--dur-color) ease,
       transform var(--dur-press) var(--ease-out);
   }
 
-  .head-pill:hover {
+  .head-pill:hover:not([aria-disabled="true"]) {
     border-color: var(--fg);
     background: var(--hover);
   }
 
-  .head-pill:active {
+  /* Guarded: a held Space on a dimmed pill would press it while nothing happens. */
+  .head-pill:active:not([aria-disabled="true"]) {
     transform: scale(0.97);
+  }
+
+  /* While a plan is on its way: dimmed to the disabled 40%, and a press goes nowhere. It keeps
+     its place, its words and its focus ring (TripSummary says why it stays focusable). */
+  .head-pill[aria-disabled="true"] {
+    opacity: 0.4;
+    pointer-events: none;
   }
 
   .head-pill:focus-visible {
@@ -365,7 +374,8 @@
       animation: none;
     }
 
-    .head-pill:active {
+    /* As specific as the press it stills. */
+    .head-pill:active:not([aria-disabled="true"]) {
       transform: none;
     }
 

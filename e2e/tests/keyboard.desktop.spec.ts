@@ -105,3 +105,49 @@ test("plans, switches days, swaps, reorders, removes and undoes with the keyboar
   expect(await readStops(page)).toEqual(beforeRemove);
   await expectFocusKept(page, "undoing");
 });
+
+test("opens a stop's details in a sheet and comes back to Details with the keyboard alone", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByTestId("plan-button")).toBeVisible();
+  await tabTo(page, "plan-button");
+  const before = await plansAnnounced(page);
+  await page.keyboard.press("Enter");
+  await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
+  await expect(page.locator("#day-heading-0")).toBeFocused();
+
+  // Details opens the sheet on its title; Tab stays inside it (or passes through the browser's
+  // own controls, which reads as BODY here) and never reaches the board behind it.
+  await tabTo(page, "details-button");
+  const stopOf = () =>
+    page.evaluate(
+      () =>
+        document.activeElement?.closest<HTMLElement>('[data-testid="stop-row"]')?.dataset.placeId,
+    );
+  const opener = await stopOf();
+  expect(opener).toBeTruthy();
+  await page.keyboard.press("Enter");
+  const sheet = page.getByTestId("details-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(page.getByTestId("details-title")).toBeFocused();
+  for (let presses = 0; presses < 8; presses++) {
+    await page.keyboard.press("Tab");
+    const where = await page.evaluate(() => {
+      const element = document.activeElement;
+      return {
+        tag: element?.tagName ?? "NONE",
+        inSheet: Boolean(element?.closest('[data-testid="details-sheet"]')),
+      };
+    });
+    expect(where.inSheet || where.tag === "BODY", "Tab reached the page behind the sheet").toBe(
+      true,
+    );
+  }
+
+  // Escape closes it and gives focus back to the Details button that opened it.
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  expect((await expectFocusKept(page, "closing the details")).testId).toBe("details-button");
+  expect(await stopOf()).toBe(opener);
+});

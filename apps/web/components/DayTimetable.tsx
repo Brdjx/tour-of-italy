@@ -1,17 +1,19 @@
 "use client";
 
 import type { Place } from "@italy/planner";
-import { type Ref, useEffect, useMemo, useRef } from "react";
+import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react";
 import { clockDateTime } from "../lib/format";
 import { photoForPlace } from "../lib/placePhotos";
 import { type DayView, dayTimes, movedStops, thumbnailRows } from "../lib/timetable";
 import { ClockText } from "./Clock";
+import { StopDetailsSheet } from "./StopDetailsSheet";
 import { StopRow } from "./StopRow";
 import { WarningChips } from "./WarningChip";
 
 // One day as a departure board: a header (date, base, what the day holds, day-level notes), the
 // transfer from the previous base as the first timed row when there is one, and an ordered list
 // of stops with the travel legs between them. The list is also the text equivalent of the map.
+// One details sheet serves the day: a stop's photo or Details button opens it on that stop.
 
 /** Thumbnails on stops before this index load at once; the rest load as they scroll near. */
 const EAGER_PHOTOS = 3;
@@ -52,6 +54,22 @@ export function DayTimetable(props: DayTimetableProps) {
   useEffect(() => {
     shownTimes.current = times;
   }, [times]);
+  // The stop in the details sheet. Decision: kept after the sheet closes, so it leaves with its
+  // content instead of emptying first; keyed by place, so a rebuilt view still finds it.
+  const detailsId = useId();
+  const [details, setDetails] = useState<{ placeId: string; open: boolean } | null>(null);
+  const detailsOpener = useRef<HTMLElement | null>(null);
+  const detailsRow = details
+    ? (view.rows.find((row) => row.stop.placeId === details.placeId) ?? null)
+    : null;
+  const detailsOpen = details?.open === true && detailsRow !== null;
+  // A stop that leaves the board while its sheet is open closes the sheet for good. Without
+  // this the sheet would only look closed, and open again by itself if the place came back.
+  useEffect(() => {
+    if (details?.open && detailsRow === null) {
+      setDetails((shown) => (shown ? { ...shown, open: false } : shown));
+    }
+  }, [details, detailsRow]);
   return (
     <section aria-labelledby={headingId} data-testid="day-timetable" data-day={view.index + 1}>
       <header className="day-header">
@@ -103,6 +121,12 @@ export function DayTimetable(props: DayTimetableProps) {
               photo={row.place ? photoForPlace(row.place) : null}
               thumbnail={thumbnails.has(row.index)}
               eagerPhoto={row.index < EAGER_PHOTOS}
+              detailsId={detailsId}
+              detailsOpen={detailsOpen && details?.placeId === row.stop.placeId}
+              onDetails={(opener) => {
+                detailsOpener.current = opener;
+                setDetails({ placeId: row.stop.placeId, open: true });
+              }}
               onSwap={() => onSwap(row.index)}
               onRemove={() => onRemove(row.index)}
               onMove={(direction) => onMove(row.index, direction)}
@@ -116,6 +140,14 @@ export function DayTimetable(props: DayTimetableProps) {
           <p className="py-1.5 text-sm text-muted">{view.returnLeg}</p>
         </div>
       ) : null}
+      <StopDetailsSheet
+        id={detailsId}
+        open={detailsOpen}
+        row={detailsRow}
+        date={view.day.date}
+        onClose={() => setDetails((shown) => (shown ? { ...shown, open: false } : shown))}
+        returnFocus={detailsOpener}
+      />
     </section>
   );
 }

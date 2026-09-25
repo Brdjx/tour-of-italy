@@ -7,8 +7,9 @@ import { buildDayView, type RowView } from "../lib/timetable";
 import { ctx, fixturePlan, must } from "./fixtures";
 
 // One stop on the board: the meal it stands for leads the subtitle in place of a label above the
-// name, the time column holds only times, the five actions share one line, and Details opens the
-// facts for the stop's date with the listing's own words set apart from ours.
+// name, the time column holds only times, the five actions share one line, and the photo and
+// Details hand the stop to the details sheet (StopDetailsSheet.test.tsx) instead of opening it
+// in the row.
 
 afterEach(cleanup);
 
@@ -19,8 +20,15 @@ function rowWhere(test: (row: RowView) => boolean): RowView {
   return must(view.rows.find(test), "matching row");
 }
 
-function renderRow(row: RowView, options: { thumbnail?: boolean } = {}) {
-  const handlers = { onSwap: vi.fn(), onRemove: vi.fn(), onMove: vi.fn() };
+const DETAILS_ID = "details-sheet-id";
+
+function renderRow(row: RowView, options: { thumbnail?: boolean; detailsOpen?: boolean } = {}) {
+  const handlers = {
+    onSwap: vi.fn(),
+    onRemove: vi.fn(),
+    onMove: vi.fn(),
+    onDetails: vi.fn<(opener: HTMLElement) => void>(),
+  };
   const utils = render(
     <ol>
       <StopRow
@@ -34,6 +42,8 @@ function renderRow(row: RowView, options: { thumbnail?: boolean } = {}) {
         photo={row.place ? photoForPlace(row.place) : null}
         thumbnail={options.thumbnail ?? false}
         eagerPhoto={false}
+        detailsId={DETAILS_ID}
+        detailsOpen={options.detailsOpen ?? false}
         {...handlers}
       />
     </ol>,
@@ -91,54 +101,46 @@ describe("StopRow", () => {
     expect(screen.getByTestId("details-button")).toBeTruthy();
   });
 
-  it("opens the facts for the stop's date, what the data cannot confirm, and the listing's words", async () => {
+  it("hands the stop to the details sheet from Details, with nothing opening in the row", async () => {
     const user = userEvent.setup();
-    const row = rowWhere((row) => (row.place?.description.trim() ?? "") !== "");
-    const place = must(row.place);
-    const { stop } = renderRow(row);
-    const toggle = within(stop).getByTestId("details-button");
-    expect(within(stop).queryByTestId("stop-details")).toBeNull();
-    await user.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    const details = within(stop).getByTestId("stop-details");
-    const sheet = within(details).getByTestId("stop-fact-sheet");
-    expect(within(sheet).getByText("Hours on Tue 6 Oct")).toBeTruthy();
-    expect(within(sheet).getByText("Booking")).toBeTruthy();
-    expect(sheet.textContent).toContain(`Level ${place.priceLevel} of 4 in the data`);
-    // The listing's description is a quotation, captioned as the listing's own words.
-    const listing = within(details).getByTestId("stop-description");
-    expect(listing.querySelector("figcaption")?.textContent).toBe(
-      "The listing's description, in its own words",
-    );
-    expect(listing.querySelector("blockquote")?.textContent).toBe(place.description.trim());
-    await user.click(toggle);
+    const row = must(view.rows[1]);
+    const { stop, handlers } = renderRow(row);
+    const name = row.place?.name ?? "";
+    const details = within(stop).getByRole("button", { name: `Details for ${name}` });
+    expect(details).toBe(within(stop).getByTestId("details-button"));
+    expect(details.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(details.getAttribute("aria-controls")).toBe(DETAILS_ID);
+    expect(details.getAttribute("aria-expanded")).toBe("false");
+    await user.click(details);
+    expect(handlers.onDetails).toHaveBeenCalledWith(details);
     expect(within(stop).queryByTestId("stop-details")).toBeNull();
   });
 
-  it("lists what the data cannot confirm under its own heading, with the listing's words quoted", async () => {
-    const user = userEvent.setup();
-    const trevi = must(ctx.placesById.get("place_018"));
-    const row = {
-      ...must(view.rows[0]),
-      place: trevi,
-      stop: { ...must(view.rows[0]).stop, placeId: trevi.id },
-    };
-    const { stop } = renderRow(row);
-    await user.click(within(stop).getByTestId("details-button"));
-    const section = within(stop).getByRole("list", { name: "What the data cannot confirm" });
-    expect(within(section).getAllByTestId("stop-caveat")[0]?.textContent).toContain(
-      "planned between 07:00 and 23:00",
-    );
-  });
-
-  it("opens from the thumbnail, which then gives way to the wide photo", async () => {
+  it("makes the thumbnail a button that opens the photo and details", async () => {
     const user = userEvent.setup();
     const own = rowWhere(
       (row) => row.place !== undefined && photoForPlace(row.place)?.kind === "place",
     );
-    const { stop } = renderRow(own, { thumbnail: true });
-    await user.click(within(stop).getByTestId("stop-thumb"));
-    expect(within(stop).getByTestId("stop-details")).toBeTruthy();
-    expect(within(stop).queryByTestId("stop-thumb")).toBeNull();
+    const { stop, handlers } = renderRow(own, { thumbnail: true });
+    const thumb = within(stop).getByRole("button", {
+      name: `Photo and details for ${own.place?.name}`,
+    });
+    expect(thumb).toBe(within(stop).getByTestId("stop-thumb"));
+    expect(thumb.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(thumb.getAttribute("aria-controls")).toBe(DETAILS_ID);
+    await user.click(thumb);
+    expect(handlers.onDetails).toHaveBeenCalledWith(thumb);
+    // The small photo stays on the row; the large one is in the sheet.
+    expect(within(stop).getByTestId("stop-thumb")).toBe(thumb);
+    expect(stop.querySelector(".place-photo--wide")).toBeNull();
+  });
+
+  it("says the sheet is open on this stop on both of its openers", () => {
+    const own = rowWhere(
+      (row) => row.place !== undefined && photoForPlace(row.place)?.kind === "place",
+    );
+    const { stop } = renderRow(own, { thumbnail: true, detailsOpen: true });
+    expect(within(stop).getByTestId("stop-thumb").getAttribute("aria-expanded")).toBe("true");
+    expect(within(stop).getByTestId("details-button").getAttribute("aria-expanded")).toBe("true");
   });
 });

@@ -4,10 +4,11 @@
  * column. Its motion moment is the arrival: when a plan lands, each row's times flip down into
  * place like a split-flap board while the rest of the row rises in, in a sweep from the top left
  * to the bottom right. After an edit only the times that moved flip, and the edited row glows
- * gold for a moment. Photos, the opened stop and the day tabs are here too; the map is in
- * map.css. Inside a row one step (--board-step) separates every block, name group, chips, reason
- * and actions, measured from what the eye sees: the transparent top of a 44 px chip or pill is
- * taken off the margin, so a pill's label sits one step under the text above it.
+ * gold for a moment. Photos and the day tabs are here too; a stop's details open in a sheet
+ * (details.css) and the map is in map.css. Inside a row one step (--board-step) separates every
+ * block, name group, chips, reason and actions, measured from what the eye sees: the transparent
+ * top of a 44 px chip or pill is taken off the margin, so a pill's label sits one step under the
+ * text above it.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -15,7 +16,7 @@
   :root {
     --gutter: 64px;
     --board-step: 8px; /* between the blocks of a row: name group, chips, reason, actions */
-    --board-gap: 14px; /* around an opened stop's details, and between their parts */
+    --board-gap: 14px; /* between the parts of a stop's details (details.css) */
     --chip-inset: 9px; /* a 26 px chip centred in its 44 px target */
     --pill-inset: 12px; /* the label of a 44 px pill, from the top of its target */
   }
@@ -352,6 +353,7 @@
   .stop-thumb {
     display: block;
     flex-shrink: 0;
+    cursor: pointer;
     transition: transform var(--dur-press) var(--ease-out);
   }
 
@@ -363,6 +365,33 @@
 
   .stop-thumb:active {
     transform: scale(0.97);
+  }
+
+  /* On a pointer, the photo says it opens something: an ink hairline draws round it, 2 px out
+     where the focus ring sits (ink on hover, as on the choice chips), and the photo leans in a
+     little inside its square. Before the focus ring, so a focused photo keeps its ring. */
+  @media (hover: hover) {
+    .stop-thumb {
+      outline: 1px solid transparent;
+      outline-offset: 2px;
+      transition:
+        transform var(--dur-press) var(--ease-out),
+        outline-color var(--dur-color) ease;
+    }
+
+    .stop-thumb:hover {
+      outline-color: var(--fg);
+    }
+
+    .stop-thumb .place-photo-img {
+      transition:
+        opacity var(--dur-fade) ease,
+        transform var(--dur-move) var(--ease-out);
+    }
+
+    .stop-thumb:hover .place-photo-img {
+      transform: scale(1.04);
+    }
   }
 
   .stop-thumb:focus-visible {
@@ -394,127 +423,6 @@
     text-decoration-color: var(--gold);
   }
 
-  /* ----- An opened stop ----- */
-
-  /* Photo and credit, the facts for the date as a small board of hairline rows, what the data
-     cannot confirm, then the listing's description set apart as its own words. */
-  .stop-details {
-    max-width: 560px;
-    margin-top: var(--board-gap);
-    animation: rise var(--dur-move) var(--ease-content) both;
-    container-type: inline-size;
-  }
-
-  .chips + .stop-details {
-    margin-top: calc(var(--board-gap) - var(--chip-inset));
-  }
-
-  .stop-details > * + * {
-    margin-top: var(--board-gap);
-  }
-
-  .stop-sheet {
-    border-top: 1px solid var(--line);
-  }
-
-  .stop-sheet-row {
-    display: grid;
-    gap: 2px;
-    padding: var(--board-step) 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  /* Decision: term and value side by side once the details are wide enough for a term column
-     and a value of about 30 characters; stacked, like a label over a field, below that. */
-  @container (min-width: 380px) {
-    .stop-sheet-row {
-      grid-template-columns: 8.5rem minmax(0, 1fr);
-      column-gap: 14px;
-    }
-  }
-
-  .stop-sheet-term {
-    color: var(--muted);
-    font-size: 0.8125rem;
-    font-stretch: 87.5%;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    line-height: 1.45;
-  }
-
-  @container (min-width: 380px) {
-    .stop-sheet-term {
-      padding-top: 1px;
-    }
-  }
-
-  .stop-sheet-value {
-    color: var(--fg);
-    font-size: 0.875rem;
-    line-height: 1.4;
-  }
-
-  .stop-sheet-note {
-    display: block;
-    margin-top: 2px;
-    color: var(--muted);
-  }
-
-  .stop-unconfirmed-title {
-    color: var(--fg);
-    font-size: 0.8125rem;
-    font-stretch: 87.5%;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .stop-unconfirmed-list {
-    display: grid;
-    gap: 6px;
-    margin-top: 6px;
-  }
-
-  /* Each thing the data cannot confirm gets the caution square, the note marker. */
-  .stop-unconfirmed-list > li {
-    position: relative;
-    max-width: 62ch;
-    padding-left: 17px;
-    color: var(--fg);
-    font-size: 0.875rem;
-    line-height: 1.4;
-  }
-
-  .stop-unconfirmed-list > li::before {
-    position: absolute;
-    top: 0.45em;
-    left: 0;
-    width: 7px;
-    height: 7px;
-    background: var(--warn);
-    content: "";
-  }
-
-  .listing-words {
-    quotes: "\201C" "\201D";
-  }
-
-  .stop-listing-source {
-    color: var(--muted);
-    font-size: 0.8125rem;
-    line-height: 1.35;
-  }
-
-  /* The listing's own words: set off by a hairline, upright (it is not our commentary). */
-  .stop-description {
-    max-width: 62ch;
-    margin-top: 6px;
-    padding-left: 12px;
-    border-left: 1px solid var(--line-strong);
-    color: var(--fg);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-  }
-
   /* ----- Actions: quiet pills, ink on hover, one line under the stop ----- */
 
   /* The row's last block: its labels sit one step under the text above. The -12px left margin
@@ -532,10 +440,6 @@
 
   .chips + .stop-controls {
     margin-top: 0;
-  }
-
-  .stop-details + .stop-controls {
-    margin-top: calc(var(--board-gap) - var(--pill-inset));
   }
 
   .stop-actions,
@@ -626,18 +530,22 @@
     }
   }
 
+  /* Details opens a sheet: its chevron points onward, like More options', and nudges toward it
+     on hover. */
   .stop-action-chevron {
-    transition: transform var(--dur-move) var(--ease-out);
-  }
-
-  .stop-action-chevron--open {
-    transform: rotate(180deg);
+    transform: rotate(-90deg);
   }
 
   /* The icons nudge toward what they do, on devices that hover. */
   @media (hover: hover) {
     .stop-action svg {
-      transition: transform var(--dur-move) var(--ease-out);
+      transition:
+        transform var(--dur-move) var(--ease-out),
+        translate var(--dur-move) var(--ease-out);
+    }
+
+    .stop-action--details:hover .stop-action-chevron {
+      translate: 2px 0;
     }
 
     [data-testid="move-up"]:hover:not([aria-disabled="true"]) svg {
@@ -778,8 +686,7 @@
     .timetable--draw > li .stop-head,
     .timetable--draw > li .stop-body > :not(.stop-head),
     .timetable--draw > li [data-testid="travel-leg"],
-    .stop-times--flip,
-    .stop-details {
+    .stop-times--flip {
       animation: fade 150ms ease both;
       animation-delay: 0ms;
     }
@@ -791,9 +698,17 @@
     .day-tabs::after,
     .stop-thumb,
     .stop-action,
-    .stop-action svg,
-    .stop-action-chevron {
+    .stop-action svg {
       transition: none;
+    }
+
+    .stop-action--details:hover .stop-action-chevron {
+      translate: none;
+    }
+
+    /* The hairline still comes on hover; the photo stays still. */
+    .stop-thumb:hover .place-photo-img {
+      transform: none;
     }
 
     .day-panel-enter {

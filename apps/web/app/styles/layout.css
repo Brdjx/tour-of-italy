@@ -24,17 +24,15 @@
   }
 
   /* The page itself: everything but the status strip, the live region, the toast and the
-     sheets. On phones it scales back behind a sheet (sheet.css), over its own paper. */
+     sheets. On phones it scales back behind a sheet (sheet.css), over its own paper. It starts
+     under the status bar with the flag's band (tricolore.css); no bar at the top of either view,
+     the first screen's title or the plan view's trip header follows the band. */
   .app-page {
     display: flex;
     flex: 1;
     flex-direction: column;
-    background: var(--page);
-  }
-
-  /* No bar at the top of the plan view: the trip header starts under the status bar. */
-  .app[data-view="plan"] .app-page {
     padding-top: var(--safe-top);
+    background: var(--page);
   }
 
   @media (min-width: 640px) {
@@ -71,9 +69,14 @@
   }
 
   /* The first screen's header: the title leads the column in the display width, with room
-     above it. The plan view has none. */
+     above it. The plan view has none. In the page (under the band) the page has already cleared
+     the status bar; the 404 and error pages' header clears it itself. */
   .app-header {
     padding-top: calc(var(--safe-top) + clamp(28px, 8vh, 88px));
+  }
+
+  .app-page > .app-header {
+    padding-top: clamp(28px, 8vh, 88px);
   }
 
   .app-title {

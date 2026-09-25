@@ -38,6 +38,14 @@ export function useShareLink(
     if (manual) fieldRef.current?.select();
   }, [manual]);
 
+  // A new plan, an edit, or no plan while the next one is on its way: a link shown for copying
+  // by hand, or "Link copied", belongs to the plan before. Both go.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: itinerary is the trigger, not read.
+  useEffect(() => {
+    setManual(null);
+    setCopied(false);
+  }, [itinerary]);
+
   const copy = async () => {
     if (!itinerary) return;
     const link = shareUrl(itinerary, `${window.location.origin}${window.location.pathname}`);
@@ -59,19 +67,22 @@ export function useShareLink(
 interface ShareLinkButtonProps {
   share: ShareLink;
   className?: string;
+  disabled?: boolean; // no plan on screen yet: dimmed, focusable, and a press does nothing
 }
 
-export function ShareLinkButton({ share, className }: ShareLinkButtonProps) {
+export function ShareLinkButton({ share, className, disabled = false }: ShareLinkButtonProps) {
+  const copied = share.copied && !disabled;
   return (
     <button
       type="button"
-      onClick={share.copy}
+      onClick={disabled ? undefined : share.copy}
       className={className ?? "toolbar-button"}
+      aria-disabled={disabled || undefined}
       data-testid="share-button"
-      data-copied={share.copied ? "true" : undefined}
+      data-copied={copied ? "true" : undefined}
     >
-      {share.copied ? <CheckIcon size={18} /> : <LinkIcon size={18} />}
-      <span>{share.copied ? "Link copied" : "Copy link"}</span>
+      {copied ? <CheckIcon size={18} /> : <LinkIcon size={18} />}
+      <span>{copied ? "Link copied" : "Copy link"}</span>
     </button>
   );
 }

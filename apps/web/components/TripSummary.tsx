@@ -14,8 +14,8 @@ import { TRIP_SHEET_ID } from "./TripPane";
 // page's heading, with the pace under them; Edit trip and Copy link sit on the right from 640 px,
 // and on phones they share one row under the pace, each with its icon and words. Under it, one line says
 // how the plan was made (its details open on tap), with Undo once there is an edit. While a plan
-// is on its way the parts that need it are skeletons of the same size, and while a shared or
-// saved plan loads the whole block is.
+// is on its way, Edit trip and Copy link dim and do nothing until it arrives or fails, and the
+// source line waits; while a shared or saved plan loads, the whole block is a skeleton.
 
 export interface HeaderPlan {
   itinerary: Itinerary;
@@ -29,6 +29,7 @@ interface TripSummaryProps {
   request: TripRequest | null;
   onEdit: () => void;
   editing: boolean; // the Edit trip sheet is open
+  planning: boolean; // a plan is on its way: Edit trip waits for it
   plan: HeaderPlan | null; // the plan on screen; null while one is on its way
   undoLabel: string | null;
   onUndo: () => void;
@@ -40,8 +41,14 @@ interface TripSummaryProps {
 // shortens there, and its hidden words stay its name for screen readers and voice control.
 const WIDE_LABEL = "max-sm:sr-only";
 
+// Decision: while a plan is on its way, Edit trip is aria-disabled rather than disabled. It stays
+// in the tab order and keeps its name, so a keyboard or screen reader user finds it where it
+// always is and hears that it is unavailable, and focus is never dropped to the page if it was
+// on the button when planning began. A press does nothing (pointer-events are off too). Copy
+// link waits the same way: with no plan on screen it has nothing to copy, and the link to the
+// plan before would be stale.
 export function TripSummary(props: TripSummaryProps) {
-  const { request, plan } = props;
+  const { request, plan, planning } = props;
   const share = useShareLink(plan?.itinerary ?? null, props.onStatus);
   if (!request) {
     return (
@@ -75,20 +82,17 @@ export function TripSummary(props: TripSummaryProps) {
           <button
             type="button"
             className="head-pill"
-            onClick={props.onEdit}
+            onClick={planning ? undefined : props.onEdit}
             aria-haspopup="dialog"
             aria-expanded={props.editing}
             aria-controls={TRIP_SHEET_ID}
+            aria-disabled={planning || undefined}
             data-testid="edit-trip-button"
           >
             <EditIcon size={18} />
             <span>Edit trip</span>
           </button>
-          {plan ? (
-            <ShareLinkButton share={share} className="head-pill" />
-          ) : (
-            <Skeleton className="skeleton--button head-pill-skeleton" />
-          )}
+          <ShareLinkButton share={share} className="head-pill" disabled={!plan} />
         </div>
       </div>
       {plan ? (

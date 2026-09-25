@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -129,6 +129,14 @@ describe("layout rules", () => {
     expect(html).toMatch(/scroll-padding-bottom: calc\(var\(--safe-bottom\) \+ \d+px\)/);
   });
 
+  it("keeps the page still behind a sheet where the scrollbar takes room", () => {
+    // A sheet stops the page scrolling, which takes a classic scrollbar away; the gutter stays.
+    expect(read("styles/sheet.css")).toMatch(
+      /html:has\(> body > \.form-sheet\[open\]\) {\s*overflow: hidden;/,
+    );
+    expect(block(globals, "\nhtml {")).toContain("scrollbar-gutter: stable");
+  });
+
   it("keeps the toast inside the screen and centred on every screen size", () => {
     // It only shows while the form is folded (PlannerApp.fold.test), so it never needs to dodge
     // the sticky Plan my trip bar; a leftover offset for the old side pane would push it off.
@@ -177,5 +185,86 @@ describe("layout rules", () => {
       );
     }
     expect(read("styles/timetable.css")).toContain("background: var(--changed-bg)");
+  });
+});
+
+describe("the Tricolore Rule", () => {
+  // The Italian government's specification (DPCM 14 April 2006, art. 31) gives the flag's
+  // colours as Pantone textile 17-6153 (Fern Green), 11-0601 (Bright White) and 18-1662 (Flame
+  // Scarlet); these are Pantone's own sRGB values for them.
+  const FLAG = { "flag-green": "#008c45", "flag-white": "#f4f5f0", "flag-red": "#cd212a" };
+
+  it.each([
+    ["light", light],
+    ["dark", dark],
+  ] as const)("keeps the flag's official colours in %s mode", (_scheme, t) => {
+    for (const [token, value] of Object.entries(FLAG)) expect(t[token], token).toBe(value);
+  });
+
+  it("uses the flag's colours in the band and the flag mark only", () => {
+    const styles = readdirSync(fileURLToPath(new URL("../app/styles/", import.meta.url)));
+    expect(styles).toContain("tricolore.css");
+    for (const file of styles.filter((name) => name !== "tricolore.css")) {
+      expect(read(`styles/${file}`), file).not.toContain("--flag-");
+    }
+    const tricolore = read("styles/tricolore.css");
+    for (const token of Object.keys(FLAG)) expect(tricolore).toContain(`var(--${token})`);
+    expect(globals.match(/var\(--flag-/g)).toBeNull();
+  });
+
+  it("shows the band and the flag mark at rest for a traveler who asked for reduced motion", () => {
+    const tricolore = read("styles/tricolore.css");
+    const reduced = tricolore.slice(tricolore.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.tricolore::after\s*{\s*display: none;\s*animation: none;/);
+    expect(reduced).toMatch(/\.flag-mark-band\s*{\s*animation: none;/);
+    // The band draws with transform alone.
+    expect(block(tricolore, "@keyframes tricolore-draw {")).toContain("transform: scaleX(1)");
+  });
+});
+
+describe("the trip header while a plan is on its way", () => {
+  it("dims Edit trip and Copy link to the disabled 40% and lets no press through", () => {
+    const rule = block(read("styles/plan.css"), '.head-pill[aria-disabled="true"] {');
+    expect(rule).toContain("opacity: 0.4");
+    expect(rule).toContain("pointer-events: none");
+  });
+
+  it("does not press or light a dimmed pill, from the keyboard either", () => {
+    // pointer-events stops the mouse only; a held Space still makes the pill :active.
+    const plan = read("styles/plan.css");
+    expect(plan).toContain('.head-pill:active:not([aria-disabled="true"]) {');
+    expect(plan).toContain('.head-pill:hover:not([aria-disabled="true"]) {');
+    expect(plan).not.toMatch(/\.head-pill:(active|hover) {/);
+    // Reduced motion stills the press with a rule as specific as the press, or it would lose.
+    const reduced = plan.slice(plan.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(block(reduced, '.head-pill:active:not([aria-disabled="true"]) {')).toContain(
+      "transform: none",
+    );
+  });
+});
+
+describe("a stop's photo", () => {
+  const timetable = read("styles/timetable.css");
+
+  it("says it opens something under a pointer: an ink hairline, the photo leaning in", () => {
+    const hover = timetable.slice(timetable.indexOf("@media (hover: hover) {\n    .stop-thumb {"));
+    expect(block(hover, ".stop-thumb {")).toContain("outline: 1px solid transparent");
+    expect(block(hover, ".stop-thumb:hover {")).toContain("outline-color: var(--fg)");
+    expect(block(hover, ".stop-thumb:hover .place-photo-img {")).toContain(
+      "transform: scale(1.04)",
+    );
+    expect(block(timetable, ".stop-thumb {")).toContain("cursor: pointer");
+    // The focus ring comes after, so a focused photo under the pointer keeps its ring.
+    expect(timetable.indexOf(".stop-thumb:focus-visible {")).toBeGreaterThan(
+      timetable.indexOf(".stop-thumb:hover {"),
+    );
+  });
+
+  it("keeps the photo still for a traveler who asked for reduced motion", () => {
+    const reduced = timetable.slice(
+      timetable.lastIndexOf("@media (prefers-reduced-motion: reduce)"),
+    );
+    expect(block(reduced, ".stop-thumb:hover .place-photo-img {")).toContain("transform: none");
+    expect(reduced).toMatch(/\.stop-thumb,[^{]*{\s*transition: none;/);
   });
 });
