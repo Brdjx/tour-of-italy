@@ -87,15 +87,19 @@ export async function smallFieldText(page: Page): Promise<string[]> {
  * Radio buttons and checkboxes are drawn as their whole label, so the label is measured. The
  * map's stops, a stop's popup and Expand map count like any other control. MapLibre's own
  * credits button is left out: it is out of the tab order and hidden from screen readers, and
- * the caption under the map has the same credits as links.
+ * the caption under the map has the same credits as links. Behind an open modal dialog (a sheet,
+ * the full-screen map) the page is inert, as under [inert]: nothing there can be pressed, and on
+ * phones it is scaled back, so its controls would measure under their real size.
  */
 export async function smallTargets(page: Page, min = 44): Promise<string[]> {
   return page.evaluate((size) => {
     const selector =
       'button, a[href], input:not([type="hidden"]), select, textarea, summary, [role="tab"], [role="option"], [tabindex="0"]';
     const small: string[] = [];
+    const modal = document.querySelector("dialog:modal") !== null;
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (element.closest(".maplibregl-control-container, [hidden], [inert]")) continue;
+      if (modal && !element.closest("dialog:modal")) continue;
       const input = element instanceof HTMLInputElement ? element : null;
       const drawn =
         input && (input.type === "radio" || input.type === "checkbox")
