@@ -3,6 +3,7 @@ import { MEALS, PACE, TRAVEL } from "./config";
 import { coversMeal, servesMeal, sharesLocation, withinBudget } from "./constraints";
 import type { PlannerContext } from "./context";
 import { dayRuleBreaks, inSatelliteArea } from "./dayRules";
+import { wantedMustIncludes } from "./planAnchors";
 import { EVENING_FROM } from "./planPolicy";
 import type { PoolCache } from "./pools";
 import { type ScheduledDay, scheduleDay } from "./schedule";
@@ -19,8 +20,15 @@ import { isError } from "./violations";
 // unused meal place of the base at every position, and keeps the insertion that seats the meal
 // with the shortest wait and leaves the rest of the day as it was: no error, every stop in the
 // same role, no meal lost, no stop newly breaking a day rule, and the meal in the base city or
-// in the area the day is already visiting. It only adds; it never removes or reorders a stop.
+// in the area the day is already visiting. That first pass only adds. A second pass, for a day
+// adding could not feed, gives up one ordinary visit for the meal (withMealForVisit). Neither
+// pass reorders a stop or removes a must-include.
 // Measured over the sweep (docs/planner.md): without it, 2 to 5 more days in 100 miss a meal.
+
+/** A visit is given up for a meal only when the day keeps at least this many visits. */
+const MIN_VISITS_KEPT = 2;
+/** A swap may not make the day's longest wait longer than this, or than it already was. */
+const SWAP_WAIT_MAX_MIN = 60;
 
 /** The draft with every missing meal that an unused meal place can seat added. Pure. */
 export function fillMissingMeals(
@@ -31,16 +39,94 @@ export function fillMissingMeals(
   pools: PoolCache,
 ): TripDraft {
   const days = draft.days.map((ids) => [...ids]);
-  days.forEach((_, index) => {
-    for (const meal of ["lunch", "dinner"] as const) {
-      const day = dayToFill({ ...draft, days }, index, request, ctx, dates);
-      if (!day) return;
-      const candidates = mealPlacesFor(day.anchor, meal, days, request, ctx, pools);
-      const filled = withMeal(day, meal, candidates);
-      if (filled) days[index] = filled;
-    }
-  });
+  const kept = wantedMustIncludes(request, ctx);
+  // Adding first on every day, then giving up a visit where adding could not seat the meal, so a
+  // swap never takes the place another day could have added without losing anything.
+  const passes = [
+    (day: DayToFill, meal: Meal, candidates: readonly Place[]) => withMeal(day, meal, candidates),
+    (day: DayToFill, meal: Meal, candidates: readonly Place[]) =>
+      withMealForVisit(day, meal, candidates, request, kept),
+  ];
+  for (const pass of passes) {
+    days.forEach((_, index) => {
+      for (const meal of ["lunch", "dinner"] as const) {
+        const day = dayToFill({ ...draft, days }, index, request, ctx, dates);
+        if (!day) return;
+        const candidates = mealPlacesFor(day.anchor, meal, days, request, ctx, pools);
+        const filled = pass(day, meal, candidates);
+        if (filled) days[index] = filled;
+      }
+    });
+  }
   return { ...draft, days };
+}
+
+/**
+ * When no meal place fits as an addition: the day's ids with one ordinary visit given up for the
+ * meal, or null. Each visit that is not a must-include is tried, least valuable first
+ * (scorePlace on the date), and the meal is seated in the day without it by the same test as
+ * withMeal, judged against the day as it was: no error, every kept stop in its role, one more
+ * meal, no stop newly breaking a day rule. The first candidate that fits this way wins, giving up
+ * the least valuable visit, then with the shortest wait.
+ */
+// Decision: a meal outranks the day's weakest visit, but not a starved day or a new gap. The walk
+// judges each day's meal promise on its own, so a day can take an evening sight counting on a
+// dinner place another day then takes (Pigneto until 20:20, then no Rome dinner place left within
+// reach). Adding cannot fix that day; giving up the sight that used the evening can. Measured on
+// three seeds: days missing a meal -1.5 points (mixed), -4.6 (must), -1.3 (holiday); visits a day
+// -0.02 (mixed), -0.05 (must); no starved day, no new wait over an hour, no must-include lost.
+function withMealForVisit(
+  day: DayToFill,
+  meal: Meal,
+  candidates: readonly Place[],
+  request: TripRequest,
+  kept: readonly string[],
+): string[] | null {
+  if (candidates.length === 0) return null;
+  const before = day.time(day.ids);
+  if (before.violations.some(isError)) return null;
+  const places = placesOf(before, day.ctx);
+  const meals = mealsOf(before.stops, places);
+  if (meals.includes(meal)) return null;
+  const breaking = breakingStarts(before.stops, places, day.date);
+  const allowedWait = Math.max(longestWait(before.stops, day.dayStart), SWAP_WAIT_MAX_MIN);
+  const value = (place: Place) => scorePlace(place, request, { date: day.date });
+  const visits = before.stops.filter((stop) => stop.role === "visit").length;
+  if (visits <= MIN_VISITS_KEPT) return null; // a day with one visit is most of a lost day
+  const droppable = before.stops
+    .map((stop, index) => ({ stop, index, place: places[index] as Place }))
+    .filter(({ stop, place }) => stop.role === "visit" && !kept.includes(place.id))
+    .sort((a, b) => value(a.place) - value(b.place) || b.index - a.index);
+  for (const candidate of candidates) {
+    let best: { ids: string[]; lost: number; wait: number } | null = null;
+    for (const { index, place } of droppable) {
+      const lost = value(place);
+      if (best !== null && lost > best.lost) break;
+      const rest = day.ids.filter((_, at) => at !== index);
+      const restPlaces = places.filter((_, at) => at !== index);
+      const timedRest = day.time(rest);
+      if (timedRest.violations.some(isError)) continue;
+      for (let at = 0; at <= rest.length; at++) {
+        const previous = timedRest.stops[at - 1];
+        if (previous && previous.end > MEALS[meal].latestStart) break;
+        if (!onTheWay(candidate, restPlaces, at, day.anchor)) continue;
+        const ids = [...rest.slice(0, at), candidate.id, ...rest.slice(at)];
+        const after = day.time(ids);
+        if (after.violations.some(isError) || after.stops[at]?.role !== meal) continue;
+        if (!sameRoles(before, after, candidate.id)) continue;
+        const afterPlaces = placesOf(after, day.ctx);
+        if (mealsOf(after.stops, afterPlaces).length <= meals.length) continue;
+        if (!noNewBreaks(breakingStarts(after.stops, afterPlaces, day.date), breaking)) continue;
+        const wait = longestWait(after.stops, day.dayStart);
+        if (wait > allowedWait) continue; // giving up a visit must not open a gap in the day
+        if (best === null || lost < best.lost || (lost === best.lost && wait < best.wait)) {
+          best = { ids, lost, wait };
+        }
+      }
+    }
+    if (best) return best.ids;
+  }
+  return null;
 }
 
 /** One day of the draft and how to time it. */

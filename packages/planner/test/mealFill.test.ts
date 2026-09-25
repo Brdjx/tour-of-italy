@@ -47,7 +47,7 @@ describe("fillMissingMeals", () => {
     }
   });
 
-  it("never removes, reorders, or changes the role of a stop while adding the meals", () => {
+  it("never removes, reorders, or changes the role of a stop where adding seats the meals", () => {
     const request = makeRequest({ startDate: "2026-10-20", anchors: ["rome"] });
     const draft = {
       anchorIds: ROME,
@@ -167,5 +167,30 @@ describe("fillMissingMeals", () => {
     const closed = ["place_007"]; // Borghese Gallery is closed on Mondays
     const draft = { anchorIds: ROME, days: [closed, ["place_001"], ["place_018"]], score: 0 };
     expect(fill(request, draft).days[0]).toEqual(closed);
+  });
+});
+
+describe("fillMissingMeals, giving up a visit", () => {
+  it("gives up the evening sight for dinner when another day took the dinner place (Rome, default trip)", () => {
+    // The default form (start 2026-10-09, balanced, no options): day 1 took Pigneto until 20:20
+    // counting on a dinner place days 2 and 3 then took, and the one left was out of reach.
+    const request = makeRequest({ startDate: "2026-10-09", pace: "balanced" });
+    const itinerary = planDeterministic(request, ctx);
+    expect(itinerary.warnings.filter((w) => w.code === "MEAL_MISSING")).toEqual([]);
+    const day1 = itinerary.days[0]?.stops ?? [];
+    expect(day1.some((stop) => stop.role === "dinner")).toBe(true);
+    expect(day1.filter((stop) => stop.role === "visit").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("never gives up a must-include for a meal", () => {
+    const request = makeRequest({
+      startDate: "2026-10-09",
+      pace: "balanced",
+      mustInclude: ["place_013"],
+    });
+    const itinerary = planDeterministic(request, ctx);
+    expect(
+      itinerary.days.some((day) => day.stops.some((stop) => stop.placeId === "place_013")),
+    ).toBe(true);
   });
 });

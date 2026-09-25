@@ -56,7 +56,8 @@ export function planDeterministic(
   const chosen = chooseTrip(request, ctx, dates);
   if (!chosen) throw new NoFeasiblePlanError();
   // Decision: meals are filled last, after the must-include repair that may remove an ordinary
-  // stop. The fill only adds, so no must-include is ever moved.
+  // stop. The fill adds meals, and gives up an ordinary visit for one only where adding cannot
+  // seat it; it never moves or removes a must-include.
   const fed = fillMissingMeals(chosen, request, ctx, dates, new PoolCache(request, ctx));
   const selection = fed.anchorIds.map((anchorId, index) => ({
     anchorId,
