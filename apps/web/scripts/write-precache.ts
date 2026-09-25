@@ -20,6 +20,11 @@ const SHELL_LINE = /^const SHELL_SHA256 = "";$/m;
 export function precacheUrlFor(file: string): string | null {
   if (file === "index.html") return "/";
   if (file.split("/").some((part) => part.startsWith("."))) return null;
+  // Decision: not MapLibre's own .mjs files, which the bundler copies into _next/static/media
+  // because the package names its worker by URL (about 3.5 MB, development builds included). The
+  // page never requests them: the map runs its worker from the copies under /map/maplibre/,
+  // which are precached below.
+  if (file.startsWith("_next/static/media/") && file.endsWith(".mjs")) return null;
   if (file.startsWith("_next/static/")) return file.endsWith(".map") ? null : `/${file}`;
   if (file === "manifest.webmanifest") return "/manifest.webmanifest";
   if (file.startsWith("icons/") && /\.(png|svg)$/.test(file)) return `/${file}`;

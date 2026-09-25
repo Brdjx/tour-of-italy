@@ -94,6 +94,20 @@ describe("precacheUrls", () => {
     );
   });
 
+  it("skips MapLibre's module copies the bundler emits, which the page never requests", () => {
+    expect(
+      precacheUrls([
+        "_next/static/media/maplibre-gl-dev.1a7yrl5a26dr.mjs",
+        "_next/static/media/maplibre-gl-shared.1r29hqy9wgt8.mjs",
+        "_next/static/media/5c3f0cbfabc360d6.p.2y0k55p9r2gow.woff2",
+        "_next/static/chunks/28xiaqih7u8.js",
+      ]),
+    ).toEqual([
+      "/_next/static/chunks/28xiaqih7u8.js",
+      "/_next/static/media/5c3f0cbfabc360d6.p.2y0k55p9r2gow.woff2",
+    ]);
+  });
+
   it("never precaches the worker itself, whatever folder it is in", () => {
     expect(precacheUrls(["sw.js", "_next/static/sw.js.map", "icons/sw.js"])).toEqual([]);
   });
