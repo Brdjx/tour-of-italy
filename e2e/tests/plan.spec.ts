@@ -3,6 +3,7 @@ import {
   BADGE,
   CHECKED,
   expectTimesInOrder,
+  mapDrawn,
   openPlanner,
   placeIds,
   planTrip,
@@ -143,6 +144,7 @@ test.describe("planning a trip", () => {
     await openPlanner(page);
     await planTrip(page, press);
     const days = await readTrip(page, press);
+    await mapDrawn(page);
 
     await page.reload();
     await expect(page.getByTestId("plan-view")).toBeVisible();

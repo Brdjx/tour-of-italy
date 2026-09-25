@@ -3,6 +3,7 @@ import { DEFAULT_START_DATE } from "../support/env";
 import { expect, test } from "../support/fixtures";
 import {
   BADGE,
+  mapDrawn,
   openPlanner,
   type Press,
   placeFromAnotherBase,
@@ -218,6 +219,7 @@ test.describe("share links", () => {
     await page.goto(`/?p=${shareParam({ v: 1, request: hostile, days })}`);
     await expect(page.getByTestId("plan-view")).toBeVisible();
     await expect(page.getByTestId("share-notice")).toContainText("no longer offered");
+    await mapDrawn(page);
     // Markup in an id fails the id pattern, so that link is refused as damaged.
     const badIds = days.map((day) => ({ ...day, ids: [markup] }));
     await page.goto(`/?p=${shareParam({ v: 1, request: REQUEST, days: badIds })}`);

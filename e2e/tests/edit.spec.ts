@@ -4,6 +4,7 @@ import {
   BADGE,
   CHECKED,
   expectTimesInOrder,
+  mapDrawn,
   openPlanner,
   placeIds,
   planTrip,
@@ -80,6 +81,7 @@ test.describe("editing a plan", () => {
     await press(row(page, 1).getByTestId("remove-button"));
     await expect(page.getByTestId("stop-row")).toHaveCount(before.length - 1);
     const edited = await readTrip(page, press);
+    await mapDrawn(page);
 
     await page.reload();
     await expect(page.getByTestId("plan-view")).toBeVisible();

@@ -69,6 +69,21 @@ export async function planTrip(page: Page, press: Press) {
   await expect(page.getByTestId("stop-row").first()).toBeVisible();
 }
 
+/**
+ * Waits until the day's map has drawn its stops. Decision: a test that leaves or reloads a page
+ * with a map on it waits for this first. The map comes in chunks of its own after the plan, and
+ * WebKit reports those imports and the tile archive's fetch, cut off by the navigation, as
+ * uncaught errors in the page ("Importing a module script failed.", "... due to access control
+ * checks."), which the watchdog fails on. A traveler who leaves the page never sees them.
+ */
+export async function mapDrawn(page: Page): Promise<void> {
+  const map = page.getByTestId("day-map");
+  await expect(map.locator(".maplibregl-canvas")).toBeVisible();
+  await expect(map.getByTestId("map-stop").first()).toBeVisible();
+  // Its workers and the archive's first read come after the stops are drawn.
+  await page.waitForLoadState("networkidle");
+}
+
 /** The active day's stops, in the order the timetable lists them. */
 export async function readStops(page: Page): Promise<StopData[]> {
   return page.getByTestId("stop-row").evaluateAll((rows) =>
