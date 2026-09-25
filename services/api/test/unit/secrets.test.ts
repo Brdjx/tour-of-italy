@@ -69,6 +69,62 @@ describe("createCachedSecret", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("retries sooner before the first value arrives, when asked to", async () => {
+    let now = 0;
+    let fail = true;
+    const fetch = vi.fn<ParameterFetcher>(async () => {
+      if (fail) throw new Error("Parameter read exceeded 3000 ms");
+      return "value-1";
+    });
+    const secret = source(fetch, () => now, { retryBeforeFirstValueMs: 250 });
+
+    expect(await secret.get()).toBeNull();
+    now = 100;
+    expect(await secret.get()).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fail = false;
+    now = 300;
+    expect(await secret.get()).toBe("value-1");
+    // Once a value has been read, a later failure waits the full retryAfterFailureMs.
+    fail = true;
+    now = 70_000;
+    expect(await secret.get()).toBeNull();
+    now = 70_300;
+    expect(await secret.get()).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives the first read its own, longer timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetch: ParameterFetcher = (_, signal) => {
+        calls++;
+        return new Promise((resolve, reject) => {
+          const done = setTimeout(() => resolve(`value-${calls}`), 2_000);
+          signal.addEventListener("abort", () => {
+            clearTimeout(done);
+            reject(new Error("aborted"));
+          });
+        });
+      };
+      let now = 0;
+      const secret = source(fetch, () => now, { firstTimeoutMs: 3_000, ttlMs: 10 });
+
+      // The first read takes 2 s: past timeoutMs (1 s) but inside firstTimeoutMs (3 s).
+      const first = secret.get();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(await first).toBe("value-1");
+      // Later reads keep the ordinary 1 s timeout: the same 2 s read now gives up.
+      now = 1_000;
+      const later = secret.get();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(await later).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("treats an empty parameter as a failure", async () => {
     const secret = source(
       async () => "",

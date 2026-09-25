@@ -27,7 +27,16 @@ export interface RuntimeOverrides {
 // Decision: the origin secret is re-read every 5 minutes (rotation takes effect within that, or
 // at once through the forced re-read on a mismatch, at most every 10 s). After an SSM failure the
 // check fails closed for 5 s before trying again.
-const ORIGIN_SECRET_CACHE = { ttlMs: 5 * 60_000, minRefreshMs: 10_000, retryAfterFailureMs: 5_000 };
+// Decision: at cold start the first read gets 8 s and a failed first read is retried after 250 ms,
+// not 5 s. On 2026-09-25 a new instance after a deploy took over 3 s for its first read, and the
+// check then refused a whole page load (health, meta, places, data issues) for about 3 s.
+const ORIGIN_SECRET_CACHE = {
+  ttlMs: 5 * 60_000,
+  minRefreshMs: 10_000,
+  retryAfterFailureMs: 5_000,
+  retryBeforeFirstValueMs: 250,
+  firstTimeoutMs: 8_000,
+};
 
 // Decision: the Anthropic key is re-read every 15 minutes, and at once (at most once a minute)
 // when the API rejects it, so a rotated key reaches warm instances without a redeploy. After a

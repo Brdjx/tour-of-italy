@@ -16,7 +16,9 @@ export interface CachedSecretOptions {
   fetch: ParameterFetcher;
   ttlMs: number; // how long a value is reused; Infinity to keep it for the instance's life
   timeoutMs: number; // longest wait for one read
+  firstTimeoutMs?: number; // longest wait for a read before the first value arrives (cold start)
   retryAfterFailureMs: number; // after a failed read, answer null this long before trying again
+  retryBeforeFirstValueMs?: number; // the same wait while no value has ever been read
   minRefreshMs: number; // a forced refresh is skipped when the value is younger than this
   now?: () => number;
   onValue?: (value: string) => void; // called with each new value (to register it for redaction)
@@ -29,6 +31,7 @@ export function createCachedSecret(options: CachedSecretOptions): SecretSource {
   let fetchedAt = Number.NEGATIVE_INFINITY;
   let failedAt = Number.NEGATIVE_INFINITY;
   let inFlight: Promise<string | null> | null = null;
+  const neverRead = (): boolean => fetchedAt === Number.NEGATIVE_INFINITY;
 
   const read = async (): Promise<string | null> => {
     const controller = new AbortController();
@@ -36,11 +39,14 @@ export function createCachedSecret(options: CachedSecretOptions): SecretSource {
     // Decision: the read settles at the timeout even when the fetcher ignores its signal. Every
     // request waits on this read (the origin check gates them all), so a stuck fetch must never
     // hold inFlight open.
+    const timeoutMs = neverRead()
+      ? (options.firstTimeoutMs ?? options.timeoutMs)
+      : options.timeoutMs;
     const expired = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new Error(`Parameter read exceeded ${options.timeoutMs} ms`));
-      }, options.timeoutMs);
+        reject(new Error(`Parameter read exceeded ${timeoutMs} ms`));
+      }, timeoutMs);
     });
     try {
       const fetching = Promise.resolve().then(() => options.fetch(options.name, controller.signal));
@@ -76,8 +82,13 @@ export function createCachedSecret(options: CachedSecretOptions): SecretSource {
       if (fresh && !(forceRefresh && refreshAllowed)) return value;
       if (inFlight) return inFlight;
       // Decision: after a failure, answer null for a short while instead of calling SSM on every
-      // request; for the origin check that means refusing (fail closed).
-      if (at - failedAt < options.retryAfterFailureMs) return fresh ? value : null;
+      // request; for the origin check that means refusing (fail closed). Before the first value
+      // arrives the wait can be shorter (retryBeforeFirstValueMs): an instance with no value can
+      // serve nothing, and one read at a time (inFlight) already bounds the calls.
+      const backOff = neverRead()
+        ? (options.retryBeforeFirstValueMs ?? options.retryAfterFailureMs)
+        : options.retryAfterFailureMs;
+      if (at - failedAt < backOff) return fresh ? value : null;
       const result = await start();
       // A failed forced refresh keeps using the value that is still inside its TTL.
       return result ?? (fresh ? value : null);
