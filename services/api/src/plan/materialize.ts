@@ -81,11 +81,7 @@ export function materializeSelection(
 ): Materialized {
   const picks = selection.days.map((day) => ({ anchorId: day.anchorId, placeIds: day.placeIds }));
   const scheduled = scheduleTrip(request, picks, ctx);
-  const reasoned = applyAiReasons(
-    scheduled.days.map((day) => day.stops),
-    selection,
-    ctx,
-  );
+  const reasoned = applyAiReasons(scheduled.days, selection, ctx);
   const days: DayPlan[] = scheduled.days.map((day, index) => ({
     ...day,
     stops: reasoned.days[index] ?? day.stops,

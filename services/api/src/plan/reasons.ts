@@ -1,6 +1,7 @@
 import { type PlannerContext, REASON_MAX_CHARS, type Stop } from "@italy/planner";
 import type { LlmSelection } from "../llm/client";
 import { namesPlaceOutside, unknownProperNoun } from "./placeMentions";
+import { type ClaimKind, contradictedClaim, type TimedDay } from "./reasonClaims";
 import {
   cleanText,
   echoesPrompt,
@@ -9,8 +10,10 @@ import {
   statesTimeOrPrice,
 } from "./textGuards";
 
-// AI reasons are kept only when they pass every check below; otherwise the stop keeps the
-// rule-based reason the planner already attached (ruleReason, reasonSource "rule").
+// AI reasons are kept only when they pass every check below, and when what they say about the
+// stop's meal, time of day and place in the day or trip holds for the stop as timed
+// (reasonClaims.ts); otherwise the stop keeps the rule-based reason the planner already attached
+// (ruleReason, reasonSource "rule").
 
 export type ReasonRejection =
   | "empty"
@@ -20,7 +23,17 @@ export type ReasonRejection =
   | "time_or_price"
   | "contact_or_payment"
   | "markup_or_injection"
-  | "echoes_prompt";
+  | "echoes_prompt"
+  | "wrong_meal"
+  | "wrong_time_of_day"
+  | "wrong_position";
+
+/** The log's name for each kind of claim the timed stop contradicts. */
+const CLAIM_REJECTIONS: Record<ClaimKind, ReasonRejection> = {
+  meal: "wrong_meal",
+  time_of_day: "wrong_time_of_day",
+  position: "wrong_position",
+};
 
 export type ReasonCheck = { ok: true; text: string } | { ok: false; why: ReasonRejection };
 
@@ -63,18 +76,19 @@ export interface ReasonStats {
 }
 
 /**
- * Stops with AI reasons applied where they pass checkAiReason. Stops without a usable AI reason
- * keep the rule reason already on them. Returns new stop arrays; the input is not changed.
+ * Stops with AI reasons applied where they pass checkAiReason and make no claim the timed stop
+ * contradicts (contradictedClaim). Stops without a usable AI reason keep the rule reason already
+ * on them. Returns new stop arrays; the input is not changed.
  */
 export function applyAiReasons(
-  days: readonly (readonly Stop[])[],
+  days: readonly TimedDay[],
   selection: LlmSelection,
   ctx: PlannerContext,
 ): { days: Stop[][]; stats: ReasonStats } {
   const byDay = reasonsByStop(selection);
   const stats: ReasonStats = { kept: 0, replaced: 0, rejections: [] };
-  const out = days.map((stops, dayIndex) =>
-    stops.map((stop) => {
+  const out = days.map((day, dayIndex) =>
+    day.stops.map((stop, index) => {
       const raw = byDay[dayIndex]?.get(stop.placeId);
       if (raw === undefined) {
         stats.replaced++;
@@ -85,6 +99,12 @@ export function applyAiReasons(
       if (!check.ok) {
         stats.replaced++;
         stats.rejections.push(check.why);
+        return { ...stop };
+      }
+      const claim = contradictedClaim(check.text, { days, day: dayIndex, index }, ctx);
+      if (claim !== null) {
+        stats.replaced++;
+        stats.rejections.push(CLAIM_REJECTIONS[claim.kind]);
         return { ...stop };
       }
       stats.kept++;
