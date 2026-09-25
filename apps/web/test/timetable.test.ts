@@ -1,6 +1,15 @@
 import { type Itinerary, placesOfAnchor, TRAVEL, type Violation } from "@italy/planner";
 import { describe, expect, it } from "vitest";
-import { boundsOf, mapPoints, markerHtml } from "../lib/mapPoints";
+import {
+  boundsOf,
+  type MapPoint,
+  mapDayTitle,
+  mapPoints,
+  roleWord,
+  stopCountText,
+  stopLabel,
+  stopTimes,
+} from "../lib/mapPoints";
 import {
   buildDayView,
   buildTripView,
@@ -248,11 +257,46 @@ describe("mapPoints", () => {
     expect(boundsOf([])).toBeNull();
   });
 
-  it("puts only a number into marker HTML, never a place name", () => {
-    expect(markerHtml({ number: 3, approximate: false })).toBe(
-      '<span class="map-marker" aria-hidden="true">3</span>',
+  it("carries each stop's times and role, as the board shows them", () => {
+    const day = must(fixturePlan().days[0]);
+    const points = mapPoints(day, ctx);
+    expect(points.map(({ start, end, role }) => ({ start, end, role }))).toEqual(
+      day.stops.map(({ start, end, role }) => ({ start, end, role })),
     );
-    expect(markerHtml({ number: 2.7, approximate: true })).toContain("map-marker--approximate");
-    expect(markerHtml({ number: -1, approximate: false })).toContain(">0<");
+  });
+
+  it("names a stop like its row: number, place, times, and the meal or an approximate place", () => {
+    const point: MapPoint = {
+      number: 2,
+      placeId: "place_002",
+      name: "Borghese Gallery",
+      lat: 41.914,
+      lng: 12.492,
+      approximate: false,
+      start: 650,
+      end: 770,
+      role: "visit",
+    };
+    expect(stopTimes(point)).toBe("10:50 to 12:50");
+    expect(stopLabel(point)).toBe("Stop 2, Borghese Gallery, 10:50 to 12:50");
+    expect(stopLabel({ ...point, role: "lunch" })).toBe(
+      "Stop 2, Borghese Gallery, 10:50 to 12:50, lunch",
+    );
+    expect(stopLabel({ ...point, role: "dinner", approximate: true })).toBe(
+      "Stop 2, Borghese Gallery, 10:50 to 12:50, dinner, approximate location",
+    );
+    expect([roleWord("visit"), roleWord("lunch"), roleWord("dinner")]).toEqual([
+      "Visit",
+      "Lunch",
+      "Dinner",
+    ]);
+  });
+
+  it("titles the full-screen map with the day, its date and its base, and counts its stops", () => {
+    expect(mapDayTitle({ index: 0, tabLabel: "Fri 9 Oct", anchorName: "Rome" })).toBe(
+      "Day 1, Fri 9 Oct, Rome",
+    );
+    expect(stopCountText(6)).toBe("6 stops, numbered in visiting order");
+    expect(stopCountText(1)).toBe("1 stop, numbered in visiting order");
   });
 });

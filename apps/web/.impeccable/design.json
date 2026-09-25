@@ -455,6 +455,12 @@
         "purpose": "The place search listbox."
       },
       {
+        "name": "shadow-popup",
+        "value": "0 6px 18px -6px rgb(17 17 15 / 0.24)",
+        "dark": "0 8px 22px -6px rgb(0 0 0 / 0.6)",
+        "purpose": "A map stop's popup and the full-screen map's day switcher: the two things that float over the map."
+      },
+      {
         "name": "scrim",
         "value": "rgb(17 17 15 / 0.42)",
         "dark": "rgb(0 0 0 / 0.56)",
@@ -561,6 +567,16 @@
         "name": "tricolore-draw",
         "value": "900ms ease-out after 60ms; flag bands 420ms, 70ms apart; wave 1600ms (SMIL, 12 even steps)",
         "purpose": "The page's first moment, from the top left: the band draws in from the left, the flag mark's bands drop in, then one breath of wind ripples from the hoist to the fly (lift up to 2.4 of 20, the fly in by 1 of 30) with a fold of light and shade from the cloth's slope, and rest. Reduced motion: at rest, no draw, no wave."
+      },
+      {
+        "name": "map-grow",
+        "value": "450ms on spring-smooth to open, 340ms to close; reduced motion: a 180ms fade in, 160ms out",
+        "purpose": "The full-screen map grows out of the page map's box and shrinks back into it: the frame scales and the map inside is scaled back by the inverse at every step (24 keyframes on the Web Animations API), so the map is never stretched and the window reveals more of it. The camera glides with it. The header drops 8px and the day switcher rises 8px after 120ms; the page fades to paper behind."
+      },
+      {
+        "name": "map-popup",
+        "value": "250ms hover delay, 150ms grace on leave; fade 180ms and scale 0.96 to 1 over 220ms",
+        "purpose": "A map stop's popup, from the side of its stop. Reduced motion: the fade only."
       }
     ],
     "breakpoints": [
@@ -590,6 +606,13 @@
       "panelWidth": "min(560px, 100% - 48px) from 768px",
       "aboutPanelWidth": "min(760px, 100% - 48px) from 768px: About this data, whose body scrolls on its own",
       "kinds": "Edit trip and About this data are tall (to 12px under the status bar on phones); More options, a stop's details and a place's details fit their content"
+    },
+    "map": {
+      "stop": "28px ink disc (paper ring, dashed for an approximate place) in a 44px round button named 'Stop 2, Borghese Gallery, 10:50 to 12:50, lunch'; lifts to 1.08 on hover and while its popup shows; the focus ring follows the disc",
+      "popup": "square, 1px line, surface, --shadow-popup; 176 to 248px wide; 22px from the stop's centre, above, below, right or left, centred or lined up with the stop's number, wherever it stays 8px inside the map (clear of Expand map, the notch and the day switcher) and covers the fewest other stops, then the least route; never covers its own stop. Number on a 22px disc, place name in the tab role, times in the time role, the role (meal in ink 500, visit muted), 'Details' as a text button",
+      "expand": "44px outline round pill, 8px in from the top right; the camera frames the day with 82px of top padding when a stop would otherwise reach it",
+      "fullscreen": "native dialog (showModal) at 100dvh: paper header with a hairline (title role day, muted stop count, Close map: round on phones, words from 640px), clearing the status bar and notch; the day switcher (segmented pill track, ink thumb, --shadow-popup) 16px above the home indicator; credits in full from 1024px",
+      "instances": "one MapLibre map, moved between the page and the dialog: first full-screen frame in 30 to 45ms; a second map measured 250 to 630ms to its first frame, 490 to 710ms to idle with a warm cache, and 9.6MB (38MB at 2x) more drawing buffers"
     }
   },
   "components": [
@@ -704,11 +727,27 @@
       "description": "The Tricolore Rule's two places: the 4px band across the top of the page, drawn in from the left, and the flag mark at the title's cap height. Official colours; the white band keeps a hairline on white paper.",
       "html": "<div class=\"ds-tri-stage\"><div class=\"ds-tri\" aria-hidden=\"true\"><span></span><span></span><span></span></div><h1 class=\"ds-tri-title\"><svg class=\"ds-flag\" viewBox=\"0 0 30 20\" aria-hidden=\"true\"><path d=\"M10 0H20V20H10Z\" fill=\"#f4f5f0\"/><path d=\"M10 0H20M10 20H20\" stroke=\"var(--line,#dcdad3)\" vector-effect=\"non-scaling-stroke\"/><path d=\"M0 0H10V20H0Z\" fill=\"#008c45\"/><path d=\"M20 0H30V20H20Z\" fill=\"#cd212a\"/></svg>3 Days in Italy</h1></div>",
       "css": ".ds-tri-stage { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); background:var(--page,#fff); padding-bottom:16px; } .ds-tri { position:relative; display:grid; grid-template-columns:repeat(3,1fr); height:4px; overflow:hidden; } .ds-tri span:nth-child(1) { background:#008c45; } .ds-tri span:nth-child(2) { box-sizing:border-box; border-bottom:1px solid var(--line,#dcdad3); background:#f4f5f0; } .ds-tri span:nth-child(3) { background:#cd212a; } .ds-tri::after { content:\"\"; position:absolute; inset:0; background:var(--page,#fff); transform:scaleX(0); transform-origin:100% 50%; animation:ds-tri-draw 900ms cubic-bezier(0.16,1,0.3,1) 60ms both; } .ds-tri-title { margin:28px 16px 0; color:var(--fg,#11110f); font-size:2.5rem; font-stretch:150%; font-weight:400; line-height:1.05; letter-spacing:-0.01em; } .ds-flag { display:inline-block; height:0.71em; aspect-ratio:3/2; margin-right:0.32em; vertical-align:baseline; } @keyframes ds-tri-draw { from { transform:scaleX(1); } } @media (prefers-reduced-motion: reduce) { .ds-tri::after { display:none; } }"
+    },
+    {
+      "name": "Map Stop Popup",
+      "kind": "custom",
+      "refersTo": "map-popup",
+      "description": "A map stop's popup: shown on hover (after 250ms) or keyboard focus, on a tap on touch. One button; a click or a second tap opens the stop's details sheet. Square, hairline, paper, a small shadow because it floats.",
+      "html": "<div class=\"ds-map-stage\"><div class=\"ds-map-pop\" role=\"img\" aria-label=\"Popup for stop 2\"><span class=\"ds-map-pop-head\"><span class=\"ds-map-num\">2</span><span class=\"ds-map-name\">Borghese Gallery</span></span><span class=\"ds-map-when\"><span class=\"ds-map-times\">10:50 to 12:50</span><span class=\"ds-map-role\">Visit</span></span><span class=\"ds-map-details\">Details</span></div><span class=\"ds-map-disc\">2</span></div>",
+      "css": ".ds-map-stage { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); position:relative; display:grid; justify-items:center; gap:8px; padding:20px; background:var(--page,#fff); } .ds-map-pop { display:grid; gap:4px; width:max-content; max-width:248px; padding:10px 14px 2px 10px; border:1px solid var(--line,#dcdad3); background:var(--surface,#fff); color:var(--fg,#11110f); box-shadow:var(--shadow-popup,0 6px 18px -6px rgb(17 17 15 / 0.24)); animation:ds-map-pop 220ms cubic-bezier(0.16,1,0.3,1) both; transform-origin:50% 100%; } .ds-map-pop-head { display:flex; align-items:center; gap:8px; } .ds-map-num, .ds-map-disc { display:grid; place-items:center; border-radius:50%; background:var(--fill,#11110f); color:var(--fill-fg,#fff); font-weight:600; font-stretch:87.5%; font-variant-numeric:tabular-nums; } .ds-map-num { width:22px; height:22px; font-size:12px; } .ds-map-disc { width:28px; height:28px; box-sizing:border-box; border:2px solid var(--page,#fff); font-size:13px; } .ds-map-name { font-size:1rem; font-stretch:112.5%; font-weight:500; letter-spacing:-0.01em; } .ds-map-when, .ds-map-details { margin-left:30px; } .ds-map-when { display:flex; gap:8px; align-items:baseline; } .ds-map-times { font-size:0.9375rem; font-weight:600; font-stretch:87.5%; font-variant-numeric:tabular-nums; } .ds-map-role { color:var(--muted,#6a6a63); font-size:0.875rem; } .ds-map-details { display:inline-flex; min-height:32px; align-items:center; justify-self:start; font-size:0.875rem; font-weight:500; text-decoration:underline 1px var(--line-strong,#85837a); text-underline-offset:3px; } .ds-map-pop:hover .ds-map-details { text-decoration-color:var(--gold,#a8864b); } @keyframes ds-map-pop { from { opacity:0; scale:0.96; } } @media (prefers-reduced-motion: reduce) { .ds-map-pop { animation-name:ds-map-fade; } } @keyframes ds-map-fade { from { opacity:0; } }"
+    },
+    {
+      "name": "Full-screen Map",
+      "kind": "custom",
+      "refersTo": "map-dialog-head",
+      "description": "The day's map full screen: a paper header (the day, the stop count, Close map) and the day switcher floating at the foot. It grows out of the page's map without stretching it.",
+      "html": "<div class=\"ds-full\"><header class=\"ds-full-head\"><div><p class=\"ds-full-title\">Day 1, Fri 9 Oct, Rome</p><p class=\"ds-full-meta\">7 stops, numbered in visiting order</p></div><button class=\"ds-full-close\">Close map</button></header><div class=\"ds-full-map\"><div class=\"ds-full-days\"><span class=\"ds-on\">Day 1</span><span>Day 2</span><span>Day 3</span></div></div></div>",
+      "css": ".ds-full { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:grid; grid-template-rows:auto 200px; background:var(--page,#fff); color:var(--fg,#11110f); } .ds-full-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line,#dcdad3); } .ds-full-title { margin:0; font-size:1.25rem; font-stretch:125%; font-weight:500; letter-spacing:-0.02em; } .ds-full-meta { margin:2px 0 0; color:var(--muted,#6a6a63); font-size:0.875rem; } .ds-full-close { min-height:44px; padding:0 18px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); color:var(--fg,#11110f); font:inherit; font-size:0.9375rem; font-weight:500; } .ds-full-map { position:relative; background:repeating-linear-gradient(35deg, var(--page,#fff) 0 18px, var(--line,#dcdad3) 18px 19px); } .ds-full-days { position:absolute; left:50%; bottom:16px; display:grid; grid-template-columns:repeat(3,1fr); width:min(300px, calc(100% - 32px)); padding:3px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); box-shadow:var(--shadow-popup,0 6px 18px -6px rgb(17 17 15 / 0.24)); translate:-50% 0; box-sizing:border-box; } .ds-full-days span { display:grid; min-height:44px; place-items:center; border-radius:999px; font-size:0.9375rem; font-weight:500; } .ds-full-days .ds-on { background:var(--fill,#11110f); color:var(--fill-fg,#fff); }"
     }
   ],
   "narrative": {
     "northStar": "The Departure Board",
-    "overview": "Each day is a board you check once and trust, drawn in the Goodpix language of paper and ink. The page is white, text is near-black ink, and ink is the only solid fill. Gold never fills; it draws: the chosen day, the AI mark, focus, a hairline beside opened details. Rows are separated by 1px hairlines rather than boxed, containers and photos are square, and anything you press is a round pill. The one rounded surface is a sheet, the owner's Apple-style exception. The flag's own colours appear in two places only, by the owner's request: a thin band across the top of the page and the flag mark that leads the first screen's title (the Tricolore Rule).\n\nRank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.\n\nMotion starts at the top left: the flag's band draws across the top of the page as it opens, the flag mark's bands drop in and one breath of wind passes through it, and the rail diagram draws from Milan down to Rome. Then the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.",
+    "overview": "Each day is a board you check once and trust, drawn in the Goodpix language of paper and ink. The page is white, text is near-black ink, and ink is the only solid fill. Gold never fills; it draws: the chosen day, the AI mark, focus, a hairline beside opened details. Rows are separated by 1px hairlines rather than boxed, containers and photos are square, and anything you press is a round pill. The one rounded surface is a sheet, the owner's Apple-style exception. The flag's own colours appear in two places only, by the owner's request: a thin band across the top of the page and the flag mark that leads the first screen's title (the Tricolore Rule).\n\nRank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.\n\nMotion starts at the top left: the flag's band draws across the top of the page as it opens, the flag mark's bands drop in and one breath of wind passes through it, and the rail diagram draws from Milan down to Rome. Then the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. The day's map grows out of its frame to fill the screen on the same spring, a window opening onto a map that is never stretched, and shrinks back into its frame on the way out. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.",
     "keyCharacteristics": [
       "Paper and ink, with ink as the one solid fill.",
       "Gold draws and marks; it does not fill (one exception, the count badge).",
@@ -765,6 +804,11 @@
         "name": "The Rounded Sheet Rule",
         "body": "The sheets (Edit trip, More options, a stop's details, a place's details and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.",
         "section": "shapes"
+      },
+      {
+        "name": "The Unstretched Map Rule",
+        "body": "The map is never scaled out of its proportions to animate it. Motion moves a window onto it, or its camera; its discs stay round and its labels stay upright at every frame.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -777,7 +821,8 @@
       "**Do** define every new colour as a semantic custom property with a checked dark value.",
       "**Do** keep every control at least 44px tall and every text input at 16px.",
       "**Do** open the plan view with the trip header, not a navbar.",
-      "**Do** keep the flag's colours to the top band and the flag mark, at the government's values."
+      "**Do** keep the flag's colours to the top band and the flag mark, at the government's values.",
+      "**Do** open a stop's details from the map and the board into the same sheet, and give focus back to what opened it."
     ],
     "donts": [
       "**Don't** fill with gold anywhere except the count badge.",
@@ -790,7 +835,8 @@
       "**Don't** use the flag's green or red as a UI colour, or put the flag anywhere but the top band and the flag mark.",
       "**Don't** open a stop's details inside its row; they open in the sheet.",
       "**Don't** put a credit line under a small photo; the full credit belongs where the photo is large, one tap away.",
-      "**Don't** show AI-written words without their label, upright, or as the listing's."
+      "**Don't** show AI-written words without their label, upright, or as the listing's.",
+      "**Don't** stretch the map to animate it, or put a control where a stop can sit under it."
     ]
   }
 }

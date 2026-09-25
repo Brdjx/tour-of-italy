@@ -4,10 +4,12 @@ import { type PlannerContext, summaryForTrip } from "@italy/planner";
 import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
 import type { ItineraryState } from "../lib/itineraryReducer";
-import { buildTripView } from "../lib/timetable";
+import { buildTripView, type RowView } from "../lib/timetable";
+import { useStopDetails } from "../lib/useStopDetails";
 import { DayMap } from "./DayMap";
 import { DAY_PANEL_ID, DayTabs, dayTabId } from "./DayTabs";
 import { DayTimetable } from "./DayTimetable";
+import { StopDetailsSheet } from "./StopDetailsSheet";
 
 // The plan: the AI summary, trip-level notes, day tabs, and the active day's board and map (below
 // it on phones and tablets in portrait, beside it from 1024 px). The summary is shown for the
@@ -15,7 +17,11 @@ import { DayTimetable } from "./DayTimetable";
 // saved, so a sentence about a stop the traveler removed goes with it. The trip header above the
 // plan (TripSummary) holds Edit trip, Copy link, the source line and Undo. Switching days slides
 // the new board in from the side it was reached from; the map stays mounted so its camera can
-// move to the new day instead of starting over.
+// move to the new day instead of starting over. The day's details sheet lives here, so a stop's
+// photo or Details on the board and its marker on the map (on the page or full screen) open the
+// same sheet on the same stop.
+
+const NO_ROWS: readonly RowView[] = [];
 
 export interface PlanViewProps {
   plan: ItineraryState;
@@ -45,8 +51,9 @@ export function PlanView(props: PlanViewProps) {
     () => (itinerary ? summaryForTrip(itinerary, ctx) : undefined),
     [itinerary, ctx],
   );
-  if (!itinerary) return null;
   const day = days[activeDay] ?? days[0];
+  const details = useStopDetails(day?.rows ?? NO_ROWS);
+  if (!itinerary) return null;
   const tripNotes = tripViolations([...plan.errors, ...itinerary.warnings]);
   return (
     <section aria-labelledby="plan-title" className="plan" data-testid="plan-view">
@@ -99,10 +106,27 @@ export function PlanView(props: PlanViewProps) {
               onSwap={(stop) => props.onSwap(day.index, stop)}
               onRemove={(stop) => props.onRemove(day.index, stop)}
               onMove={(stop, direction) => props.onMove(day.index, stop, direction)}
+              details={details.control}
             />
           </div>
-          <DayMap day={day.day} dayNumber={day.index + 1} ctx={ctx} />
+          <DayMap
+            days={days}
+            active={day.index}
+            ctx={ctx}
+            onSelectDay={props.onSelectDay}
+            onDetails={details.control.open}
+          />
         </div>
+      ) : null}
+      {day ? (
+        <StopDetailsSheet
+          id={details.control.id}
+          open={details.open}
+          row={details.row}
+          date={day.day.date}
+          onClose={details.close}
+          returnFocus={details.returnFocus}
+        />
       ) : null}
     </section>
   );

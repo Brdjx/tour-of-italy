@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expectNoSeriousA11yIssues, expectSoundLayout, settleAnimations } from "../support/audit";
 import { expect, test } from "../support/fixtures";
 import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
@@ -6,8 +6,9 @@ import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
 // Accessibility and layout on every device project, in light and dark: no serious or critical
 // axe violation, no horizontal scroll or zoom-out, every visible control at least 44x44 px, and
 // field text at least 16 px (support/audit.ts). Each state
-// is one a traveler actually reaches: the form, a plan, the swap sheet, a rule-breaking edit,
-// the form reopened over a plan, the data notes, an error, and the 404 page.
+// is one a traveler actually reaches: the form, a plan, a map stop's popup, the full-screen map
+// and a popup on it, the swap sheet, a rule-breaking edit, the form reopened over a plan, the
+// data notes, an error, and the 404 page.
 
 /** How long the edit toast stays up (components/StatusRegion.tsx). */
 const TOAST_MS = 5000;
@@ -19,6 +20,39 @@ async function auditState(page: Page, state: string): Promise<void> {
   await settleAnimations(page);
   await expectSoundLayout(page, state);
   await expectNoSeriousA11yIssues(page, state);
+}
+
+/**
+ * Shows the first stop's popup in `within` the way a traveler does: hovering it, or a tap on
+ * touch. The first stop draws above every other, so nothing covers it.
+ */
+async function showPopup(page: Page, within: Locator, touch: boolean): Promise<void> {
+  const stop = within.getByTestId("map-stop").first();
+  if (touch) await stop.tap();
+  else await stop.hover();
+  await expect(page.getByTestId("map-popup")).toBeVisible();
+}
+
+/** The map's stops, a popup, and the map full screen with a popup on it. */
+async function auditMap(page: Page, press: Press, touch: boolean): Promise<void> {
+  // From the top, as auditState does, so no scroll moves the stop from under the pointer.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await showPopup(page, page.getByTestId("day-map"), touch);
+  await auditState(page, "a map stop's popup");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("map-popup")).toHaveCount(0);
+
+  await press(page.getByTestId("map-expand"));
+  const full = page.getByTestId("map-dialog");
+  await expect(full).toBeVisible();
+  await auditState(page, "the full-screen map");
+  await showPopup(page, full, touch);
+  await auditState(page, "a popup on the full-screen map");
+  // Escape puts the popup away, then closes the map.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("map-popup")).toHaveCount(0);
+  await press(page.getByTestId("map-close"));
+  await expect(full).toBeHidden();
 }
 
 async function breakARule(page: Page, press: Press): Promise<void> {
@@ -49,9 +83,10 @@ for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} mode`, () => {
     test.use({ colorScheme: scheme });
 
-    test("the form, a plan, the swap sheet and a flagged edit pass the audits", async ({
+    test("the form, a plan, its map, the swap sheet and a flagged edit pass the audits", async ({
       page,
       press,
+      touch,
       twoPane,
     }) => {
       await openPlanner(page);
@@ -59,6 +94,8 @@ for (const scheme of ["light", "dark"] as const) {
 
       await planTrip(page, press);
       await auditState(page, "plan");
+
+      await auditMap(page, press, touch);
 
       await press(page.getByTestId("swap-button").first());
       await expect(page.getByTestId("alternatives-sheet")).toBeVisible();

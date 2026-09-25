@@ -1,10 +1,12 @@
 "use client";
 
-import type { DayPlan, PlannerContext } from "@italy/planner";
+import type { PlannerContext } from "@italy/planner";
 import dynamic from "next/dynamic";
-import { Component, type ReactNode, useMemo } from "react";
-import { type MapPoint, mapPoints } from "../lib/mapPoints";
+import { Component, type ComponentType, type ReactNode, useMemo } from "react";
+import { mapDayTitle, mapPoints } from "../lib/mapPoints";
+import type { DayView } from "../lib/timetable";
 import { MapUnavailable } from "./map/MapUnavailable";
+import type { DayMapInnerProps, MapDayOption } from "./map/types";
 import { Skeleton } from "./skeleton/Skeleton";
 
 // The day's map, below the timetable (beside it from 1024 px). MapLibre needs `window` and
@@ -12,12 +14,14 @@ import { Skeleton } from "./skeleton/Skeleton";
 // skeleton fills the frame, which keeps the map's size, so nothing moves when the map draws.
 // The map is optional: if its code cannot be fetched (a dropped request, offline before the
 // worker cached it), the browser has no WebGL 2, or MapLibre throws, the frame says so and the
-// rest of the page carries on. The map is hidden from screen readers because the timetable
-// above lists the same stops in the same order.
+// rest of the page carries on. Its stops are buttons named like the board's rows ("Stop 2,
+// Borghese Gallery, 10:50 to 12:50, lunch") that open the same details sheet; the drawing
+// itself is hidden from screen readers, since the timetable above lists the same stops.
+// "Expand map" opens the day's map full screen (DayMapInner).
 
 export { MAP_UNAVAILABLE, MapUnavailable } from "./map/MapUnavailable";
 
-type MapModule = { default: (props: { points: readonly MapPoint[] }) => ReactNode };
+type MapModule = { default: ComponentType<DayMapInnerProps> };
 
 const loadInner = () => import("./DayMapInner");
 
@@ -68,22 +72,45 @@ export function prefetchMap(): () => void {
 }
 
 interface DayMapProps {
-  day: DayPlan;
-  dayNumber: number;
+  days: readonly DayView[];
+  active: number; // the index of the day shown
   ctx: PlannerContext;
+  onSelectDay: (index: number) => void;
+  onDetails: (placeId: string, opener: HTMLElement) => void;
 }
 
-export function DayMap({ day, dayNumber, ctx }: DayMapProps) {
-  const points = useMemo(() => mapPoints(day, ctx), [day, ctx]);
+export function DayMap({ days, active, ctx, onSelectDay, onDetails }: DayMapProps) {
+  const view = days[active] ?? days[0];
+  const day = view?.day;
+  const points = useMemo(() => (day ? mapPoints(day, ctx) : []), [day, ctx]);
+  const options = useMemo(
+    () =>
+      days.map(
+        (item): MapDayOption => ({
+          index: item.index,
+          label: `Day ${item.index + 1}`,
+          name: mapDayTitle(item),
+        }),
+      ),
+    [days],
+  );
   const approximate = points.some((point) => point.approximate);
+  const dayNumber = (view?.index ?? 0) + 1;
   return (
     <figure className="day-map" data-testid="day-map">
       <p className="sr-only">
         Map of day {dayNumber}. It shows the stops listed above, numbered in visiting order.
       </p>
-      <div className="map-frame" aria-hidden="true">
+      <div className="map-frame">
         <MapBoundary>
-          <DayMapInner points={points} />
+          <DayMapInner
+            points={points}
+            title={view ? mapDayTitle(view) : ""}
+            days={options}
+            active={view?.index ?? 0}
+            onSelectDay={onSelectDay}
+            onDetails={onDetails}
+          />
         </MapBoundary>
       </div>
       <figcaption className="mt-2 text-sm text-muted">

@@ -3,6 +3,9 @@
  * Its frame has a fixed height, so the skeleton shown while MapLibre loads keeps its place.
  * The basemap's colours live in lib/mapStyle.ts (WebGL cannot read CSS); the stop markers take
  * the same ink and paper from it through --map-ink and --map-paper, set on .map-canvas.
+ * Each stop is a button; hovering or focusing it shows a small popup, square on paper with a
+ * hairline and a small shadow because it floats. "Expand map" opens the same map full screen in
+ * a dialog (.map-dialog), grown from the page's frame (components/map/motion.ts).
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -49,10 +52,24 @@
     }
   }
 
+  /* The page's frame and the dialog each hold one; the map's own container moves between them. */
+  .map-host,
   .map-canvas {
     width: 100%;
     height: 100%;
+  }
+
+  .map-canvas {
     font-family: var(--font-sans);
+  }
+
+  /* Decision: the top right corner. The credits sit bottom right, and a corner is the one place
+     a day's stops never crowd: the camera keeps every disc clear of it (DayMapInner). */
+  .map-expand {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
   }
 
   .map-placeholder {
@@ -85,6 +102,362 @@
     border: 2px dashed var(--map-ink, var(--fill));
     background: var(--map-paper, var(--page));
     color: var(--map-ink, var(--fill));
+  }
+
+  /* ----- A stop: a 44 px button around its 28 px disc ----- */
+
+  .map-stop {
+    position: relative;
+    width: 44px;
+    height: 44px;
+  }
+
+  .map-stop-button {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .map-stop-button .map-marker {
+    transition: scale var(--dur-move) var(--ease-out);
+  }
+
+  /* The focus ring follows the disc, not the square target around it. */
+  .map-stop-button:focus-visible {
+    outline: none;
+  }
+
+  .map-stop-button:focus-visible .map-marker {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* The disc lifts a little while its popup shows, and under a pointer. Motion is opted into:
+     under reduced motion nothing here scales or slides, and the popup only fades. */
+  @media (prefers-reduced-motion: no-preference) {
+    .map-stop[data-open] > .map-stop-button .map-marker {
+      scale: 1.08;
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .map-stop-button:hover .map-marker {
+      scale: 1.08;
+    }
+  }
+
+  /* ----- The stop's popup ----- */
+
+  /* 22 px (the disc's radius and 8 px of air) from the stop's centre, on the side that hides
+     the fewest other stops and stretches of route: above, below, right or left of it, centred on
+     it (lib/mapGeometry.ts). --shift slides it along that side to stay on the map. It grows in
+     from the side of its stop. */
+  .map-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 1;
+    display: grid;
+    width: max-content;
+    min-width: 176px;
+    max-width: 248px;
+    gap: 4px;
+    padding: 10px 14px 2px 10px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--surface);
+    box-shadow: var(--shadow-popup);
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    translate: calc(-50% + var(--shift, 0px)) calc(-100% - 22px);
+    transform-origin: 50% 100%;
+    transition:
+      opacity var(--dur-fade) var(--ease-out),
+      scale var(--dur-move) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .map-popup:not([data-placed]) {
+      scale: 0.96;
+    }
+  }
+
+  .map-popup[data-side="below"] {
+    translate: calc(-50% + var(--shift, 0px)) 22px;
+    transform-origin: 50% 0;
+  }
+
+  .map-popup[data-side="right"] {
+    translate: 22px calc(-50% + var(--shift, 0px));
+    transform-origin: 0 50%;
+  }
+
+  .map-popup[data-side="left"] {
+    translate: calc(-100% - 22px) calc(-50% + var(--shift, 0px));
+    transform-origin: 100% 50%;
+  }
+
+  .map-popup[data-placed] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .map-popup:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .map-popup-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .map-marker.map-popup-number {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border-width: 0;
+    font-size: 12px;
+  }
+
+  .map-marker--approximate.map-popup-number {
+    border-width: 1.5px;
+  }
+
+  .map-popup-name {
+    min-width: 0;
+    font-size: 1rem;
+    font-stretch: 112.5%;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  /* The times in the board's time role, then what the stop is for: a meal in ink, as on the
+     board, a visit in muted. Under the name, past the number. */
+  .map-popup-when,
+  .map-popup-details {
+    margin-left: 30px;
+  }
+
+  .map-popup-when {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px;
+  }
+
+  .map-popup-times {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .map-popup-role {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .map-popup-role[data-role="lunch"],
+  .map-popup-role[data-role="dinner"] {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  /* "Details" reads as a text button: ink with a strong hairline underline that turns gold. */
+  .map-popup-details {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-self: start;
+    gap: 2px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: underline 1px var(--line-strong);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--dur-color) ease;
+  }
+
+  .map-popup:hover .map-popup-details {
+    text-decoration-color: var(--gold);
+  }
+
+  .map-popup-chevron {
+    transform: rotate(-90deg);
+    transition: translate var(--dur-move) var(--ease-out);
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .map-popup:hover .map-popup-chevron {
+      translate: 2px 0;
+    }
+  }
+
+  /* ----- Full screen ----- */
+
+  /* The native dialog, opened with showModal(), filling the viewport. The map grows from its
+     box on the page inside .map-dialog-frame; the header and the day switcher follow it in. */
+  .map-dialog {
+    position: fixed;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+  }
+
+  .map-dialog[open] {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /* The page fades to paper behind the growing map. */
+  .map-dialog::backdrop {
+    background: var(--page);
+    opacity: 0;
+    transition: opacity var(--dur-exit) var(--ease-exit);
+  }
+
+  .map-dialog[data-state="full"]::backdrop {
+    opacity: 1;
+    transition: opacity var(--dur-arrive) var(--ease-out);
+  }
+
+  html:has(> body > .map-dialog[open]) {
+    overflow: hidden;
+  }
+
+  /* The header clears the status bar and the notch. */
+  .map-dialog-head {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: calc(var(--safe-top) + 10px) var(--gutter-x-right) 10px var(--gutter-x-left);
+    border-bottom: 1px solid var(--line);
+    background: var(--page);
+  }
+
+  .map-dialog-heading {
+    min-width: 0;
+  }
+
+  .map-dialog-title {
+    color: var(--fg);
+    text-wrap: balance;
+  }
+
+  .map-dialog-meta {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  /* Close map: a round icon pill on phones, with its words from 640 px (its size is outside
+     the layer, below, since .pill in globals.css is too). */
+  .map-dialog-close {
+    flex: none;
+  }
+
+  .map-dialog-close-label {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .map-dialog-close-label {
+      display: inline;
+    }
+  }
+
+  .map-dialog-stage {
+    position: relative;
+    min-height: 0;
+  }
+
+  .map-dialog-frame,
+  .map-dialog-inner {
+    position: absolute;
+    inset: 0;
+    transform-origin: 0 0;
+  }
+
+  .map-dialog-frame {
+    overflow: hidden;
+    background: var(--page);
+  }
+
+  /* The day switcher floats over the map's foot, clear of the home indicator. */
+  .map-dialog-days {
+    position: absolute;
+    bottom: calc(16px + var(--safe-bottom));
+    left: 50%;
+    z-index: 2;
+    width: min(300px, calc(100% - 32px));
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    translate: -50% 0;
+  }
+
+  .map-dialog-days .segmented {
+    box-shadow: var(--shadow-popup);
+  }
+
+  /* The header drops in and the switcher rises in as the map finishes growing, and both leave
+     first as it shrinks back. Under reduced motion the dialog fades as a whole (motion.ts). */
+  @media (prefers-reduced-motion: no-preference) {
+    .map-dialog-head,
+    .map-dialog-days {
+      opacity: 0;
+      transition:
+        opacity var(--dur-exit) var(--ease-exit),
+        translate var(--dur-exit) var(--ease-exit);
+    }
+
+    .map-dialog-head {
+      translate: 0 -8px;
+    }
+
+    .map-dialog-days {
+      translate: -50% 8px;
+    }
+
+    .map-dialog[data-state="full"] .map-dialog-head,
+    .map-dialog[data-state="full"] .map-dialog-days {
+      opacity: 1;
+      transition:
+        opacity var(--dur-arrive) var(--ease-out) 120ms,
+        translate var(--dur-arrive) var(--ease-out) 120ms;
+    }
+
+    .map-dialog[data-state="full"] .map-dialog-head {
+      translate: none;
+    }
+
+    .map-dialog[data-state="full"] .map-dialog-days {
+      translate: -50% 0;
+    }
   }
 }
 
@@ -130,4 +503,41 @@
 .map-canvas .maplibregl-cooperative-gesture-screen {
   background: var(--scrim);
   font-size: 0.9375rem;
+}
+
+/* Decision: outside the layer, like .pill in globals.css, which it resizes. */
+.map-dialog .map-dialog-close {
+  width: 44px;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .map-dialog .map-dialog-close {
+    width: auto;
+    padding: 0 18px 0 14px;
+  }
+}
+
+/* Full screen, the credits keep clear of the home indicator and the landscape notch, and from
+   1024 px, where they fit beside the day switcher, they show in full instead of folded. */
+.map-dialog .maplibregl-ctrl-bottom-right {
+  padding-right: var(--safe-right);
+  padding-bottom: var(--safe-bottom);
+}
+
+@media (min-width: 1024px) {
+  .map-dialog .map-canvas .maplibregl-ctrl-attrib.maplibregl-compact {
+    padding: 2px 8px;
+  }
+
+  .map-dialog .map-canvas .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner {
+    display: block;
+  }
+
+  .map-dialog
+    .map-canvas
+    .maplibregl-ctrl-attrib.maplibregl-compact
+    .maplibregl-ctrl-attrib-button {
+    display: none;
+  }
 }

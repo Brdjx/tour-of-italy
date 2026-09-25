@@ -35,6 +35,17 @@ async function tabTo(page: Page, testId: string, limit = 120, key = "Tab"): Prom
   throw new Error(`${key} never reached ${testId} in ${limit} presses`);
 }
 
+/** Whether the focused element, or the part of it named by `selector`, draws the focus ring. */
+async function ringShows(page: Page, selector?: string): Promise<boolean> {
+  return page.evaluate((part) => {
+    const focusedElement = document.activeElement;
+    const drawn = part ? focusedElement?.querySelector(part) : focusedElement;
+    if (!drawn) return false;
+    const style = getComputedStyle(drawn);
+    return style.outlineStyle === "solid" && Number.parseFloat(style.outlineWidth) >= 2;
+  }, selector);
+}
+
 async function expectFocusKept(page: Page, what: string): Promise<Focused> {
   const now = await focused(page);
   expect(now.tag, `${what}: focus fell to the page`).not.toBe("BODY");
@@ -150,4 +161,56 @@ test("opens a stop's details in a sheet and comes back to Details with the keybo
   await expect(sheet).toBeHidden();
   expect((await expectFocusKept(page, "closing the details")).testId).toBe("details-button");
   expect(await stopOf()).toBe(opener);
+});
+
+test("opens a stop's details and the full-screen map from the day's map with the keyboard alone", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByTestId("plan-button")).toBeVisible();
+  await tabTo(page, "plan-button");
+  const before = await plansAnnounced(page);
+  await page.keyboard.press("Enter");
+  await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
+  await expect(page.locator("#day-heading-0")).toBeFocused();
+
+  // Expand map, then the stops in visiting order, each with its ring and its popup.
+  await tabTo(page, "map-expand");
+  await expectFocusKept(page, "Expand map");
+  expect(await ringShows(page), "Expand map shows no focus ring").toBe(true);
+  const map = page.getByTestId("day-map");
+  const stops = map.getByTestId("map-stop");
+  const popup = page.getByTestId("map-popup");
+  for (const index of [0, 1]) {
+    await page.keyboard.press("Tab");
+    await expect(stops.nth(index)).toBeFocused();
+    expect(await ringShows(page, ".map-marker"), `stop ${index + 1} shows no ring`).toBe(true);
+    await expect(popup).toBeVisible();
+    await expect(popup).toHaveAccessibleName(/^Details for /);
+  }
+
+  // Enter opens the stop's details; Escape closes them and gives focus back to the stop.
+  await page.keyboard.press("Enter");
+  const sheet = page.getByTestId("details-sheet");
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(stops.nth(1)).toBeFocused();
+
+  // Expand map opens the map full screen with focus on its heading. There, Escape puts away a
+  // focused stop's popup first and closes the map second, and focus returns to Expand map.
+  await tabTo(page, "map-expand", 4, "Shift+Tab");
+  await page.keyboard.press("Enter");
+  const full = page.getByTestId("map-dialog");
+  await expect(full).toBeVisible();
+  await expect(page.getByTestId("map-dialog-title")).toBeFocused();
+  await tabTo(page, "map-stop", 4);
+  expect(await ringShows(page, ".map-marker"), "a full-screen stop shows no ring").toBe(true);
+  await expect(popup).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(full).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(full).toBeHidden();
+  await expect(page.getByTestId("map-expand")).toBeFocused();
 });

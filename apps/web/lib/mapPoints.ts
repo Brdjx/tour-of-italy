@@ -1,8 +1,10 @@
-import type { DayPlan, PlannerContext } from "@italy/planner";
+import type { DayPlan, PlannerContext, StopRole } from "@italy/planner";
+import { formatClock } from "./format";
+import type { DayView } from "./timetable";
 
-// Markers, route and camera bounds for the day map, numbered in visiting order. Kept out of the
-// map component so the numbering and the approximate-location rule are tested without a browser
-// map.
+// Markers, route and camera bounds for the day map, numbered in visiting order, and the words a
+// marker says about its stop. Kept out of the map component so the numbering, the labels and the
+// approximate-location rule are tested without a browser map.
 
 export interface MapPoint {
   number: number; // 1-based visiting order, matches the timetable
@@ -11,7 +13,13 @@ export interface MapPoint {
   lat: number;
   lng: number;
   approximate: boolean; // repaired coordinates: drawn as a paper disc with a dashed ring
+  start: number; // the stop's times, minutes after midnight, as the board shows them
+  end: number;
+  role: StopRole;
 }
+
+/** Anything with a position: bounds and the route need nothing else. */
+export type LatLng = Pick<MapPoint, "lat" | "lng">;
 
 export function mapPoints(day: DayPlan, ctx: PlannerContext): MapPoint[] {
   const points: MapPoint[] = [];
@@ -25,13 +33,16 @@ export function mapPoints(day: DayPlan, ctx: PlannerContext): MapPoint[] {
       lat: place.lat,
       lng: place.lng,
       approximate: place.locationSource !== "listed" && place.locationSource !== "swapped",
+      start: stop.start,
+      end: stop.end,
+      role: stop.role,
     });
   });
   return points;
 }
 
 /** South-west and north-east corners around the points, or null when there are none. */
-export function boundsOf(points: readonly MapPoint[]): [[number, number], [number, number]] | null {
+export function boundsOf(points: readonly LatLng[]): [[number, number], [number, number]] | null {
   if (points.length === 0) return null;
   let south = Number.POSITIVE_INFINITY;
   let west = Number.POSITIVE_INFINITY;
@@ -49,11 +60,37 @@ export function boundsOf(points: readonly MapPoint[]): [[number, number], [numbe
   ];
 }
 
-/** Marker HTML for one stop. Only a number goes in, so nothing from the data is injected. */
-export function markerHtml(point: Pick<MapPoint, "number" | "approximate">): string {
-  const number = Math.max(0, Math.floor(point.number));
-  const variant = point.approximate ? "map-marker map-marker--approximate" : "map-marker";
-  return `<span class="${variant}" aria-hidden="true">${number}</span>`;
+const ROLE_WORD: Record<StopRole, string> = { visit: "Visit", lunch: "Lunch", dinner: "Dinner" };
+
+/** "Visit", "Lunch" or "Dinner": what the stop is for, as the marker's popup says it. */
+export function roleWord(role: StopRole): string {
+  return ROLE_WORD[role];
+}
+
+/** "10:50 to 12:50", the stop's times as a line of text. */
+export function stopTimes(point: Pick<MapPoint, "start" | "end">): string {
+  return `${formatClock(point.start)} to ${formatClock(point.end)}`;
+}
+
+/**
+ * The marker's accessible name: "Stop 2, Borghese Gallery, 10:50 to 12:50, lunch". A plain
+ * visit says nothing more; a meal says which, and a repaired location says it is approximate.
+ */
+export function stopLabel(point: MapPoint): string {
+  const parts = [`Stop ${point.number}`, point.name, stopTimes(point)];
+  if (point.role !== "visit") parts.push(point.role);
+  if (point.approximate) parts.push("approximate location");
+  return parts.join(", ");
+}
+
+/** "Day 1, Fri 9 Oct, Rome": the full-screen map's heading. */
+export function mapDayTitle(view: Pick<DayView, "index" | "tabLabel" | "anchorName">): string {
+  return `Day ${view.index + 1}, ${view.tabLabel}, ${view.anchorName}`;
+}
+
+/** "6 stops, numbered in visiting order", under that heading. */
+export function stopCountText(count: number): string {
+  return `${count} ${count === 1 ? "stop" : "stops"}, numbered in visiting order`;
 }
 
 /** The route as GeoJSON: straight segments in visiting order, or nothing for a single stop. */
@@ -66,7 +103,7 @@ export interface RouteData {
   }[];
 }
 
-export function routeData(points: readonly MapPoint[]): RouteData {
+export function routeData(points: readonly LatLng[]): RouteData {
   if (points.length < 2) return { type: "FeatureCollection", features: [] };
   const coordinates = points.map((point): [number, number] => [point.lng, point.lat]);
   return {
@@ -77,7 +114,7 @@ export function routeData(points: readonly MapPoint[]): RouteData {
 
 /** boundsOf in MapLibre's order: [[west, south], [east, north]], or null when there are none. */
 export function lngLatBounds(
-  points: readonly MapPoint[],
+  points: readonly LatLng[],
 ): [[number, number], [number, number]] | null {
   const bounds = boundsOf(points);
   if (!bounds) return null;

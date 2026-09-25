@@ -217,6 +217,30 @@ components:
   flag-mark:
     height: "1cap"
     rounded: "{rounded.square}"
+  map-stop:
+    backgroundColor: "{colors.fill}"
+    textColor: "{colors.fill-fg}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    width: "44px"
+    height: "44px"
+  map-popup:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.square}"
+    padding: "10px 14px 2px 10px"
+    width: "248px"
+  map-expand:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+    width: "44px"
+    height: "44px"
+  map-dialog-head:
+    backgroundColor: "{colors.page}"
+    textColor: "{colors.ink}"
+    typography: "{typography.title}"
+    padding: "10px 16px"
 ---
 
 # Design System: 3 Days in Italy
@@ -229,7 +253,7 @@ Each day is a board you check once and trust, drawn in the Goodpix language of p
 
 Rank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.
 
-Motion starts at the top left: the flag's band draws across the top of the page as it opens, the flag mark's bands drop in and one breath of wind ripples through it from the hoist to the fly, a fold of light and shade travelling with it, and the rail diagram draws from Milan down to Rome. Then the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.
+Motion starts at the top left: the flag's band draws across the top of the page as it opens, the flag mark's bands drop in and one breath of wind ripples through it from the hoist to the fly, a fold of light and shade travelling with it, and the rail diagram draws from Milan down to Rome. Then the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Sheets rise on a smooth spring over a dimmed, softly blurred page, and on a phone the page behind scales back as on iOS. The day's map grows out of its frame to fill the screen on the same spring, a window opening onto a map that is never stretched, and shrinks back into its frame on the way out. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.
 
 **Key Characteristics:**
 - Paper and ink, with ink as the one solid fill.
@@ -252,7 +276,7 @@ A near-monochrome paper and ink palette with one warm gold and a caution yellow,
 
 ### Secondary
 - **Gold** (gold): marks that are not text. The day-tab indicator, the AI reason dot and the AI summary's dot, the ring of the AI source check, the inset bar on the chosen search option, the rule beside source details, underline colour on hover. Dark #c29d55.
-- **Gold text** (accent, focus): gold when it must be read, at 5.9:1 on the page. The tick of the AI source check, the caret, and every focus ring. Dark #d8bd82.
+- **Gold text** (accent, focus): gold when it must be read, at 5.9:1 on the page. The tick of the AI source check, the caret, and every focus ring, the one place gold touches the map (a focused stop's disc). Dark #d8bd82.
 - **Gold paper** (gold-soft): the count badge, text selection, and the base of the edited-row flash (22% in light, gold at 14% in dark). Dark #5a4a2a.
 - **Gold wash** (accent-soft): a chosen option's background. Dark #2a261c.
 
@@ -319,7 +343,7 @@ Rhythm is tight inside a row (2px to 8px), md between rows and header parts, and
 
 ## Elevation & Depth
 
-Flat. Depth on the page is tonal: warm paper for opened and matted things, hairlines for separation. Only floating things cast shadows: the sheets, the toast and the search listbox. Each shadow token has a stronger dark value.
+Flat. Depth on the page is tonal: warm paper for opened and matted things, hairlines for separation. Only floating things cast shadows: the sheets, the toast, the search listbox, a map stop's popup and the full-screen map's day switcher. Each shadow token has a stronger dark value.
 
 A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur (`--sheet-blur`). On phones the page behind scales to 0.94 (`--recede-page`) and drops toward the sheet, over the black surround. A sheet opened over another pushes that one back to 0.94 (`--recede-sheet`) and starts 24px lower (`--sheet-stack`) so the one beneath peeks out; the second backdrop only dims, without a second blur.
 
@@ -327,6 +351,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 - **Float** (`--shadow-float`): the toast, the swap side sheet from 768px, and the centred sheet panel from 768px.
 - **Sheet** (`--shadow-sheet`): bottom sheets on phones, cast upward.
 - **Menu** (`--shadow-menu`): the place search listbox.
+- **Popup** (`--shadow-popup`): a map stop's popup and the full-screen map's day switcher, the two things that float over the map. Small and close, 0 6px 18px -6px.
 - **Scrim** (`--scrim`): the backdrop behind an open sheet, blurred behind every sheet (Edit trip, More options, a stop's or a place's details, About this data); a sheet over a sheet only dims.
 
 ### Named Rules
@@ -334,7 +359,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 
 ## Shapes
 
-Two shapes, and one named exception. Containers, inputs, choice chips, note chips, the listbox, the toast, banners and photos are square (0). Anything pressed is a pill (999px): buttons, the segmented pace control and its thumb, removable place tokens, stop actions, the count badge, the sheet grabber. Sheets round their corners (sheet, 20px): the top two on a phone bottom sheet, all four on the centred panel from 768px. Small status marks are dots (7px to 8px circles); the caution marker is a square. Map stops are 28px ink discs with a 2px paper ring; an approximate location is a paper disc with a dashed ink ring.
+Two shapes, and one named exception. Containers, inputs, choice chips, note chips, the listbox, the toast, banners and photos are square (0). Anything pressed is a pill (999px): buttons, the segmented pace control and its thumb, removable place tokens, stop actions, the count badge, the sheet grabber. Sheets round their corners (sheet, 20px): the top two on a phone bottom sheet, all four on the centred panel from 768px. Small status marks are dots (7px to 8px circles); the caution marker is a square. Map stops are 28px ink discs with a 2px paper ring inside a 44px round target; an approximate location is a paper disc with a dashed ink ring. A stop's popup is square with a hairline, like a container; Expand map, Close map and the full-screen day switcher are pills.
 
 ### Named Rules
 **The Rounded Sheet Rule.** The sheets (Edit trip, More options, a stop's details, a place's details and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.
@@ -380,7 +405,14 @@ Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) 
 A few real places on the first screen, each one button: the square photo, the name in the tab role with a small muted chevron after it that points onward (it opens a sheet, like Details and More options), and the city in muted small text. Its name for assistive technology is "Colosseum, Rome: photo, details and credit". On a pointer an ink hairline draws round the photo 2px out (transparent at rest on every screen, so a screen that starts reporting a pointer never flashes it), the photo leans in 4% inside its square and the chevron nudges 2px; focus puts the gold ring round the whole tile, photo, name and city; a press scales the tile to 0.98. Under reduced motion the hairline still comes, and nothing moves. The tiles keep their diagonal sweep in from the top left, which ends unclipped (inset -4px) so the ring shows whole.
 
 ### Map
-Stops are ink discs with paper numbers; gold stays off the map. Discs closer than 22px centre to centre are nudged apart along the line between them, never more than 12px from their place, and ease back as the map zooms in. An earlier stop draws above a later one.
+Stops are ink discs with paper numbers; gold stays off the map, except the focus ring around a focused stop's disc. Discs closer than 22px centre to centre are nudged apart along the line between them, never more than 12px from their place, and ease back as the map zooms in. An earlier stop draws above a later one.
+- **Stops are buttons:** each disc sits in a 44px round target named like its row ("Stop 2, Borghese Gallery, 10:50 to 12:50, lunch"), in visiting order, so Tab walks the day. The drawing and its controls are hidden from screen readers; the timetable stays the text equivalent. The disc lifts to 1.08 under a pointer and while its popup shows.
+- **Popup:** hovering a stop (after 250ms, like a tooltip), or focusing it from the keyboard, shows a small card: the number on a 22px disc, the place name in the tab role, the times in the time role, the role (a meal in ink at 500, a visit muted) and "Details" as a text button. Square, a hairline, surface paper and the popup shadow, because it floats. It sits 22px from the stop's centre, above, below, right or left of it, centred on it or lined up with its number level with the stop's, wherever it stays on the map (8px in from the edges, clear of Expand map, the landscape notch and the day switcher) and covers the fewest other stops, then the least of the route; it prefers above, then below, right and left, and never covers its own stop. Its stop draws above every other while it shows. The pointer can travel into it. Escape, a press elsewhere, a drag and a new day put it away; an Escape pressed elsewhere on the page still does its own work there too. On touch a tap shows it and a second tap opens the details, however quickly it follows: a tap on a stop or its popup never counts toward the map's double-tap zoom, while a drag or a pinch that starts on a stop still moves the map. A device that cannot hover never shows it on hover. A click or tap on it, a mouse click on the stop, or Enter on a focused stop opens the stop's details sheet, the same sheet the board's Details opens, and closing it gives focus back to the stop. It grows from its stop's side by 0.96 to 1 and fades in; under reduced motion it only fades. On a phone's page map a stop inside a tight cluster can still cover a neighbour, where no place that stays on the map clears them all; full screen spreads them apart.
+- **Expand map:** a 44px outline round pill, 8px in from the top right corner of the page's map. The credits sit bottom right, and a corner is where a day's stops are least likely to be: when a stop, nudged or not, would reach the pill, the camera frames the day lower (82px of top padding instead of 40) so no stop is ever under it.
+- **Full screen:** the native dialog with showModal, so the page is inert and a stop's details sheet stacks above it. A paper header with a hairline under it clears the status bar and the notch: the day ("Day 1, Fri 9 Oct, Rome") in the title role, the stop count in muted body small, and Close map (a round icon pill on phones, icon and words from 640px). The day switcher floats at the foot above the home indicator: the pace control's pill track and ink thumb, with the popup shadow; switching there switches the page's day too. The map takes every gesture there (no page to scroll), frames the day with room for the switcher, and the credits show in full from 1024px. Escape, the dialog's cancel and Close map shrink it back, and focus returns to Expand map. It is one map: the same MapLibre map moves from the page into the dialog and back, keeping its tiles, camera and stops; it draws its first full-screen frame in 30 to 45ms, where a second map would take 250 to 630ms to draw and 9.6MB (38MB at 2x) of drawing buffers.
+- **Motion:** the dialog's frame grows from the page map's box to the screen on the smooth spring over 450ms and shrinks back over 340ms; the map inside it is scaled back by the inverse at every step, so it is never stretched and the growing window reveals more of it around the same centre. The camera glides to the full-screen framing as it grows and back to the page's framing as it shrinks, so it lands where the page's map carries on. The page fades to paper behind it; the header drops 8px and the switcher rises 8px into place as it finishes. Under reduced motion the dialog fades in over 180ms and out over 160ms, and the camera jumps.
+
+**The Unstretched Map Rule.** The map is never scaled out of its proportions to animate it. Motion moves a window onto it, or its camera; its discs stay round and its labels stay upright at every frame.
 
 ### Place sheet
 A highlight tile opens its place in a sheet, the stop details sheet's sibling built from the same parts (`components/PlaceParts.tsx`), with no visit and no date: the name as the title, "type in neighbourhood, city" under it; the photo large with its full credit; the AI summary, its label ("Summary by AI, from the listing") in the muted label role after the AI's gold dot, its one or two sentences leaning; the facts that hold on any date as the same hairline board (the typical visit; the hours by weekday as the data states them, days with the same hours run together from Monday, "Mon to Sat 09:00 to 19:00", "Sun Closed", tabular; the dates it opens; booking when the listing states it; price; rating); what the data cannot confirm with caution squares; and the listing's own description last, upright, beside its strong hairline. The parts drop in 28ms apart. Closing gives focus back to the tile. A place with no saved summary shows none: the summaries are written once by Claude from each place's own listing and each passed a code check before it was saved.
@@ -407,6 +439,7 @@ A highlight tile opens its place in a sheet, the stop details sheet's sibling bu
 - **Do** keep every control at least 44px tall and every text input at 16px.
 - **Do** open the plan view with the trip header, not a navbar.
 - **Do** keep the flag's colours to the top band and the flag mark, at the government's values.
+- **Do** open a stop's details from the map and the board into the same sheet, and give focus back to what opened it.
 
 ### Don't:
 - **Don't** fill with gold anywhere except the count badge.
@@ -420,3 +453,4 @@ A highlight tile opens its place in a sheet, the stop details sheet's sibling bu
 - **Don't** open a stop's details inside its row; they open in the sheet.
 - **Don't** put a credit line under a small photo; the full credit belongs where the photo is large, one tap away.
 - **Don't** show AI-written words without their label, upright, or as the listing's.
+- **Don't** stretch the map to animate it, or put a control where a stop can sit under it.

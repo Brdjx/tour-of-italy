@@ -59,12 +59,12 @@ interface Drag {
 
 // Decision: feature-checked, because jsdom (the unit tests) has <dialog> without showModal() or
 // close(). There the open attribute alone shows it; the page's inertness is a browser matter.
-function showModal(dialog: HTMLDialogElement): void {
+export function showModal(dialog: HTMLDialogElement): void {
   if (typeof dialog.showModal === "function") dialog.showModal();
   else dialog.setAttribute("open", "");
 }
 
-function closeModal(dialog: HTMLDialogElement): void {
+export function closeModal(dialog: HTMLDialogElement): void {
   if (typeof dialog.close === "function") dialog.close();
   else dialog.removeAttribute("open");
 }

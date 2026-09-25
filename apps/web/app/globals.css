@@ -71,6 +71,7 @@
   --shadow-float: 0 14px 40px -8px rgb(17 17 15 / 0.22);
   --shadow-menu: 0 18px 50px rgb(17 17 15 / 0.14);
   --shadow-sheet: 0 -14px 40px -8px rgb(17 17 15 / 0.22); /* the bottom sheet, lit from above */
+  --shadow-popup: 0 6px 18px -6px rgb(17 17 15 / 0.24); /* a map stop's popup, the day switcher */
   --scrim: rgb(17 17 15 / 0.42);
   /* Sheets (styles/sheet.css). Decision: rounded top corners on sheets are the owner's explicit
      request for an Apple-style sheet; containers elsewhere stay square. */
@@ -184,6 +185,7 @@
     --shadow-float: 0 14px 40px -8px rgb(0 0 0 / 0.55);
     --shadow-menu: 0 18px 50px rgb(0 0 0 / 0.45);
     --shadow-sheet: 0 -14px 40px -8px rgb(0 0 0 / 0.55);
+    --shadow-popup: 0 8px 22px -6px rgb(0 0 0 / 0.6);
     --scrim: rgb(0 0 0 / 0.56);
     /* The same flag on the dark page, where its white band needs no edge. */
     --flag-green: #008c45;

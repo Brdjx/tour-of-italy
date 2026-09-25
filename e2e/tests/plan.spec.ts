@@ -53,7 +53,7 @@ test.describe("planning a trip", () => {
         .then((texts) => texts.map(Number).sort((a, b) => a - b));
     for (let day = 1; day <= TRIP_DAYS; day++) {
       const stops = await readDay(page, press, day);
-      await expect(map.locator(".leaflet-container")).toBeVisible();
+      await expect(map.locator(".maplibregl-canvas")).toBeVisible();
       const expected = stops.map((_, index) => index + 1);
       await expect.poll(numbers, `markers on day ${day}`).toEqual(expected);
     }

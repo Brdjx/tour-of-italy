@@ -40,6 +40,9 @@ function point(number: number, lat: number, lng: number): MapPoint {
     lat,
     lng,
     approximate: false,
+    start: 540,
+    end: 600,
+    role: "visit",
   };
 }
 

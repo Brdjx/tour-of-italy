@@ -127,3 +127,15 @@ export function BackIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Two arrows out to opposite corners: open the map full screen. */
+export function ExpandIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M14.5 4H20v5.5" />
+      <path d="m20 4-6.2 6.2" />
+      <path d="M9.5 20H4v-5.5" />
+      <path d="m4 20 6.2-6.2" />
+    </Svg>
+  );
+}
