@@ -110,6 +110,40 @@ describe("the plan's map and board", () => {
     expect(document.activeElement).toBe(marker);
   });
 
+  it("steps from a marker's stop to the next, marks it open on the board, and closes onto its marker", async () => {
+    const user = userEvent.setup();
+    render(<Page />);
+    const view = must(days[0]);
+    const markers = screen.getAllByTestId("map-stop");
+    await user.hover(must(markers[1]));
+    await user.click(await screen.findByTestId("map-popup"));
+    await user.click(screen.getByTestId("details-next"));
+    const shown = must(view.rows[2]);
+    expect(screen.getByTestId("details-title").textContent).toBe(shown.place?.name);
+    // The board's Details now says the stop shown is the one open, and the first no longer is.
+    const expanded = screen
+      .getAllByTestId("details-button")
+      .map((button) => button.getAttribute("aria-expanded"));
+    expect(expanded.slice(0, 3)).toEqual(["false", "false", "true"]);
+    await user.keyboard("{Escape}");
+    expect(sheet().open).toBe(false);
+    // Focus lands on the stop now shown, on the map that opened the sheet.
+    expect(document.activeElement).toBe(markers[2]);
+  });
+
+  it("steps over the full-screen map and closes onto the marker of the stop shown there", async () => {
+    const user = userEvent.setup();
+    render(<Page />);
+    await user.click(screen.getByRole("button", { name: "Expand map" }));
+    const markers = within(mapDialog()).getAllByTestId("map-stop");
+    await user.click(must(markers[3]));
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(screen.getByTestId("details-title").textContent).toBe(days[0]?.rows[1]?.place?.name);
+    await user.keyboard("{Escape}");
+    expect(mapDialog().open).toBe(true);
+    expect(document.activeElement).toBe(markers[1]);
+  });
+
   it("switches the page's day from the full-screen map", async () => {
     const user = userEvent.setup();
     render(<Page />);

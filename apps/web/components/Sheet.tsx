@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  type CSSProperties,
+  type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -13,6 +15,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { gestureAxis } from "../lib/stopSteps";
 import { CloseIcon } from "./icons";
 
 // A sheet over the page, in the Apple manner: on phones it rises from the bottom with a grabber
@@ -24,6 +27,7 @@ import { CloseIcon } from "./icons";
 // inert page and Escape. Focus goes to `initialFocus` on open and back to `returnFocus` (or
 // whatever had focus before) on close. A tap on the dimmed page closes it too. The sheet stays
 // mounted while closed, so what the traveler typed in it survives closing and opening again.
+// A `footer` sits pinned under the scrolling body, above the home indicator.
 
 /** "tall" reaches up to just under the status bar on phones; "fit" is as tall as its content. */
 export type SheetSize = "tall" | "fit";
@@ -35,6 +39,9 @@ interface SheetProps {
   size: SheetSize;
   header: ReactNode; // the title and the sheet's actions, beside the grabber
   children: ReactNode;
+  footer?: ReactNode; // pinned under the body
+  onKeyDown?: (event: KeyboardEvent<HTMLDialogElement>) => void; // before the sheet's own keys
+  onFocus?: (event: FocusEvent<HTMLDialogElement>) => void; // focus coming to anything in it
   id?: string;
   className?: string;
   testId?: string;
@@ -50,7 +57,9 @@ const DISMISS_MIN = 24; // px, so a flick on the grabber is not read as a close
 
 interface Drag {
   pointer: number;
+  startX: number;
   startY: number;
+  axis: "x" | "y" | null; // decided by the first few px (lib/stopSteps.ts)
   dy: number;
   lastY: number;
   lastT: number;
@@ -130,6 +139,7 @@ export function Sheet(props: SheetProps) {
   // closing) marks it handled, and the sheet stays. Stopping it here keeps a sheet stacked on
   // another from closing both: React passes events up through portals.
   const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+    latest.current.onKeyDown?.(event);
     if (event.key !== "Escape" || event.defaultPrevented) return;
     event.preventDefault();
     event.stopPropagation();
@@ -163,7 +173,9 @@ export function Sheet(props: SheetProps) {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = {
       pointer: event.pointerId,
+      startX: event.clientX,
       startY: event.clientY,
+      axis: null,
       dy: 0,
       lastY: event.clientY,
       lastT: event.timeStamp,
@@ -175,6 +187,14 @@ export function Sheet(props: SheetProps) {
     const dialog = dialogRef.current;
     const current = drag.current;
     if (!dialog || !current || current.pointer !== event.pointerId) return;
+    // Decision: the sheet follows only a finger that sets off downward. A sideways start is not a
+    // close (in a stop's details, sideways steps to another stop), so the drag ends there.
+    current.axis ??= gestureAxis(event.clientX - current.startX, event.clientY - current.startY);
+    if (current.axis === null) return;
+    if (current.axis === "x") {
+      drag.current = null;
+      return;
+    }
     const elapsed = Math.max(1, event.timeStamp - current.lastT);
     current.speed = (event.clientY - current.lastY) / elapsed;
     current.lastY = event.clientY;
@@ -209,6 +229,7 @@ export function Sheet(props: SheetProps) {
       aria-modal="true"
       className={`form-sheet form-sheet--${size}${className ? ` ${className}` : ""}`}
       onKeyDown={onKeyDown}
+      onFocus={props.onFocus}
       onCancel={onCancel}
       onClose={onNativeClose}
       onClick={onClick}
@@ -225,6 +246,7 @@ export function Sheet(props: SheetProps) {
         <div className="form-sheet-head-row">{header}</div>
       </div>
       <div className="form-sheet-body">{children}</div>
+      {props.footer ? <div className="form-sheet-foot">{props.footer}</div> : null}
     </dialog>,
     host,
   );
@@ -238,6 +260,11 @@ interface SheetTitleBarProps {
   // A line under the title. When given (even as null while the sheet empties on close), the
   // title and it stand together in one block, so the close pill stays at the top.
   subtitle?: ReactNode;
+  // The title block's own attributes: a stop's details marks a step on it, so the new name and
+  // subtitle slide in from the side they came from (details.css).
+  headingProps?: { "data-stepped"?: "true"; style?: CSSProperties };
+  // Controls before the close pill, grouped with it (a stop's Previous and Next from 768 px).
+  actions?: ReactNode;
   closeLabel: string; // "Close details", "Back to plan"
   closeTestId: string;
   onClose: () => void;
@@ -260,25 +287,35 @@ export function SheetTitleBar(props: SheetTitleBarProps) {
       {props.title}
     </h2>
   );
+  const close = (
+    <button
+      type="button"
+      className="pill pill--quiet pill--round form-sheet-close"
+      onClick={props.onClose}
+      aria-label={props.closeLabel}
+      data-testid={props.closeTestId}
+    >
+      <CloseIcon size={22} />
+    </button>
+  );
   return (
     <>
       {props.subtitle === undefined ? (
         heading
       ) : (
-        <div className="details-sheet-heading">
+        <div className="details-sheet-heading" {...props.headingProps}>
           {heading}
           {props.subtitle}
         </div>
       )}
-      <button
-        type="button"
-        className="pill pill--quiet pill--round form-sheet-close"
-        onClick={props.onClose}
-        aria-label={props.closeLabel}
-        data-testid={props.closeTestId}
-      >
-        <CloseIcon size={22} />
-      </button>
+      {props.actions === undefined ? (
+        close
+      ) : (
+        <div className="form-sheet-actions details-sheet-actions">
+          {props.actions}
+          {close}
+        </div>
+      )}
     </>
   );
 }

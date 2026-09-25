@@ -76,7 +76,7 @@ interface DayMapProps {
   active: number; // the index of the day shown
   ctx: PlannerContext;
   onSelectDay: (index: number) => void;
-  onDetails: (placeId: string, opener: HTMLElement) => void;
+  onDetails: DayMapInnerProps["onDetails"];
 }
 
 export function DayMap({ days, active, ctx, onSelectDay, onDetails }: DayMapProps) {

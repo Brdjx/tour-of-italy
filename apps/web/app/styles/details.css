@@ -5,7 +5,10 @@
  * name with its subtitle under it; the body the photo large and square-cornered with its full
  * credit, the AI summary under its own label, the facts as a small board of hairline rows, what
  * the data cannot confirm, and the listing's description set apart as its own words. The parts
- * drop in one after another as the sheet arrives, like the More options fields.
+ * drop in one after another as the sheet arrives, like the More options fields. In a stop's
+ * details, Previous and Next step through the day's stops: pills in a bar at the foot on phones,
+ * round pills beside Close from 768 px; a step slides the new stop's parts in from the side it
+ * came from, like a new day's board, while the sheet and the photo's frame stay.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -21,6 +24,123 @@
   .details-sheet-heading {
     min-width: 0;
     padding: 10px 0 4px;
+  }
+
+  /* The name's own box, a new one for each stop, so it can slide in while the heading keeps
+     focus. */
+  .details-part {
+    display: block;
+  }
+
+  .details-sheet-actions {
+    gap: 0;
+  }
+
+  /* ----- Stepping: Previous, the position and Next ----- */
+
+  /* Decision: the sheet keeps one height from stop to stop, as tall as a sheet goes, so a step
+     never moves the controls under the thumb or the pointer. Nearly every stop fills it anyway:
+     measured 788 to 832 px of 832 at 390 x 844, and 784 to 836 of 836 at 1440 x 900. */
+  @media (max-width: 767px) {
+    .details-sheet--steps {
+      top: calc(var(--safe-top) + var(--sheet-top));
+    }
+  }
+
+  @media (min-width: 768px) {
+    .details-sheet--steps {
+      height: min(calc(100dvh - 64px), 880px);
+    }
+  }
+
+  .step-controls {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  /* On phones: a bar at the foot, Previous at the left, the position in the middle, Next at the
+     right, each pill where the thumb finds it again on the next step. */
+  .step-controls--foot {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .step-pill {
+    gap: 6px;
+  }
+
+  /* Two pills of one width, whatever their words, so the bar balances on the position. */
+  .step-controls--foot .step-pill {
+    padding: 0 16px;
+  }
+
+  .step-pill svg {
+    transition: translate var(--dur-move) var(--ease-out);
+  }
+
+  /* "3 of 6", in the label role and tabular figures; wide enough for "10 of 10", so the pills
+     never shift as the count grows. */
+  .step-position {
+    min-width: 4.5em;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+
+  /* From 768 px: round quiet pills beside Close, like it, with a hairline between the two. */
+  .step-controls--head {
+    display: flex;
+    align-items: center;
+  }
+
+  .step-controls--head .step-position {
+    min-width: 4.25em;
+  }
+
+  .step-controls--head::after {
+    width: 1px;
+    height: 24px;
+    margin: 0 6px 0 8px;
+    background: var(--line);
+    content: "";
+  }
+
+  /* On a pointer the chevron leans the way it goes, like Details' chevron on the board. */
+  @media (hover: hover) {
+    .step-pill--previous:hover:not([aria-disabled="true"]) svg {
+      translate: -2px 0;
+    }
+
+    .step-pill--next:hover:not([aria-disabled="true"]) svg {
+      translate: 2px 0;
+    }
+  }
+
+  /* The body under the head follows a sideways finger (lib/useSwipeSteps.ts) and springs back
+     when the swipe falls short; the page's own vertical scroll and a pinch to zoom are left to
+     the browser, which cancels the swipe when it takes a pinch. */
+  .details-swipe {
+    flex: 1 0 auto;
+  }
+
+  .details-sheet--steps .details-swipe {
+    touch-action: pan-y pinch-zoom;
+    transition: transform var(--dur-move) var(--ease-out);
+  }
+
+  .details-sheet--steps .details-swipe[data-swiping] {
+    transition: none;
+  }
+
+  /* Following a finger to the right would make the body scroll sideways. */
+  .details-sheet .form-sheet-body {
+    overflow-x: hidden;
   }
 
   /* ----- The body ----- */
@@ -203,9 +323,47 @@
     animation-delay: 164ms;
   }
 
+  /* ----- A step: the new stop's parts slide in from the side it came from (--from) ----- */
+
+  /* Decision: the day panels' own day-in, so a new stop arrives as a new day's board does. The
+     photo's frame stays, and its new photo fades in over the last (PlacePhotoImage). */
+  .details-sheet-heading[data-stepped] > .form-sheet-title > .details-part,
+  .details-sheet-heading[data-stepped] > .stop-subtitle,
+  .form-sheet[open] .place-details[data-stepped] > *,
+  .form-sheet[open] .place-details[data-stepped] > .place-details-photo > figcaption {
+    animation: day-in var(--dur-move) var(--ease-content) both;
+    animation-delay: 0ms;
+  }
+
+  .form-sheet[open] .place-details[data-stepped] > .place-details-photo {
+    animation: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .form-sheet[open] .place-details > * {
       animation: none;
+    }
+
+    /* A step fades; nothing slides, follows a finger or leans. */
+    .details-sheet-heading[data-stepped] > .form-sheet-title > .details-part,
+    .details-sheet-heading[data-stepped] > .stop-subtitle,
+    .form-sheet[open] .place-details[data-stepped] > *,
+    .form-sheet[open] .place-details[data-stepped] > .place-details-photo > figcaption {
+      animation: fade 120ms ease both;
+    }
+
+    .form-sheet[open] .place-details[data-stepped] > .place-details-photo {
+      animation: none;
+    }
+
+    .details-sheet--steps .details-swipe,
+    .step-pill svg {
+      transition: none;
+    }
+
+    .step-pill--previous:hover:not([aria-disabled="true"]) svg,
+    .step-pill--next:hover:not([aria-disabled="true"]) svg {
+      translate: none;
     }
   }
 }

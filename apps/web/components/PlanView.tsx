@@ -19,7 +19,8 @@ import { StopDetailsSheet } from "./StopDetailsSheet";
 // the new board in from the side it was reached from; the map stays mounted so its camera can
 // move to the new day instead of starting over. The day's details sheet lives here, so a stop's
 // photo or Details on the board and its marker on the map (on the page or full screen) open the
-// same sheet on the same stop.
+// same sheet on the same stop, and stepping in it to another stop marks that stop's row as the
+// one open (useStopDetails).
 
 const NO_ROWS: readonly RowView[] = [];
 
@@ -118,16 +119,7 @@ export function PlanView(props: PlanViewProps) {
           />
         </div>
       ) : null}
-      {day ? (
-        <StopDetailsSheet
-          id={details.control.id}
-          open={details.open}
-          row={details.row}
-          date={day.day.date}
-          onClose={details.close}
-          returnFocus={details.returnFocus}
-        />
-      ) : null}
+      {day ? <StopDetailsSheet {...details.sheet} date={day.day.date} /> : null}
     </section>
   );
 }

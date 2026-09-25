@@ -1,4 +1,5 @@
 import type { MapPoint } from "../../lib/mapPoints";
+import type { FindOpener, StopRef } from "../../lib/useStopDetails";
 
 // The props of the lazily loaded map (DayMapInner), in their own file so DayMap and the notice
 // that stands in for the map can name them without importing the map's code.
@@ -16,5 +17,6 @@ export interface DayMapInnerProps {
   days: readonly MapDayOption[];
   active: number; // the day on the map, and on the page
   onSelectDay: (index: number) => void;
-  onDetails: (placeId: string, opener: HTMLElement) => void; // opens the stop's details sheet
+  // Opens the stop's details sheet; `find` gives the stop button for another stop on this map.
+  onDetails: (stop: StopRef, opener: HTMLElement, find?: FindOpener) => void;
 }

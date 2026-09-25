@@ -333,11 +333,41 @@
     opacity: 1;
   }
 
+  /* The last photo, under a new one as that fades in (a stop's details stepping to the next
+     stop), so the frame shows no empty tile between two photos. It waits 120 ms, long enough for
+     a photo at hand to arrive, then fades out: a photo that is slow to come shows the tile, never
+     the last place's photo under the next place's name. */
+  .place-photo .place-photo-under {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 1;
+    transition: none;
+    animation: photo-leave var(--dur-fade) ease 120ms forwards;
+  }
+
+  @keyframes photo-leave {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .place-photo .place-photo-under + .place-photo-img {
+    position: relative;
+  }
+
   /* A city or general photo sits inset on a warm mat, with a label: never full bleed like a
      photo of the place itself. */
   .place-photo--matted {
     padding: 6px;
     background: var(--surface-warm);
+  }
+
+  .place-photo--matted .place-photo-under {
+    top: 6px;
+    left: 6px;
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
   }
 
   .place-photo-chip {

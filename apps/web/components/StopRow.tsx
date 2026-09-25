@@ -10,7 +10,7 @@ import {
   ratingText,
 } from "../lib/format";
 import type { PlacePhoto } from "../lib/placePhotos";
-import type { RowView } from "../lib/timetable";
+import { type RowView, stopName } from "../lib/timetable";
 import { ClockText } from "./Clock";
 import { ChevronIcon } from "./icons";
 import { PlacePhotoImage } from "./PlacePhotoImage";
@@ -61,7 +61,7 @@ export function StopRow(props: StopRowProps) {
   const { row, dayIndex, date, isLast, dayStopCount, changed, timesChanged, photo } = props;
   const { stop, place } = row;
   const { detailsId, detailsOpen, onDetails } = props;
-  const name = place?.name ?? "A place no longer in the data";
+  const name = stopName(row);
   const rating = ratingText(place?.rating ?? null);
   const price = place?.priceLevel ?? null;
   const style = { "--i": row.index } as CSSProperties;

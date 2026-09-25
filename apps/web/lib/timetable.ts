@@ -41,6 +41,11 @@ export interface RowView {
   reason: string | null; // the why line, without what the row already shows
 }
 
+/** What a stop is called: its place's name, or a plain line for a place no longer in the data. */
+export function stopName(row: Pick<RowView, "place">): string {
+  return row.place?.name ?? "A place no longer in the data";
+}
+
 export interface TransferView {
   text: string; // "3 h 5 min by high-speed train from Rome"
   depart: number; // the pace's day start, minutes after midnight

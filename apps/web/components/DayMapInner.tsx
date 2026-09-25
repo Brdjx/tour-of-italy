@@ -29,6 +29,7 @@ import {
 } from "../lib/mapGeometry";
 import { lngLatBounds, type MapPoint, routeData } from "../lib/mapPoints";
 import { BASEMAP_SOURCE, mapStyle, markerColors, PALETTES } from "../lib/mapStyle";
+import type { StopRef } from "../lib/useStopDetails";
 import { ExpandIcon } from "./icons";
 import {
   CAMERA_MS,
@@ -227,6 +228,21 @@ export default function DayMapInner(props: DayMapInnerProps) {
   const pointer = useRef<string | null>(null); // the kind of pointer that pressed a stop last
   const latest = useRef(props);
   latest.current = props;
+  const stopsNow = useRef(stops);
+  stopsNow.current = stops;
+
+  // The button of another stop on this map, where focus goes when the details sheet closes on a
+  // stop the traveler stepped to (useStopDetails); null for a stop the map does not draw. By its
+  // number first, then its place, as the day's order may have changed under the sheet.
+  const findStop = useCallback((stop: StopRef) => {
+    const points = stopsNow.current.points;
+    const numbered = points.findIndex(
+      (point) => point.number === stop.index + 1 && point.placeId === stop.placeId,
+    );
+    const index =
+      numbered >= 0 ? numbered : points.findIndex((point) => point.placeId === stop.placeId);
+    return index < 0 ? null : (buttons.current[index] ?? null);
+  }, []);
 
   const clearTimer = useCallback(() => {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -463,7 +479,7 @@ export default function DayMapInner(props: DayMapInnerProps) {
     const button = buttons.current[index];
     if (!point || !button) return;
     hidePopup();
-    onDetails(point.placeId, button);
+    onDetails({ index: point.number - 1, placeId: point.placeId }, button, findStop);
   };
 
   const handlers: MapStopHandlers = {

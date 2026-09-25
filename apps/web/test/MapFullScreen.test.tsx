@@ -6,6 +6,7 @@ import { DISC_REACH, EXPAND_CLEAR } from "../components/map/camera";
 import type { DayMapInnerProps } from "../components/map/types";
 import { type MapPoint, mapDayTitle, mapPoints, stopLabel } from "../lib/mapPoints";
 import { buildTripView } from "../lib/timetable";
+import type { FindOpener, StopRef } from "../lib/useStopDetails";
 import * as fake from "./fakeMapLibre";
 import { lastMap } from "./fakeMapLibre";
 import { ctx, fixturePlan, must } from "./fixtures";
@@ -27,6 +28,12 @@ const options = days.map((day) => ({
 
 function dayPoints(index: number): MapPoint[] {
   return mapPoints(must(days[index]).day, ctx);
+}
+
+/** The first day's stop a marker opens: where it is in the day's order, and its place. */
+function stopRef(marker: number): StopRef {
+  const point = must(dayPoints(0)[marker]);
+  return { index: point.number - 1, placeId: point.placeId };
 }
 
 function renderMap(props: Partial<DayMapInnerProps> = {}) {
@@ -199,14 +206,21 @@ describe("the map's stops", () => {
     const { user, onDetails } = renderMap();
     await user.hover(must(stops()[1]));
     await user.click(await screen.findByTestId("map-popup"));
-    expect(onDetails).toHaveBeenCalledWith(dayPoints(0)[1]?.placeId, stops()[1]);
+    expect(onDetails).toHaveBeenCalledWith(stopRef(1), stops()[1], expect.any(Function));
     expect(popup()).toBeNull();
+    // With it, the button of any other stop on this map, for the sheet to give focus back to
+    // after the traveler steps to that stop; nothing for a place the map does not draw.
+    const find = onDetails.mock.calls[0]?.[2] as FindOpener;
+    expect(find(stopRef(3))).toBe(stops()[3]);
+    // A stop the day's order moved under the sheet is found by its place.
+    expect(find({ ...stopRef(3), index: 0 })).toBe(stops()[3]);
+    expect(find({ index: 3, placeId: "place_none" })).toBeNull();
   });
 
   it("opens the details at once on a mouse click on the stop itself", async () => {
     const { user, onDetails } = renderMap();
     await user.click(must(stops()[2]));
-    expect(onDetails).toHaveBeenCalledWith(dayPoints(0)[2]?.placeId, stops()[2]);
+    expect(onDetails).toHaveBeenCalledWith(stopRef(2), stops()[2], expect.any(Function));
   });
 
   it("shows the popup on keyboard focus, and Enter opens the details", async () => {
@@ -215,7 +229,7 @@ describe("the map's stops", () => {
     act(() => must(stops()[0]).focus());
     expect(popup()?.getAttribute("aria-label")).toBe(`Details for ${dayPoints(0)[0]?.name}`);
     await user.keyboard("{Enter}");
-    expect(onDetails).toHaveBeenCalledWith(dayPoints(0)[0]?.placeId, stops()[0]);
+    expect(onDetails).toHaveBeenCalledWith(stopRef(0), stops()[0], expect.any(Function));
     // Focus leaving the stop takes the popup with it.
     act(() => must(stops()[1]).focus());
     act(() => screen.getByTestId("map-expand").focus());
@@ -239,7 +253,7 @@ describe("the map's stops", () => {
     const shown = must(popup(), "the popup after a tap");
     fireEvent.pointerDown(shown, { pointerType: "touch" });
     fireEvent.click(shown);
-    expect(onDetails).toHaveBeenCalledWith(dayPoints(0)[1]?.placeId, stop);
+    expect(onDetails).toHaveBeenCalledWith(stopRef(1), stop, expect.any(Function));
     // A second tap on the stop itself does the same.
     fireEvent.pointerDown(stop, { pointerType: "touch" });
     fireEvent.click(stop);

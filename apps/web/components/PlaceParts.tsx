@@ -12,17 +12,19 @@ import { PhotoCredit, PlacePhotoImage } from "./PlacePhotoImage";
 // and the listing's own description set apart as its words. Each part is one child of
 // .place-details, so the sheet's arrival staggers them (details.css).
 
-/** The photo at 3:2 with its full credit: author, licence linked to its text, Commons page. */
-export function PlacePhotoFigure({ photo }: { photo: PlacePhoto }) {
+/** The large photo's width: the panel's column from 768 px, the screen less its gutters below. */
+export const PLACE_PHOTO_SIZES = "(min-width: 768px) 504px, calc(100vw - 32px)";
+
+/**
+ * The photo at 3:2 with its full credit: author, licence linked to its text, Commons page.
+ * `creditKey` names whose credit it is, so a new place's credit is a new element (a stop's
+ * details stepping to the next stop slides it in) while the photo's frame stays.
+ */
+export function PlacePhotoFigure({ photo, creditKey }: { photo: PlacePhoto; creditKey?: string }) {
   return (
     <figure className="place-details-photo">
-      <PlacePhotoImage
-        photo={photo}
-        shape="wide"
-        sizes="(min-width: 768px) 504px, calc(100vw - 32px)"
-        eager
-      />
-      <figcaption>
+      <PlacePhotoImage photo={photo} shape="wide" sizes={PLACE_PHOTO_SIZES} eager />
+      <figcaption key={creditKey}>
         <PhotoCredit photo={photo} />
       </figcaption>
     </figure>

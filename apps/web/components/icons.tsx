@@ -120,10 +120,20 @@ export function ChevronIcon(props: IconProps) {
   );
 }
 
+/** Points left: back, or the previous stop. */
 export function BackIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+}
+
+/** Points right: the next stop. */
+export function ForwardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m9 18 6-6-6-6" />
     </Svg>
   );
 }

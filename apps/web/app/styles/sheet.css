@@ -185,6 +185,20 @@
     scroll-padding-bottom: 96px;
   }
 
+  /* A footer pinned under the body (a stop's details: Previous and Next) carries the home
+     indicator's inset, so the body above it keeps only its own. */
+  .form-sheet-foot {
+    flex: none;
+    padding: 10px max(var(--sheet-pad), var(--safe-right)) max(10px, var(--safe-bottom))
+      max(var(--sheet-pad), var(--safe-left));
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .form-sheet-body:has(+ .form-sheet-foot) {
+    padding-bottom: 20px;
+  }
+
   .form-sheet-lede {
     margin-bottom: 22px;
     color: var(--muted);
