@@ -6,6 +6,7 @@ import { DataNotesPanel } from "../components/DataNotesPanel";
 import type { Health } from "../lib/apiSchemas";
 import { photoCredits } from "../lib/placePhotos";
 import file from "../lib/placeSummaries.data.json";
+import { CLAIM_STARTS } from "../lib/sourceText";
 import { ctx, dataset, must, places } from "./fixtures";
 
 // "About this data" opens over the page instead of unfolding under the footer. Every number in it
@@ -225,14 +226,30 @@ describe("the About this data overlay", () => {
     const line = screen.getByTestId("about-plan-line").textContent ?? "";
     expect(line).toContain("The line under the trip's dates says how the plan on screen was made.");
     expect(line).toContain("gold when the AI planner chose the places and wrote the reasons");
-    expect(line).toContain(
-      '"Fixed after a check" means the AI\'s first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.',
-    );
-    expect(line).toContain("A shared link carries only the trip's settings and places");
-    expect(line).toContain("A saved trip keeps the times and reasons it was saved with");
     const marks = screen.getByTestId("about-plan-marks").textContent ?? "";
+    expect(marks).toContain('After a change the line adds "edited".');
     expect(marks).toContain("Every edit is checked again");
     expect(marks).toContain("a filled gold dot marks a reason the AI wrote");
+  });
+
+  it("explains each claim of the source line in a row keyed by the words the line starts with", () => {
+    renderSheet(async () => health(null, false));
+    const rows = screen.getAllByTestId("about-plan-claim");
+    const term = (row: HTMLElement) => row.querySelector("dt")?.textContent;
+    const meaning = (row: HTMLElement) => row.querySelector("dd")?.textContent ?? "";
+    expect(rows.map(term)).toEqual(Object.values(CLAIM_STARTS));
+    const by = (claim: string) => meaning(must(rows.find((row) => term(row) === claim)));
+    expect(by("Planned with AI, fixed after a check")).toBe(
+      "The AI's first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.",
+    );
+    expect(by("Planned without AI")).toContain("The words after the colon say why");
+    expect(by("Planned on this device")).toContain("so it made one by rules");
+    expect(by("Shared plan, rebuilt from its places")).toContain(
+      "A shared link carries only the trip's settings and places",
+    );
+    expect(by("Saved trip")).toContain(
+      "A saved link keeps the times and reasons the trip was saved with",
+    );
   });
 
   it("says how many places have an AI summary, which model wrote them and when, from the file", () => {

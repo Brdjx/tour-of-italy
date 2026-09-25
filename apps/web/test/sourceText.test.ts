@@ -1,7 +1,7 @@
 import { FALLBACK_REASONS, type FallbackReason } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { fromBase64Url, toBase64Url } from "../lib/base64url";
-import { FALLBACK_CLAIM, ON_DEVICE_CLAIM, sourceText } from "../lib/sourceText";
+import { CLAIM_STARTS, FALLBACK_CLAIM, ON_DEVICE_CLAIM, sourceText } from "../lib/sourceText";
 import { aiPlan, fixturePlan } from "./fixtures";
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -121,6 +121,43 @@ describe("sourceText", () => {
     expect(sourceText(fallback("timeout"), "api", { edited: true }).claim).toBe(
       "Planned without AI: the AI planner timed out, edited",
     );
+  });
+
+  it('starts every claim with words About this data\'s "How a plan is made" explains', () => {
+    const ai = aiPlan();
+    const saved = {
+      id: "a1B2c3D4e5",
+      createdAt: new Date(2026, 8, 20, 12).toISOString(),
+      plannedBy: "ai" as const,
+      edited: false,
+      retimed: false,
+    };
+    const claims = [
+      sourceText(ai, "api").claim,
+      sourceText({ ...ai, source: "ai_repaired" }, "api").claim,
+      sourceText(fixturePlan(), "api").claim,
+      ...FALLBACK_REASONS.map((reason) => sourceText(fallback(reason), "api").claim),
+      sourceText(fixturePlan(), "offline").claim,
+      ...Object.keys(ON_DEVICE_CLAIM).map(
+        (cause) =>
+          sourceText(fixturePlan(), "offline", { cause: cause as keyof typeof ON_DEVICE_CLAIM })
+            .claim,
+      ),
+      sourceText(ai, "shared").claim,
+      sourceText(ai, "saved").claim,
+      sourceText(ai, "saved", { saved, now: NOW }).claim,
+      sourceText(fixturePlan(), "saved", { saved: { ...saved, plannedBy: "rules" }, now: NOW })
+        .claim,
+    ];
+    const starts = Object.values(CLAIM_STARTS);
+    for (const claim of claims) {
+      expect(
+        starts.some((start) => claim.startsWith(start)),
+        claim,
+      ).toBe(true);
+    }
+    // And each explained start is one the line really makes.
+    for (const start of starts) expect(claims.some((claim) => claim.startsWith(start))).toBe(true);
   });
 
   describe("a trip opened from a saved link", () => {

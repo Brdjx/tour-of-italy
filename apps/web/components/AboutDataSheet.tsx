@@ -26,6 +26,7 @@ import { fetchHealth } from "../lib/api";
 import type { Health } from "../lib/apiSchemas";
 import { plural } from "../lib/format";
 import { summaryRecord } from "../lib/placeSummaries";
+import { CLAIM_STARTS } from "../lib/sourceText";
 import { SUMMARY_LABEL } from "./PlaceParts";
 import { LicenceLink } from "./PlacePhotoImage";
 import { Sheet, SheetTitleBar } from "./Sheet";
@@ -297,27 +298,58 @@ function PlanSection({ model }: { model: string | null }) {
         when the AI is unavailable or there is no connection, and the page says which one it is.
       </p>
       {/* Decision: what the source line under the trip's dates means, said once here, so the line
-          itself can stay one line of facts (components/SourceBadge.tsx). */}
+          itself can stay one line of facts (components/SourceBadge.tsx). Each claim is a row
+          keyed by the words the line starts with, so a traveler finds the line they saw. */}
       <p className="about-text" data-testid="about-plan-line">
         The line under the trip's dates says how the plan on screen was made. Its check means every
         stop passed that check: gold when the AI planner chose the places and wrote the reasons, ink
-        when the reasons come from the rules. "Fixed after a check" means the AI's first draft broke
-        a rule, so code dropped or reordered stops, or asked the AI to fix it. "Planned without AI"
-        says why when the AI planner could not answer, and "Planned on this device" means no plan
-        this page could use came from the server, so it made one by rules. A shared link carries
-        only the trip's settings and places, so its plan is rebuilt here with the current data: its
-        times worked out again and its reasons from the rules. A saved trip keeps the times and
-        reasons it was saved with, unless the place data has changed since, when its times are
-        worked out again and its reasons come from the rules.
+        when the reasons come from the rules.
       </p>
+      <dl className="about-groups about-claims" data-testid="about-plan-claims">
+        {CLAIM_MEANINGS.map(([claim, meaning]) => (
+          <div key={claim} className="about-group" data-testid="about-plan-claim">
+            <dt className="about-group-title">{claim}</dt>
+            <dd className="about-group-text">{meaning}</dd>
+          </div>
+        ))}
+      </dl>
       <p className="about-text" data-testid="about-plan-marks">
-        Every edit is checked again, and a red dot with a count in place of the check means the plan
-        breaks a rule now: the flagged stops and days say which. On each stop, a filled gold dot
-        marks a reason the AI wrote and an open dot one the rules wrote.
+        After a change the line adds "edited". Every edit is checked again, and a red dot with a
+        count to fix in place of the check means the plan breaks a rule now: the flagged stops and
+        days say which. On each stop, a filled gold dot marks a reason the AI wrote and an open dot
+        one the rules wrote.
       </p>
     </Section>
   );
 }
+
+/** What each claim of the source line means, by the words it starts with (lib/sourceText.ts). */
+const CLAIM_MEANINGS: ReadonlyArray<readonly [string, string]> = [
+  [
+    CLAIM_STARTS.ai,
+    "The AI planner chose the places and wrote the reasons, and its plan passed the check as it wrote it.",
+  ],
+  [
+    CLAIM_STARTS.repaired,
+    "The AI's first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.",
+  ],
+  [
+    CLAIM_STARTS.rules,
+    "The rules made the plan. The words after the colon say why the AI's plan was not used: the planner was off, timed out, was busy, declined or failed, its plan broke a rule, or the server could not be reached.",
+  ],
+  [
+    CLAIM_STARTS.device,
+    "No plan this page could use came from the server, so it made one by rules. The words after it say why, when the page knows.",
+  ],
+  [
+    CLAIM_STARTS.shared,
+    "A shared link carries only the trip's settings and places, so its plan is rebuilt here with the current data: its times worked out again and its reasons from the rules.",
+  ],
+  [
+    CLAIM_STARTS.saved,
+    'A saved link keeps the times and reasons the trip was saved with, and the line adds "planned with AI" when the AI planned it, and the day it was saved. If the place data has changed since, its times are worked out again and its reasons come from the rules.',
+  ],
+];
 
 function SummariesSection({ places }: { places: readonly Place[] }) {
   const record = useMemo(() => summaryRecord(places.map((place) => place.id)), [places]);

@@ -30,6 +30,19 @@ export interface SourceStatus {
   now?: Date; // today, so a saved trip's day names its year only when it is not this year's
 }
 
+/**
+ * The first words of every claim, in the order About this data's "How a plan is made" explains
+ * them, keyed by their own wording there. Every claim the line makes starts with one of them.
+ */
+export const CLAIM_STARTS = {
+  ai: "Planned with AI",
+  repaired: "Planned with AI, fixed after a check",
+  rules: "Planned without AI",
+  device: "Planned on this device",
+  shared: "Shared plan, rebuilt from its places",
+  saved: "Saved trip",
+} as const;
+
 // Decision: a few words each, so every claim but the rare "the server's plan broke a rule" fits
 // one line on a 390 px phone (328 px of text, measured). After an edit, with ", edited" and Undo
 // beside it, a longer claim wraps to a second line beside the mark. Reasons that mean the same
@@ -77,11 +90,11 @@ interface Base {
  * rules, since a plan made with the traveler's notes keeps no AI text on record either.
  */
 function savedBase(itinerary: Itinerary, saved: SavedTrip | null, now: Date): Base {
-  if (!saved) return { claim: "Saved trip", ai: false, edited: false };
+  if (!saved) return { claim: CLAIM_STARTS.saved, ai: false, edited: false };
   const ai = saved.plannedBy !== "rules";
   const day = shortDayOfTimestamp(saved.createdAt, now);
   const parts = [
-    "Saved trip",
+    CLAIM_STARTS.saved,
     ...(ai ? ["planned with AI"] : []),
     ...(day ? [`saved ${day}`] : []),
   ];
@@ -102,20 +115,20 @@ function baseFor(itinerary: Itinerary, origin: PlanOrigin, status: SourceStatus)
   if (origin === "saved") {
     return savedBase(itinerary, status.saved ?? null, status.now ?? new Date());
   }
-  if (origin === "shared") return { ...base, claim: "Shared plan, rebuilt from its places" };
+  if (origin === "shared") return { ...base, claim: CLAIM_STARTS.shared };
   if (origin === "offline") {
     const cause = status.cause ?? null;
-    return { ...base, claim: cause ? ON_DEVICE_CLAIM[cause] : "Planned on this device" };
+    return { ...base, claim: cause ? ON_DEVICE_CLAIM[cause] : CLAIM_STARTS.device };
   }
-  if (itinerary.source === "ai") return { ...base, claim: "Planned with AI", ai: true };
+  if (itinerary.source === "ai") return { ...base, claim: CLAIM_STARTS.ai, ai: true };
   // Decision: the page cannot tell whether the server tidied the draft itself or asked the AI
   // again (services/api/src/plan/tidy.ts), so the words claim neither; About this data says
   // both ways a draft is fixed.
   if (itinerary.source === "ai_repaired") {
-    return { ...base, claim: "Planned with AI, fixed after a check", ai: true };
+    return { ...base, claim: CLAIM_STARTS.repaired, ai: true };
   }
   const reason = itinerary.meta.fallbackReason;
-  return { ...base, claim: reason ? FALLBACK_CLAIM[reason] : "Planned without AI" };
+  return { ...base, claim: reason ? FALLBACK_CLAIM[reason] : CLAIM_STARTS.rules };
 }
 
 export function sourceText(

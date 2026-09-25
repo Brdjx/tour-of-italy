@@ -222,6 +222,12 @@
     line-height: 1.45;
   }
 
+  /* What the source line's claims mean ("How a plan is made"): the same rows, each keyed by the
+     words the line starts with. */
+  .about-claims + .about-text {
+    margin-top: 14px;
+  }
+
   /* A long list folds: the first names and a toggle; open, the whole list in their place. */
   .about-names-summary {
     display: flex;
