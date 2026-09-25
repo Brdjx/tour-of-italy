@@ -153,6 +153,64 @@ describe("the flag mark's wave", () => {
     expect(state()).toBe("rest");
   });
 
+  it("keeps waving while a mouse rests on it, then finishes the breath and rests", async () => {
+    motion(true);
+    const begin = smil();
+    render(<FlagMark />);
+    await act(async () => {});
+    const mark = screen.getByTestId("flag-mark");
+    const waves = mark.querySelectorAll("animate");
+    const breath = () => must(waves[0]).dispatchEvent(new Event("endEvent"));
+    await act(async () => breath());
+    expect(state()).toBe("rest");
+    begin.mockClear();
+    // A mouse arrives: a breath begins at once, and each end begins the next.
+    await act(async () => {
+      mark.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+    });
+    expect(state()).toBe("waving");
+    expect(begin).toHaveBeenCalledTimes(waves.length);
+    await act(async () => breath());
+    expect(state()).toBe("waving");
+    expect(begin).toHaveBeenCalledTimes(2 * waves.length);
+    // The mouse leaves mid-breath: that breath finishes, then the flag rests.
+    await act(async () => {
+      mark.dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse" }));
+    });
+    expect(state()).toBe("waving");
+    await act(async () => breath());
+    expect(state()).toBe("rest");
+    expect(begin).toHaveBeenCalledTimes(2 * waves.length);
+  });
+
+  it("does not keep waving for a touch, which never leaves", async () => {
+    motion(true);
+    const begin = smil();
+    render(<FlagMark />);
+    await act(async () => {});
+    const mark = screen.getByTestId("flag-mark");
+    await act(async () => must(mark.querySelector("animate")).dispatchEvent(new Event("endEvent")));
+    begin.mockClear();
+    await act(async () => {
+      mark.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "touch" }));
+    });
+    expect(state()).toBe("rest");
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  it("does not wave on hover for a traveler who asked for reduced motion", async () => {
+    motion(false);
+    const begin = smil();
+    render(<FlagMark />);
+    await act(async () => {});
+    const mark = screen.getByTestId("flag-mark");
+    await act(async () => {
+      mark.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+    });
+    expect(state()).toBe("rest");
+    expect(begin).not.toHaveBeenCalled();
+  });
+
   it("rests flat where SMIL is missing", async () => {
     motion(true);
     render(<FlagMark />);

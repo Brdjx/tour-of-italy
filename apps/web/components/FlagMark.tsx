@@ -19,7 +19,8 @@ import {
 // The flag mark that leads the first screen's title, at the title's cap height, like a lockup.
 // Its three bands draw in from the top, green then white then red (CSS, tricolore.css), in the
 // page's sweep from the top left; then one breath of wind passes through it, a fold of light and
-// shade travelling with the ripple, and it rests flat (SMIL, lib/flagWave.ts). Its colours are
+// shade travelling with the ripple, and it rests flat (SMIL, lib/flagWave.ts). A mouse resting on
+// it keeps it waving until the mouse leaves. Its colours are
 // the Tricolore Rule's tokens; the light and shade are paper and ink laid over them, at nothing
 // when the flag is flat.
 //
@@ -101,32 +102,54 @@ export function FlagMark() {
       return;
     }
     let live = true;
+    let drawn = false;
+    let hovering = false;
+    let waving = false;
     const waves = [...svg.querySelectorAll<SmilAnimation>(".flag-mark-wave")];
+    const first = waves[0];
+    const rest = () => {
+      waving = false;
+      svg.dataset.state = "rest";
+    };
     const wave = () => {
       if (!live) return;
       // Checked again here: the bands' drop-in can end early (cancelled), and this runs then too.
-      if (!motionAllowed()) {
-        svg.dataset.state = "rest";
-        return;
-      }
-      const first = waves[0];
+      if (!motionAllowed()) return rest();
       // No SMIL here (the unit tests' DOM): the flag stays at rest, flat.
-      if (typeof first?.beginElement !== "function") {
-        svg.dataset.state = "rest";
-        return;
-      }
+      if (typeof first?.beginElement !== "function") return rest();
+      waving = true;
       svg.dataset.state = "waving";
-      first.addEventListener("endEvent", () => {
-        svg.dataset.state = "rest";
-      });
       for (const animation of waves) animation.beginElement?.();
     };
+    // Decision: while a mouse rests on the flag, each breath's end begins the next, so it keeps
+    // waving; when the mouse leaves, the breath under way finishes and the flag settles flat,
+    // never stopping mid-ripple. Every breath starts and ends flat, so the joins do not jump.
+    // Touch is left out: a finger never leaves, and a tap would set it waving for good.
+    const ended = () => (live && hovering ? wave() : rest());
+    const enter = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      hovering = true;
+      if (drawn && !waving) wave();
+    };
+    const leave = () => {
+      hovering = false;
+    };
+    first?.addEventListener("endEvent", ended);
+    svg.addEventListener("pointerenter", enter);
+    svg.addEventListener("pointerleave", leave);
     // The wind comes once the bands have drawn in, when their CSS animations finish.
+    const begin = () => {
+      drawn = true;
+      wave();
+    };
     const drawing =
       typeof svg.getAnimations === "function" ? svg.getAnimations({ subtree: true }) : [];
-    Promise.all(drawing.map((animation) => animation.finished)).then(wave, wave);
+    Promise.all(drawing.map((animation) => animation.finished)).then(begin, begin);
     return () => {
       live = false;
+      first?.removeEventListener("endEvent", ended);
+      svg.removeEventListener("pointerenter", enter);
+      svg.removeEventListener("pointerleave", leave);
     };
   }, []);
 
