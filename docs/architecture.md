@@ -46,7 +46,7 @@ POST /api/plan
        the pace's limit; reorder a day the scheduler cannot time (bases and choices kept,
        and every must-include in the answer stays on one of its days); then drop the latest
        ordinary visit a day's hours cannot hold until it times cleanly (never a must-include
-       or a meal the day needs)
+       or a meal the day needs), and put each back where the day's order holds it after all
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
