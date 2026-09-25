@@ -58,7 +58,7 @@ const input: SelectInput = {
 };
 
 describe("createAnthropicClient request shape", () => {
-  it("asks Sonnet 5 for structured JSON with effort and no temperature", async () => {
+  it("asks Sonnet 5 for structured JSON with effort, thinking off and no temperature", async () => {
     const { sdk, calls } = fakeSdk(async () => message(JSON.stringify(ANSWER)));
     const client = createAnthropicClient({
       apiKey: "k",
@@ -79,6 +79,7 @@ describe("createAnthropicClient request shape", () => {
         format: { type: "json_schema", schema: SELECTION_JSON_SCHEMA },
         effort: "low",
       },
+      thinking: { type: "disabled" },
     });
     // No SDK retries: its retry would sleep out a long retry-after inside our time budget.
     expect(options).toEqual({ timeout: 9_000, signal, maxRetries: 0 });

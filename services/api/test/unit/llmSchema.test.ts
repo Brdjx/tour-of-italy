@@ -120,7 +120,7 @@ describe("per-model settings", () => {
   it("sends effort and no temperature to Sonnet 5, which rejects temperature", () => {
     const settings = settingsFor("claude-sonnet-5", "low");
 
-    expect(settings).toMatchObject({ family: "sonnet-5", effort: "low" });
+    expect(settings).toMatchObject({ family: "sonnet-5", effort: "low", thinkingDisabled: true });
     expect(settings.temperature).toBeUndefined();
   });
 
@@ -129,6 +129,7 @@ describe("per-model settings", () => {
       const settings = settingsFor(id, "high");
       expect(settings).toMatchObject({ family: "haiku-4-5", temperature: 0.2 });
       expect(settings.effort).toBeUndefined();
+      expect(settings.thinkingDisabled).toBeUndefined();
     }
   });
 

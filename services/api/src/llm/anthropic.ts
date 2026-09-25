@@ -59,6 +59,7 @@ export function createAnthropicClient(options: AnthropicClientOptions): LlmClien
         ...(settings.effort === undefined ? {} : { effort: settings.effort }),
       },
       ...(settings.temperature === undefined ? {} : { temperature: settings.temperature }),
+      ...(settings.thinkingDisabled ? { thinking: { type: "disabled" as const } } : {}),
     };
     const started = now();
     let message: Anthropic.Message;
