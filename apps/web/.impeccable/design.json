@@ -1,0 +1,660 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T03:51:42.008Z",
+  "title": "Design System: 3 Days in Italy",
+  "extensions": {
+    "colorMeta": {
+      "page": {
+        "role": "neutral",
+        "displayName": "Page",
+        "canonical": "#ffffff",
+        "dark": "#11110f",
+        "cssVar": "--page",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "dark": "#1b1b18",
+        "cssVar": "--surface",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface-warm": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#f6f5f0",
+        "dark": "#1f1e1a",
+        "cssVar": "--surface-warm",
+        "oklch": "oklch(97.0% 0.007 97.4)",
+        "tonalRamp": [
+          "#0c0b08",
+          "#262521",
+          "#43423e",
+          "#62615d",
+          "#83827e",
+          "#a6a5a0",
+          "#cac9c4",
+          "#efeeea"
+        ]
+      },
+      "tile": {
+        "role": "neutral",
+        "displayName": "Tile",
+        "canonical": "#f4f4f1",
+        "dark": "#1f1f1c",
+        "cssVar": "--tile",
+        "oklch": "oklch(96.6% 0.004 106.5)",
+        "tonalRamp": [
+          "#0b0b09",
+          "#252523",
+          "#424240",
+          "#61615f",
+          "#828280",
+          "#a5a5a2",
+          "#c9c9c6",
+          "#efefec"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Ink",
+        "canonical": "#11110f",
+        "dark": "#f3f2ec",
+        "cssVar": "--fg",
+        "oklch": "oklch(17.7% 0.004 106.8)",
+        "tonalRamp": [
+          "#0b0b09",
+          "#252523",
+          "#424240",
+          "#61615f",
+          "#828280",
+          "#a5a5a2",
+          "#c9c9c6",
+          "#efefec"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#6a6a63",
+        "dark": "#a3a197",
+        "cssVar": "--muted",
+        "oklch": "oklch(52.2% 0.011 106.8)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#262520",
+          "#42423c",
+          "#62625b",
+          "#83837c",
+          "#a6a69e",
+          "#cacac2",
+          "#efefe7"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#dcdad3",
+        "dark": "#34332d",
+        "cssVar": "--line",
+        "oklch": "oklch(88.8% 0.010 93.6)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#272520",
+          "#44423c",
+          "#63615b",
+          "#84827c",
+          "#a7a59e",
+          "#cbc9c2",
+          "#f0eee7"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#85837a",
+        "dark": "#75736a",
+        "cssVar": "--line-strong",
+        "oklch": "oklch(60.9% 0.014 96.5)",
+        "tonalRamp": [
+          "#0d0b05",
+          "#27251e",
+          "#44423a",
+          "#636159",
+          "#848279",
+          "#a7a59c",
+          "#cbc9c0",
+          "#f1efe5"
+        ]
+      },
+      "fill": {
+        "role": "primary",
+        "displayName": "Ink Fill",
+        "canonical": "#11110f",
+        "dark": "#f3f2ec",
+        "cssVar": "--fill",
+        "oklch": "oklch(17.7% 0.004 106.8)",
+        "tonalRamp": [
+          "#0b0b09",
+          "#252523",
+          "#424240",
+          "#61615f",
+          "#828280",
+          "#a5a5a2",
+          "#c9c9c6",
+          "#efefec"
+        ]
+      },
+      "fill-fg": {
+        "role": "primary",
+        "displayName": "Paper On Ink",
+        "canonical": "#ffffff",
+        "dark": "#11110f",
+        "cssVar": "--fill-fg",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "fill-hover": {
+        "role": "primary",
+        "displayName": "Ink Hover",
+        "canonical": "#2a2a26",
+        "dark": "#dcdad3",
+        "cssVar": "--fill-hover",
+        "oklch": "oklch(28.4% 0.007 106.8)",
+        "tonalRamp": [
+          "#0b0b08",
+          "#252521",
+          "#42423e",
+          "#61615d",
+          "#83837e",
+          "#a5a5a0",
+          "#c9c9c4",
+          "#efefe9"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover Wash",
+        "canonical": "#f3f3f0",
+        "dark": "#25241f",
+        "cssVar": "--hover",
+        "oklch": "oklch(96.3% 0.004 106.5)",
+        "tonalRamp": [
+          "#0b0b09",
+          "#252523",
+          "#424240",
+          "#61615f",
+          "#828280",
+          "#a5a5a2",
+          "#c9c9c6",
+          "#efefec"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Gold Text",
+        "canonical": "#7d5f2c",
+        "dark": "#d8bd82",
+        "cssVar": "--accent",
+        "oklch": "oklch(50.5% 0.078 78.6)",
+        "tonalRamp": [
+          "#1b0400",
+          "#391e00",
+          "#583c00",
+          "#795b28",
+          "#9c7d4a",
+          "#c0a06c",
+          "#e5c48f",
+          "#ffe9b3"
+        ]
+      },
+      "accent-soft": {
+        "role": "secondary",
+        "displayName": "Gold Wash",
+        "canonical": "#f6f0e1",
+        "dark": "#2a261c",
+        "cssVar": "--accent-soft",
+        "oklch": "oklch(95.6% 0.021 88.7)",
+        "tonalRamp": [
+          "#0f0b03",
+          "#292519",
+          "#464235",
+          "#666154",
+          "#878274",
+          "#aaa597",
+          "#cfc9ba",
+          "#f4eedf"
+        ]
+      },
+      "gold": {
+        "role": "secondary",
+        "displayName": "Gold",
+        "canonical": "#a8864b",
+        "dark": "#c29d55",
+        "cssVar": "--gold",
+        "oklch": "oklch(63.9% 0.088 80.0)",
+        "tonalRamp": [
+          "#1d0300",
+          "#3a1d00",
+          "#5a3b00",
+          "#7b5b1d",
+          "#9e7c41",
+          "#c29f64",
+          "#e7c387",
+          "#ffe9ab"
+        ]
+      },
+      "gold-soft": {
+        "role": "secondary",
+        "displayName": "Gold Paper",
+        "canonical": "#d8bd82",
+        "dark": "#5a4a2a",
+        "cssVar": "--gold-soft",
+        "oklch": "oklch(80.8% 0.082 86.0)",
+        "tonalRamp": [
+          "#1a0500",
+          "#362000",
+          "#553e00",
+          "#765d23",
+          "#987f45",
+          "#bca268",
+          "#e1c68b",
+          "#ffebaf"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Caution",
+        "canonical": "#f3d27a",
+        "dark": "#e3c46a",
+        "cssVar": "--warn",
+        "oklch": "oklch(87.3% 0.114 89.4)",
+        "tonalRamp": [
+          "#1d0300",
+          "#3a1e00",
+          "#5a3c00",
+          "#7b5d00",
+          "#9d7e1f",
+          "#c1a149",
+          "#e6c66e",
+          "#ffeb93"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger",
+        "canonical": "#b3261e",
+        "dark": "#f2837a",
+        "cssVar": "--danger",
+        "oklch": "oklch(50.1% 0.178 28.7)",
+        "tonalRamp": [
+          "#2d0000",
+          "#510000",
+          "#752019",
+          "#9a4238",
+          "#c06458",
+          "#e68779",
+          "#ffab9c",
+          "#ffd0c0"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Danger Soft",
+        "canonical": "#fbeceb",
+        "dark": "#2c1b1a",
+        "cssVar": "--danger-soft",
+        "oklch": "oklch(95.5% 0.016 22.1)",
+        "tonalRamp": [
+          "#110808",
+          "#2d2221",
+          "#4a3f3e",
+          "#6a5e5d",
+          "#8c7f7e",
+          "#afa1a0",
+          "#d4c5c4",
+          "#f9eae9"
+        ]
+      },
+      "focus": {
+        "role": "secondary",
+        "displayName": "Focus",
+        "canonical": "#7d5f2c",
+        "dark": "#d8bd82",
+        "cssVar": "--focus",
+        "oklch": "oklch(50.5% 0.078 78.6)",
+        "tonalRamp": [
+          "#1b0400",
+          "#391e00",
+          "#583c00",
+          "#795b28",
+          "#9c7d4a",
+          "#c0a06c",
+          "#e5c48f",
+          "#ffe9b3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The page title before a plan; the day heading from 640px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Day heading on phones; page message titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Place names on the board; the compact app title in the plan view."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "Day tab names and highlight place names."
+      },
+      "time": {
+        "displayName": "Time",
+        "purpose": "Start times in the board time column, tabular."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default prose."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "Facts, hints, credits, the reason line."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field and meal labels, photo chips, the count badge, map stop numbers. Never uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-float",
+        "value": "0 14px 40px -8px rgb(17 17 15 / 0.22)",
+        "dark": "0 14px 40px -8px rgb(0 0 0 / 0.55)",
+        "purpose": "The toast and the side sheet."
+      },
+      {
+        "name": "shadow-menu",
+        "value": "0 18px 50px rgb(17 17 15 / 0.14)",
+        "dark": "0 18px 50px rgb(0 0 0 / 0.45)",
+        "purpose": "The place search listbox."
+      },
+      {
+        "name": "scrim",
+        "value": "rgb(17 17 15 / 0.42)",
+        "dark": "rgb(0 0 0 / 0.56)",
+        "purpose": "Backdrop behind an open sheet."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Things arriving: presses, menus, chevrons, draws."
+      },
+      {
+        "name": "ease-content",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Content arriving: board rows, details, day panels."
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(0.4, 0, 1, 1)",
+        "purpose": "Things leaving, shorter than arrivals."
+      },
+      {
+        "name": "spring-snappy",
+        "value": "linear(0, 0.022 2.8%, 0.096 6.3%, 0.511 19.5%, 0.689 26.3%, 0.814 32.8%, 0.903 39.8%, 0.938 43.8%, 0.965 48.3%, 0.985 53.3%, 0.997 58.8%, 1.006 72.3%, 1)",
+        "purpose": "Indicators and thumbs: the day-tab bar, the pace thumb, the count badge, the toast. At most 0.6% overshoot."
+      },
+      {
+        "name": "spring-smooth",
+        "value": "linear(0, 0.006 1.5%, 0.022 3%, 0.086 6.5%, 0.446 20.3%, 0.613 27.8%, 0.731 34.8%, 0.822 42.3%, 0.899 52%, 0.95 63.5%, 0.978 77%, 0.995 99.8%, 1)",
+        "purpose": "Sheets. No overshoot."
+      },
+      {
+        "name": "dur-press",
+        "value": "100ms",
+        "purpose": "Press scale."
+      },
+      {
+        "name": "dur-color",
+        "value": "140ms",
+        "purpose": "Colour, border and underline changes."
+      },
+      {
+        "name": "dur-exit",
+        "value": "160ms",
+        "purpose": "Exits."
+      },
+      {
+        "name": "dur-fade",
+        "value": "180ms",
+        "purpose": "Fades, image load."
+      },
+      {
+        "name": "dur-move",
+        "value": "220ms",
+        "purpose": "Small moves: chevrons, details, day change."
+      },
+      {
+        "name": "dur-arrive",
+        "value": "320ms",
+        "purpose": "The split-flap and row rise."
+      },
+      {
+        "name": "dur-spring",
+        "value": "450ms",
+        "purpose": "Spring-driven indicators and sheets."
+      },
+      {
+        "name": "board-stagger",
+        "value": "42ms per row, capped at 6",
+        "purpose": "Top-left to bottom-right arrival sweep."
+      },
+      {
+        "name": "list-stagger",
+        "value": "28ms per item",
+        "purpose": "Option fields (cap 6) and sheet alternatives (cap 8)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "fade 150ms ease",
+        "purpose": "Replaces every arrival; springs and presses stop."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "480px"
+      },
+      {
+        "name": "tablet",
+        "value": "640px"
+      },
+      {
+        "name": "sheet-side",
+        "value": "768px"
+      },
+      {
+        "name": "desktop",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "\"Plan my trip\": the page's one ink pill.",
+      "html": "<button class=\"ds-btn-primary\">Plan my trip</button>",
+      "css": ".ds-btn-primary { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; width:100%; min-height:52px; align-items:center; justify-content:center; border:0; border-radius:999px; background:var(--fill,#11110f); color:var(--fill-fg,#fff); font-size:1rem; font-weight:500; letter-spacing:-0.01em; cursor:pointer; transition:background-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary:hover { background:var(--fill-hover,#2a2a26); } .ds-btn-primary:active { transform:scale(0.985); } .ds-btn-primary:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:3px; }"
+    },
+    {
+      "name": "Outline Pill",
+      "kind": "button",
+      "refersTo": "pill-line",
+      "description": "Secondary page actions: Edit trip, Copy link.",
+      "html": "<button class=\"ds-pill-line\">Edit trip</button>",
+      "css": ".ds-pill-line { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; min-height:44px; align-items:center; padding:0 16px 0 14px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); color:var(--fg,#11110f); font-size:0.9375rem; font-weight:500; cursor:pointer; transition:background-color 140ms ease, border-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-pill-line:hover { border-color:var(--fg,#11110f); background:var(--hover,#f3f3f0); } .ds-pill-line:active { transform:scale(0.97); } .ds-pill-line:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; }"
+    },
+    {
+      "name": "Pace Control",
+      "kind": "custom",
+      "refersTo": "segmented-thumb",
+      "description": "Segmented pill track with one ink thumb on a spring.",
+      "html": "<div class=\"ds-seg\"><span class=\"ds-seg-o\">Relaxed</span><span class=\"ds-seg-o ds-on\">Balanced</span><span class=\"ds-seg-o\">Packed</span></div>",
+      "css": ".ds-seg { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); position:relative; display:grid; grid-template-columns:repeat(3,1fr); padding:3px; border:1px solid var(--line-strong,#85837a); border-radius:999px; background:var(--surface,#fff); isolation:isolate; max-width:360px; } .ds-seg::before { content:\"\"; position:absolute; top:3px; bottom:3px; left:3px; width:calc((100% - 6px)/3); z-index:-1; border-radius:999px; background:var(--fill,#11110f); transform:translateX(100%); transition:transform 450ms linear(0,0.096 6.3%,0.511 19.5%,0.814 32.8%,0.938 43.8%,0.997 58.8%,1.006 72.3%,1); } .ds-seg-o { display:inline-flex; min-height:44px; align-items:center; justify-content:center; border-radius:999px; color:var(--fg,#11110f); font-size:0.9375rem; font-weight:500; cursor:pointer; } .ds-seg-o:not(.ds-on):hover { background:var(--hover,#f3f3f0); } .ds-on { color:var(--fill-fg,#fff); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "text-input",
+      "description": "Square field, 48px, 16px text.",
+      "html": "<label class=\"ds-label\">Start date<input class=\"ds-input\" type=\"text\" value=\"Thu 15 Oct\"></label>",
+      "css": ".ds-label { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:block; max-width:320px; color:var(--fg,#11110f); font-size:0.875rem; font-stretch:87.5%; font-weight:600; letter-spacing:0.02em; } .ds-input { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:block; width:100%; margin-top:8px; min-height:48px; padding:0 14px; border:1px solid var(--line-strong,#85837a); border-radius:0; background:var(--surface,#fff); color:var(--fg,#11110f); font-size:16px; font-weight:400; font-stretch:100%; letter-spacing:0; font-variant-numeric:tabular-nums; transition:border-color 140ms ease; box-sizing:border-box; } .ds-input:hover { border-color:var(--fg,#11110f); } .ds-input:focus-visible { border-color:var(--fg,#11110f); outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; }"
+    },
+    {
+      "name": "Choice Chip",
+      "kind": "chip",
+      "refersTo": "choice-chip",
+      "description": "Square interest and base chips; ink when chosen.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\">Museums</button><button class=\"ds-chip ds-chip-on\">Food</button></div>",
+      "css": ".ds-chips { display:flex; gap:8px; } .ds-chip { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); min-height:44px; padding:0 14px; border:1px solid var(--line-strong,#85837a); border-radius:0; background:var(--surface,#fff); color:var(--fg,#11110f); font-size:0.9375rem; cursor:pointer; transition:border-color 140ms ease, transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-chip:hover:not(.ds-chip-on) { border-color:var(--fg,#11110f); } .ds-chip:active { transform:scale(0.97); } .ds-chip:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:2px; } .ds-chip-on { border-color:var(--fill,#11110f); background:var(--fill,#11110f); color:var(--fill-fg,#fff); }"
+    },
+    {
+      "name": "Note Chips",
+      "kind": "chip",
+      "refersTo": "chip-warning",
+      "description": "What the data cannot confirm, said on the row.",
+      "html": "<div class=\"ds-notes\"><span class=\"ds-note ds-warn\">Hours estimated</span><span class=\"ds-note\">Approximate location</span><span class=\"ds-note ds-err\">Closed that day</span></div>",
+      "css": ".ds-notes { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:flex; flex-wrap:wrap; gap:6px; } .ds-note { display:inline-flex; min-height:26px; align-items:center; padding:0 9px; border:1px solid var(--line-strong,#85837a); color:var(--fg,#11110f); font-size:0.8125rem; font-weight:500; } .ds-warn { border-color:var(--warn,#f3d27a); background:var(--warn,#f3d27a); color:var(--warn-fg,#11110f); } .ds-err { border-color:var(--danger,#b3261e); color:var(--danger,#b3261e); }"
+    },
+    {
+      "name": "Day Tabs",
+      "kind": "nav",
+      "refersTo": "day-tab",
+      "description": "Equal columns, one gold indicator that springs between days.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-on\">Day 1<small>Thu 15 Oct</small></button><button class=\"ds-tab\">Day 2<small>Fri 16 Oct</small></button><button class=\"ds-tab\">Day 3<small>Sat 17 Oct</small></button></nav>",
+      "css": ".ds-tabs { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; border-bottom:1px solid var(--line,#dcdad3); } .ds-tabs::after { content:\"\"; position:absolute; bottom:-1px; left:0; width:33.333%; height:2px; background:var(--gold,#a8864b); } .ds-tab { min-height:60px; padding:10px 6px 10px 0; border:0; background:none; color:var(--muted,#6a6a63); text-align:left; font:inherit; font-size:1rem; font-stretch:112.5%; font-weight:500; letter-spacing:-0.01em; cursor:pointer; transition:color 140ms ease; } .ds-tab small { display:block; margin-top:1px; font-size:0.875rem; font-stretch:100%; font-weight:400; font-variant-numeric:tabular-nums; } .ds-tab:hover, .ds-tab-on { color:var(--fg,#11110f); } .ds-tab:focus-visible { outline:2px solid var(--focus,#7d5f2c); outline-offset:-2px; }"
+    },
+    {
+      "name": "Board Row",
+      "kind": "custom",
+      "refersTo": "board-time",
+      "description": "The departure board: tabular condensed times, wide place name, hairline under, split-flap arrival.",
+      "html": "<ol class=\"ds-board\"><li class=\"ds-row\"><p class=\"ds-times\"><span class=\"ds-start\">09:30</span><span class=\"ds-end\">11:00</span></p><div class=\"ds-body\"><p class=\"ds-meal\">Lunch</p><h3 class=\"ds-name\">Pantheon</h3><p class=\"ds-sub\">Centro Storico</p><p class=\"ds-reason\"><i class=\"ds-dot\"></i>Open early, close to the next stop.</p></div></li></ol>",
+      "css": ".ds-board { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); list-style:none; margin:0; padding:0; border-top:1px solid var(--fg,#11110f); } .ds-row { display:grid; grid-template-columns:84px 1fr; column-gap:14px; padding:14px 0; border-bottom:1px solid var(--line,#dcdad3); } .ds-times { display:flex; flex-direction:column; margin:0; font-stretch:87.5%; font-variant-numeric:tabular-nums; transform-origin:50% 0; animation:ds-flap 320ms cubic-bezier(0.22,1,0.36,1) both; } .ds-start { font-size:1.3125rem; font-weight:600; line-height:1.15; color:var(--fg,#11110f); } .ds-end { margin-top:2px; font-size:0.9375rem; color:var(--muted,#6a6a63); } .ds-body { animation:ds-rise 320ms cubic-bezier(0.22,1,0.36,1) 40ms both; } .ds-meal { margin:0 0 2px; color:var(--accent,#7d5f2c); font-size:0.8125rem; font-stretch:87.5%; font-weight:600; letter-spacing:0.02em; } .ds-name { margin:0; color:var(--fg,#11110f); font-size:1.25rem; font-stretch:125%; font-weight:500; line-height:1.2; letter-spacing:-0.02em; } .ds-sub { margin:2px 0 0; color:var(--muted,#6a6a63); font-size:0.875rem; } .ds-reason { display:flex; gap:10px; margin:8px 0 0; color:var(--muted,#6a6a63); font-size:0.875rem; font-style:oblique 6deg; } .ds-dot { width:7px; height:7px; flex-shrink:0; margin-top:0.45em; border-radius:999px; background:var(--gold,#a8864b); } @keyframes ds-flap { 0% { opacity:0; transform:perspective(240px) rotateX(-88deg); } 60% { opacity:1; transform:perspective(240px) rotateX(6deg); } 100% { transform:perspective(240px) rotateX(0); } } @keyframes ds-rise { from { opacity:0; transform:translateY(8px); } } @media (prefers-reduced-motion: reduce) { .ds-times, .ds-body { animation:ds-fade 150ms ease both; } } @keyframes ds-fade { from { opacity:0; } }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "Square ink toast with a gold-text Undo pill; the one ink surface that floats.",
+      "html": "<div class=\"ds-toast\">Stop removed<button class=\"ds-undo\">Undo</button></div>",
+      "css": ".ds-toast { font-family: var(--font-sans, \"TikTok Sans\", system-ui, sans-serif); display:inline-flex; align-items:center; gap:8px; padding:4px 4px 4px 16px; background:var(--toast-bg,#11110f); color:var(--toast-fg,#fff); font-size:0.9375rem; box-shadow:var(--shadow-float,0 14px 40px -8px rgb(17 17 15 / 0.22)); } .ds-undo { min-height:44px; padding:0 14px; border:0; border-radius:999px; background:none; color:var(--toast-accent,#d8bd82); font:inherit; font-size:0.875rem; font-weight:600; cursor:pointer; transition:transform 100ms cubic-bezier(0.16,1,0.3,1); } .ds-undo:active { transform:scale(0.96); } .ds-undo:focus-visible { outline:2px solid var(--toast-focus,#d8bd82); outline-offset:-2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Departure Board",
+    "overview": "Each day is a board you check once and trust, drawn in the Goodpix language of paper and ink. The page is white, text is near-black ink, and ink is the only solid fill. Gold never fills; it draws: the chosen day, the AI mark, focus, a hairline beside opened details. Rows are separated by 1px hairlines rather than boxed, containers and photos are square, and anything you press is a round pill.\n\nRank lives in TikTok Sans's width axis, not in weight. The widest cut carries the page title, a wide cut carries day headings and place names, and the condensed cut carries times and labels in tabular figures, like a printed station board. Weight marks state and emphasis. Checked facts stand upright; the one line of commentary per stop leans on the slant axis.\n\nMotion is the split-flap arrival. When a plan lands, each row's times drop from a top hinge into place while the rest of the row rises in, in a sweep from the top left to the bottom right. After an edit, only the times that moved flip, and the touched row glows gold and fades. Every animation moves only transform and opacity, and reduced motion swaps each of them for a short crossfade or nothing. The whole world has a real dark mode, where ink and paper trade places and gold lightens.",
+    "keyCharacteristics": [
+      "Paper and ink, with ink as the one solid fill.",
+      "Gold draws and marks; it does not fill (one exception, the count badge).",
+      "Hairlines between rows; boxes are rare.",
+      "Square containers, inputs and photos; round pills for anything pressed.",
+      "Width as rank: 150, 125, 112.5, 87.5.",
+      "Split-flap arrival in a top-left to bottom-right sweep.",
+      "Light and dark, both checked to WCAG AA for every text pair."
+    ],
+    "rules": [
+      {
+        "name": "The One Fill Rule",
+        "body": "Ink is the only solid fill on the page. Primary actions, chosen states and markers take ink; nothing else is filled except the caution chip and the count badge.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Draws Rule",
+        "body": "Gold is a line, a dot, a bar, an underline or a focus ring. The count badge (gold paper under ink) is the one place gold fills.",
+        "section": "colors"
+      },
+      {
+        "name": "The Danger Never Fills Rule",
+        "body": "An error is danger text, a danger hairline and a danger dot. It never takes a red background, and colour is never the only sign: a chip says what is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width Is Rank Rule",
+        "body": "Change width to change importance. Use 150, 125, 112.5 and 87.5, and leave weight for state.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Numbers Only Rule",
+        "body": "Times, dates, durations and counts get tabular figures; prose does not, because the feature widens commas and periods in this font.",
+        "section": "typography"
+      },
+      {
+        "name": "The Commentary Leans Rule",
+        "body": "Checked facts stand upright. The one line of commentary per stop is set at a 6deg oblique.",
+        "section": "typography"
+      },
+      {
+        "name": "The Only Floating Things Cast Shadows Rule",
+        "body": "A row, a card, an input or a photo never has a shadow. If it does not float over the page, it is flat.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use ink as the only solid fill, and gold only as a line, dot, bar, underline or focus ring.",
+      "**Do** separate rows with 1px hairlines instead of boxing them.",
+      "**Do** keep containers, inputs, chips and photos square and make anything pressed a 999px pill.",
+      "**Do** rank type by width (150, 125, 112.5, 87.5) and keep weight for state.",
+      "**Do** set every time, date and count in tabular figures, and prose without them.",
+      "**Do** move only transform and opacity, use the motion tokens, and give every animation a reduced-motion crossfade or none.",
+      "**Do** define every new colour as a semantic custom property with a checked dark value.",
+      "**Do** keep every control at least 44px tall and every text input at 16px."
+    ],
+    "donts": [
+      "**Don't** fill with gold anywhere except the count badge.",
+      "**Don't** give a row, card, input or photo a shadow; only floating things cast one.",
+      "**Don't** round containers or photos, and don't put a hero photo over a stack of rounded stop cards.",
+      "**Don't** fill errors with red or rely on colour alone to say something is wrong.",
+      "**Don't** uppercase labels, and don't put a label above a heading unless it carries data, as the meal label does.",
+      "**Don't** present a city or topic photo full bleed as if it were the place."
+    ]
+  }
+}
