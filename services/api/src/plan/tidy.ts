@@ -1,17 +1,23 @@
 import {
   type Anchor,
   addDays,
+  coversMeal,
   type DaySlot,
   type FirstChoice,
+  type Meal,
   openStatusOn,
   orderDay,
   PACE,
   type Place,
   type PlannerContext,
+  type ScheduledDay,
+  type Stop,
   scheduleDay,
+  servesMeal,
   sharesLocation,
   type TripRequest,
   transferMinutes,
+  type Violation,
 } from "@italy/planner";
 import type { LlmSelection } from "../llm/client";
 import type { Shortlist } from "./candidates";
@@ -25,13 +31,20 @@ import type { Shortlist } from "./candidates";
 //      experience) as one already in the trip or as a must-include;
 //   3. puts a day whose order cannot be timed in an order the rules-only planner's day walk
 //      finds for the same places (packages/planner/src/orderDay.ts);
-//   4. drops a day's last ordinary visits until the pace's visit limit holds.
-// It never changes a base, never adds a place, and keeps every must-include in the answer on one
-// of its days. A day holding anything it cannot judge (an id not offered, a place of another
-// base, an unknown base) is not reordered or trimmed: the check reports it and the repair turn
-// fixes it.
+//   4. drops a day's last ordinary visits until the pace's visit limit holds;
+//   5. drops the ordinary visits a day's hours cannot hold, the last first, until it times cleanly.
+// It never changes a base, never adds a place, never drops a meal the day needs, and keeps every
+// must-include in the answer on one of its days. A day holding anything it cannot judge (an id
+// not offered, a place of another base, an unknown base) is not reordered or trimmed: the check
+// reports it and the repair turn fixes it.
 
-export type TidyRule = "closed" | "duplicate" | "same_spot" | "over_visit_limit" | "reordered";
+export type TidyRule =
+  | "closed"
+  | "duplicate"
+  | "same_spot"
+  | "over_visit_limit"
+  | "does_not_fit"
+  | "reordered";
 
 export interface TidyChange {
   rule: TidyRule;
@@ -182,6 +195,7 @@ function tidyDay(ids: readonly string[], job: DayJob): string[] {
     );
     extra = overLimit(order, job);
   }
+  order = withoutMisfits(order, job);
   const before = ids.filter((id) => order.includes(id));
   if (order.some((id, i) => id !== before[i])) {
     job.changes.push({ rule: "reordered", day: job.index });
@@ -215,11 +229,18 @@ function timedOrder(ids: readonly string[], job: DayJob): string[] {
 
 const FIRST_CHOICES: readonly FirstChoice[] = ["must_includes", "every_place"];
 
-/** The scheduler's errors for the day in this order, except the visit limit (the trim's job). */
-function timingErrors(ids: readonly string[], job: DayJob): number {
+/** The day timed in this order by the scheduler, as the check times it. */
+function timeDay(ids: readonly string[], job: DayJob): ScheduledDay {
   const { slot, request, ctx } = job;
-  const { violations } = scheduleDay(ids, slot.date, slot.anchor, request, ctx, slot.transferMin);
-  return violations.filter((v) => v.severity === "error" && v.code !== "TOO_MANY_VISITS").length;
+  return scheduleDay(ids, slot.date, slot.anchor, request, ctx, slot.transferMin);
+}
+
+/** An error the scheduler found while timing the day, except the visit limit (the trim's job). */
+const isTimingError = (v: Violation) => v.severity === "error" && v.code !== "TOO_MANY_VISITS";
+
+/** The scheduler's errors for the day in this order, except the visit limit. */
+function timingErrors(ids: readonly string[], job: DayJob): number {
+  return timeDay(ids, job).violations.filter(isTimingError).length;
 }
 
 /**
@@ -232,10 +253,98 @@ function timingErrors(ids: readonly string[], job: DayJob): number {
 // counted from the scheduler's roles, as the validator counts them, so a meal place that can
 // only be a visit counts too.
 function overLimit(ids: readonly string[], job: DayJob): string | null {
-  const { slot, request, ctx } = job;
-  const { stops } = scheduleDay(ids, slot.date, slot.anchor, request, ctx, slot.transferMin);
-  const visits = stops.filter((stop) => stop.role === "visit");
+  const { request } = job;
+  const visits = timeDay(ids, job).stops.filter((stop) => stop.role === "visit");
   if (visits.length <= PACE[request.pace].maxVisits) return null;
   const ordinary = visits.filter((stop) => !request.mustInclude.includes(stop.placeId));
   return ordinary.at(-1)?.placeId ?? null;
+}
+
+/**
+ * The day without the ordinary visits its hours cannot hold. While the scheduler finds an error,
+ * one visit goes (misfit) and the day is ordered again. Of the days seen on the way, the one
+ * with the fewest errors is kept, the one with fewer drops on a tie, and only its drops are
+ * recorded.
+ */
+// Decision: a day the model filled with more than its hours hold is tidied like one over the
+// visit limit: code, not the model, sees the hours, so code takes out what does not fit and the
+// model's other choices stay ("code tidies, AI chooses"). On the recorded first answers of the
+// two live evals of 2026-09-25 (Sonnet 5, 15 cases, 3 runs each), 14 of 45 and 14 of 44 passed
+// the check after tidying without this rule, and 43 and 42 with it. The rest leave out a
+// must-include, which only the model can add.
+// Decision: a drop is kept only when it lowers the day's errors, at once or after later drops.
+// An error no drop can mend (a must-include on its closed day) would otherwise strip the day to
+// its must-includes and meals and still fail; kept whole, the check reports it and the repair
+// turn or the rules-only planner fixes it.
+function withoutMisfits(order: string[], job: DayJob): string[] {
+  let current = order;
+  let errors = timingErrors(current, job);
+  let best = { order: current, errors, drops: 0 };
+  const dropped: string[] = [];
+  while (errors > 0) {
+    const out = misfit(current, job);
+    if (out === null) break;
+    dropped.push(out);
+    current = timedOrder(
+      current.filter((id) => id !== out),
+      job,
+    );
+    errors = timingErrors(current, job);
+    if (errors < best.errors) best = { order: current, errors, drops: dropped.length };
+  }
+  for (const placeId of dropped.slice(0, best.drops)) {
+    job.changes.push({ rule: "does_not_fit", day: job.index, placeId });
+  }
+  return best.order;
+}
+
+/**
+ * The visit to drop from a day the scheduler cannot time: the last droppable visit with an error
+ * of its own, or else the last droppable visit, whose time may let a meal or a must-include
+ * after it fit. Null when only must-includes and the meals the day needs are left, or when the
+ * day has one stop.
+ */
+// Decision: the last one goes, as for the visit limit. The day walk puts the places it cannot
+// fit last, so the latest visits are the ones the hours cannot hold.
+// Decision: a day's only stop never goes. Dropping it would trade its timing errors for an empty
+// day, and the fewest-errors pick could keep that; the check reports the stop instead.
+function misfit(ids: readonly string[], job: DayJob): string | null {
+  if (ids.length <= 1) return null;
+  const { stops, violations } = timeDay(ids, job);
+  const erring = new Set(violations.filter(isTimingError).map((v) => v.stopIndex));
+  const droppable = stops.flatMap((_, index) => (canDrop(stops, index, job) ? [index] : []));
+  const index = droppable.filter((i) => erring.has(i)).at(-1) ?? droppable.at(-1);
+  return index === undefined ? null : (stops[index]?.placeId ?? null);
+}
+
+const DAY_MEALS: readonly Meal[] = ["lunch", "dinner"];
+
+/**
+ * True when the day can lose this stop: a visit the traveler did not ask for that is not a meal
+ * the day needs. The day needs its lunch and dinner stops, and a meal place timed as a visit
+ * while the day has nothing for a meal it serves: with the visits before it gone, it may still
+ * be that meal.
+ */
+// Decision: a day without lunch or dinner is only warned about (MEAL_MISSING), so the check
+// alone would not stop tidying from dropping the only restaurant the model chose for it. An
+// outing through a meal's window stands in for that meal, as in the check, so a restaurant the
+// outing leaves no room for can go; the outing itself is a visit like any other. On the same
+// recorded answers, dropping meal places like any visit dropped as many places and lost two more
+// meals.
+function canDrop(stops: readonly Stop[], index: number, job: DayJob): boolean {
+  const { request, ctx } = job;
+  const stop = stops[index];
+  const place = stop && ctx.placesById.get(stop.placeId);
+  if (!stop || !place || stop.role !== "visit" || request.mustInclude.includes(stop.placeId)) {
+    return false;
+  }
+  const lacks = (meal: Meal) => !stops.some((other) => hasMeal(other, meal, ctx));
+  return !DAY_MEALS.some((meal) => servesMeal(place, meal) && lacks(meal));
+}
+
+/** True when the stop is the day's lunch or dinner, or an outing under way through its window. */
+function hasMeal(stop: Stop, meal: Meal, ctx: PlannerContext): boolean {
+  if (stop.role === meal) return true;
+  const place = ctx.placesById.get(stop.placeId);
+  return place !== undefined && coversMeal(place, stop.start, stop.end, meal);
 }

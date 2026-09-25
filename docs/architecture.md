@@ -44,7 +44,9 @@ POST /api/plan
   -> stop_reason checked (refusal, max_tokens -> fallback), then parsed with Zod
   -> tidy: drop places closed that day, repeats and second places at one spot, visits over
        the pace's limit; reorder a day the scheduler cannot time (bases and choices kept,
-       and every must-include in the answer stays on one of its days)
+       and every must-include in the answer stays on one of its days); then drop the latest
+       ordinary visit a day's hours cannot hold until it times cleanly (never a must-include
+       or a meal the day needs)
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check

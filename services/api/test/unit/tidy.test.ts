@@ -15,8 +15,9 @@ import { materializeSelection } from "../../src/plan/materialize";
 import { tidySelection } from "../../src/plan/tidy";
 
 // The tidy step does to the model's answer what the model cannot see, because code assigns the
-// times: closed places, repeats, the order of a day, and the visit limit. Each rule is pinned
-// here on real Rome places, and so is the promise that a valid answer passes through untouched.
+// times: closed places, repeats, the order of a day, the visit limit, and the day's hours. Each
+// rule is pinned here on real Rome places, and so is the promise that a valid answer passes
+// through untouched.
 
 const { ctx } = shippedData();
 
@@ -163,6 +164,10 @@ describe("tidySelection", () => {
 
     expect(tidied.changes.filter((c) => c.placeId === VATICAN_MUSEUMS)).toEqual([]);
     expect(idsOf(tidied.selection)[0]).toContain(VATICAN_MUSEUMS);
+    // No drop mends a closure, so the day keeps every place the model chose around it.
+    expect(tidied.changes.filter((c) => c.rule === "does_not_fit")).toEqual([]);
+    const sorted = (ids: string[] | undefined) => [...(ids ?? [])].sort();
+    expect(sorted(idsOf(tidied.selection)[0])).toEqual(sorted(idsOf(messy)[0]));
     const closure = errorsOf(tidied.selection, request).filter(
       (e) => e.placeId === VATICAN_MUSEUMS,
     );
@@ -275,14 +280,98 @@ describe("tidySelection", () => {
   });
 
   it("keeps the model's order when neither walk times the day better", () => {
+    // Roscioli after dinner at Da Enzo runs past the day's end in every order, so it goes for
+    // not fitting: a second restaurant is not a meal the day needs. The rest keep their order.
     const day = [GIANICOLO, GIOLITTI, VATICAN_MUSEUMS, DA_ENZO, ROSCIOLI];
     const messy = answer([PANTHEON], day, [ROMAN_FORUM]);
     expect(errorsOf(messy).length).toBeGreaterThan(0);
 
     const tidied = tidy(messy);
 
+    expect(tidied.changes).toEqual([{ rule: "does_not_fit", day: 1, placeId: ROSCIOLI }]);
+    expect(idsOf(tidied.selection)[1]).toEqual(day.slice(0, -1));
+    expect(errorsOf(tidied.selection)).toEqual([]);
+  });
+
+  // Tuesday: the Colosseum, the Forum, the Borghese Gallery, and four hours in the Vatican
+  // Museums, with lunch at Da Enzo, are more than one day's opening hours hold.
+  const OVER_HOURS = [COLOSSEUM, DA_ENZO, ROMAN_FORUM, BORGHESE_GALLERY, VATICAN_MUSEUMS];
+
+  it("drops the last ordinary visit of a day its hours cannot hold, and the day then times cleanly", () => {
+    const messy = answer([SPANISH_STEPS], OVER_HOURS, [TRASTEVERE]);
+    const codes = errorsOf(messy).map((e) => [e.code, e.placeId]);
+    expect(codes).toEqual([
+      ["CLOSED_AT_TIME", VATICAN_MUSEUMS],
+      ["OUTSIDE_DAY_WINDOW", VATICAN_MUSEUMS],
+    ]);
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([{ rule: "does_not_fit", day: 1, placeId: VATICAN_MUSEUMS }]);
+    expect(idsOf(tidied.selection)[1]).toEqual(OVER_HOURS.slice(0, -1));
+    expect(errorsOf(tidied.selection)).toEqual([]);
+  });
+
+  it("never drops a must-include to make a day fit: an ordinary visit goes instead", () => {
+    const request = rome({ mustInclude: [VATICAN_MUSEUMS] });
+    const messy = answer([SPANISH_STEPS], OVER_HOURS, [TRASTEVERE]);
+
+    const tidied = tidy(messy, request);
+
+    expect(tidied.changes).toEqual([
+      { rule: "does_not_fit", day: 1, placeId: BORGHESE_GALLERY },
+      { rule: "reordered", day: 1 },
+    ]);
+    expect(idsOf(tidied.selection)[1]).toContain(VATICAN_MUSEUMS);
+    expect(errorsOf(tidied.selection, request)).toEqual([]);
+  });
+
+  it("drops the visit that does not fit, not a later one that does", () => {
+    // Tuesday: after lunch and the Borghese Gallery, the Vatican Museums would run 17:00 to
+    // 21:00, past closing. The Aventine Keyhole after them fits, so it stays.
+    const day = [DA_ENZO, BORGHESE_GALLERY, VATICAN_MUSEUMS, AVENTINE_KEYHOLE];
+    const messy = answer([SPANISH_STEPS], day, [TRASTEVERE]);
+    const codes = errorsOf(messy).map((e) => [e.code, e.placeId]);
+    expect(codes).toEqual([["CLOSED_AT_TIME", VATICAN_MUSEUMS]]);
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([{ rule: "does_not_fit", day: 1, placeId: VATICAN_MUSEUMS }]);
+    expect(idsOf(tidied.selection)[1]).toEqual([DA_ENZO, BORGHESE_GALLERY, AVENTINE_KEYHOLE]);
+    expect(errorsOf(tidied.selection)).toEqual([]);
+  });
+
+  it("keeps the restaurant a day needs for lunch, and drops a visit instead", () => {
+    // Mercato Testaccio serves lunch only and closes at 14:00. In the model's order, and in the
+    // order each walk finds, it comes after the Borghese Gallery and the Trevi Fountain, too late
+    // for lunch. It is the day's only lunch place, so the Trevi Fountain goes, and the market is
+    // lunch.
+    const day = [BORGHESE_GALLERY, TREVI_FOUNTAIN, MERCATO_TESTACCIO];
+    const messy = answer([SPANISH_STEPS], day, [TRASTEVERE]);
+    const codes = errorsOf(messy).map((e) => [e.code, e.placeId]);
+    expect(codes).toEqual([["CLOSED_AT_TIME", MERCATO_TESTACCIO]]);
+
+    const tidied = tidy(messy);
+
+    expect(tidied.changes).toEqual([{ rule: "does_not_fit", day: 1, placeId: TREVI_FOUNTAIN }]);
+    const made = materializeSelection(tidied.selection, rome(), shortlistFor(rome()), ctx, META);
+    expect(made.errors).toEqual([]);
+    const stops = made.itinerary.days[1]?.stops.map((stop) => [stop.placeId, stop.role]);
+    expect(stops).toEqual([
+      [BORGHESE_GALLERY, "visit"],
+      [MERCATO_TESTACCIO, "lunch"],
+    ]);
+  });
+
+  it("changes nothing on a full day that already fits its hours", () => {
+    const full = [COLOSSEUM, DA_ENZO, ROMAN_FORUM, BORGHESE_GALLERY, OSTERIA_FERNANDA];
+    const fits = answer([SPANISH_STEPS], full, [TRASTEVERE]);
+    expect(errorsOf(fits)).toEqual([]);
+
+    const tidied = tidy(fits);
+
     expect(tidied.changes).toEqual([]);
-    expect(idsOf(tidied.selection)[1]).toEqual(day);
+    expect(tidied.selection).toEqual(fits);
   });
 
   it("only drops closed and repeated places on a day it cannot judge", () => {

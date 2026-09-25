@@ -38,7 +38,8 @@ TripRequest (checked with Zod)
   -> shortlist: up to 4 bases, and per base the best visits and meal places for the dates
   -> Claude selects: a base per day and ordered place ids, with a reason per stop (ids only)
   -> parse with Zod -> tidy what the model cannot see (closed days, repeats, the visit limit,
-     an order the scheduler cannot time) -> ids outside the shortlist are errors
+     an order the scheduler cannot time, visits the hours cannot hold) -> ids outside the
+     shortlist are errors
   -> scheduler assigns every time -> independent validator
        no errors, nothing tidied    -> source "ai"
        no errors, tidied            -> source "ai_repaired"
@@ -49,7 +50,7 @@ TripRequest (checked with Zod)
   -> response: itinerary, warnings, source, meta (fallback reason, attempts, latency)
 ```
 
-The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. Before the check, code tidies what the model cannot see because code assigns the times: it drops a place on its closed day, a repeat, and visits over the pace's limit, and reorders a day the scheduler cannot time, keeping the model's bases and places. A plan with any error never reaches the traveler: the model gets one chance to fix what is left, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
+The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. Before the check, code tidies what the model cannot see because code assigns the times: it drops a place on its closed day, a repeat, and visits over the pace's limit, reorders a day the scheduler cannot time, and drops the latest visits a day's hours still cannot hold, keeping the model's bases, its must-includes and the day's meals. A plan with any error never reaches the traveler: the model gets one chance to fix what is left, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
 
 ## Messy data
 

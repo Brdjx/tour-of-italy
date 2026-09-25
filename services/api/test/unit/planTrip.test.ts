@@ -177,6 +177,32 @@ describe("planTrip with every fixture scenario", () => {
     expect(outcome.trace.tidied.every((change) => change.answer === 1)).toBe(true);
   });
 
+  it("drops what a day's hours cannot hold before the check, without a repair turn", async () => {
+    // Monday to Wednesday in Rome. The second day holds the Colosseum, lunch at Da Enzo, the
+    // Forum, the Borghese Gallery, and four hours in the Vatican Museums: more than its opening
+    // hours allow, which the model cannot see because code assigns the times.
+    const vatican = "place_010";
+    const overHours = ["place_001", "place_003", "place_004", "place_007", vatican];
+    const client = new ScriptedClient(async (input) => {
+      const selection = validSelection(input.request, input.user, ctx);
+      const day = (placeIds: string[]) => ({ anchorId: "rome", placeIds, reasons: [] });
+      selection.days = [day(["place_019"]), day(overHours), day(["place_002"])];
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client, {}, request({ anchors: ["rome"] }));
+
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(client.inputs).toHaveLength(1);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(itinerary.meta.attempts).toBe(1);
+    expect(outcome.trace.violationCodes).toEqual([]);
+    expect(outcome.trace.tidied).toEqual([
+      { rule: "does_not_fit", day: 1, placeId: vatican, answer: 1 },
+    ]);
+    expect(itinerary.days[1]?.stops.map((stop) => stop.placeId)).toEqual(overHours.slice(0, -1));
+  });
+
   it("sends only what is still wrong after tidying to the repair turn", async () => {
     const client = new ScriptedClient(async (input, call) => {
       const selection = validSelection(input.request, input.user, ctx);
