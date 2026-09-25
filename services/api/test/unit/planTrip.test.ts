@@ -4,6 +4,7 @@ import { shippedData } from "../../src/data";
 import { LlmError } from "../../src/llm/errors";
 import { FIXTURE_SCENARIOS, FixtureClient, type FixtureScenario } from "../../src/llm/fixture";
 import { validSelection } from "../../src/llm/fixtureAnswers";
+import { PROMPT_VERSION } from "../../src/llm/prompt";
 import { type PlanDeps, planTrip } from "../../src/plan/planTrip";
 import { START_DATE } from "../helpers/app";
 import { ScriptedClient, textResult } from "../helpers/fakeClients";
@@ -83,7 +84,7 @@ describe("planTrip with every fixture scenario", () => {
       expect(itinerary.meta.fallbackReason).toBe(want.reason);
       expect(itinerary.meta.attempts).toBe(want.attempts);
       expect(itinerary.meta.model).toBe(`fixture:${scenario}`);
-      expect(itinerary.meta.promptVersion).toBe("v1");
+      expect(itinerary.meta.promptVersion).toBe(PROMPT_VERSION);
       expect(elapsed).toBeLessThan(DEADLINE);
       expect(itinerary.meta.latencyMs).toBeLessThan(DEADLINE);
     });
@@ -197,10 +198,102 @@ describe("planTrip with every fixture scenario", () => {
     expect(itinerary.source).toBe("ai_repaired");
     expect(itinerary.meta.attempts).toBe(1);
     expect(outcome.trace.violationCodes).toEqual([]);
+    // Day 0, with the Spanish Steps alone, holds the museums, so they move there.
     expect(outcome.trace.tidied).toEqual([
-      { rule: "does_not_fit", day: 1, placeId: vatican, answer: 1 },
+      { rule: "moved_day", day: 1, placeId: vatican, toDay: 0, answer: 1 },
     ]);
     expect(itinerary.days[1]?.stops.map((stop) => stop.placeId)).toEqual(overHours.slice(0, -1));
+    expect(itinerary.days[0]?.stops.map((stop) => stop.placeId)).toEqual(["place_019", vatican]);
+  });
+
+  // Rome, Friday 9 to Sunday 11 October 2026, balanced: the owner's request that fell back on
+  // 2026-09-25 (invalid_after_repair, EMPTY_DAY after both turns). The answers are rebuilt from
+  // its log: the first puts day 3 on the Vatican Museums, closed that Sunday, and three places
+  // days 1 and 2 already have; the repair does the same and adds the Aventine Keyhole, a fourth.
+  const OWNER = request({ startDate: "2026-10-09", anchors: ["rome"] });
+  const ownerDay = (ids: number[]) => ({
+    anchorId: "rome",
+    placeIds: ids.map((n) => `place_${String(n).padStart(3, "0")}`),
+    reasons: [],
+  });
+  const OWNER_DAYS = [
+    [7, 5, 11, 3, 18, 19, 2, 20, 9],
+    [1, 4, 15, 14, 97, 22, 77],
+  ];
+  const OWNER_FIRST = [...OWNER_DAYS, [10, 97, 19, 20]].map(ownerDay);
+  const OWNER_REPAIR = [...OWNER_DAYS, [10, 97, 19, 20, 14]].map(ownerDay);
+
+  it("turns the owner's failed first answer into a valid AI plan, with no repair turn", async () => {
+    const client = new ScriptedClient(async () => {
+      const selection = { days: structuredClone(OWNER_FIRST), summary: "Three days in Rome." };
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client, {}, OWNER);
+
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(client.inputs).toHaveLength(1);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(outcome.trace.violationCodes).toEqual([]);
+    expect(itinerary.days.map((day) => day.stops.length > 0)).toEqual([true, true, true]);
+    // Day 3 keeps the Spanish Steps, and day 1, which had nine stops, gives them up.
+    expect(outcome.trace.tidied).toContainEqual({
+      rule: "duplicate",
+      day: 0,
+      placeId: "place_019",
+      answer: 1,
+    });
+    expect(itinerary.days[2]?.stops.map((stop) => stop.placeId)).toContain("place_019");
+  });
+
+  it("turns the owner's failed repair answer into a valid AI plan as well", async () => {
+    const client = new ScriptedClient(async (_input, call) => {
+      const days = call === 1 ? [ownerDay([999]), ...OWNER_FIRST.slice(1)] : OWNER_REPAIR;
+      const selection = { days: structuredClone(days), summary: "Three days in Rome." };
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client, {}, OWNER);
+
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(client.inputs).toHaveLength(2);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(itinerary.days.map((day) => day.stops.length > 0)).toEqual([true, true, true]);
+  });
+
+  it("tells the repair turn what tidying removed, and what is free for a day it could not fill", async () => {
+    // Monday 19 to Wednesday 21 October in Rome. Day 3 repeats day 1's only stop, so it cannot
+    // keep it, and nothing else was dropped that could move there: the day is empty.
+    const monday = request({ anchors: ["rome"] });
+    const client = new ScriptedClient(async (input, call) => {
+      const selection =
+        call === 1
+          ? {
+              days: [ownerDay([5]), ownerDay([1, 4]), ownerDay([5])],
+              summary: "Three days in Rome.",
+            }
+          : validSelection(input.request, input.user, ctx);
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client, {}, monday);
+
+    const repair = client.inputs[1];
+    const message = repair && "repairMessage" in repair ? repair.repairMessage : "";
+    expect(message).toContain("- EMPTY_DAY, day 3, -,");
+    expect(message).toContain(
+      "- day 3, place_005: already on day 1; each id may appear once in the trip",
+    );
+    const free =
+      /- Day 3 \(rome, Wednesday 2026-10-21\) has no stops left\. Candidates at rome open that day and not in the trip: (.+)\./.exec(
+        message,
+      );
+    expect(free?.[1]?.split(", ").length).toBeGreaterThan(10);
+    expect(free?.[1]).not.toMatch(/place_00[15]\b/);
+    expect(free?.[1]).toMatch(/place_\d+ \(meal\)/);
+    // The model's own answer goes back as it wrote it, so the removals explain its day 3.
+    expect(repair && "previousText" in repair ? repair.previousText : "").toContain("place_005");
+    expect(expectValidItinerary(outcome.itinerary).source).toBe("ai_repaired");
   });
 
   it("sends only what is still wrong after tidying to the repair turn", async () => {

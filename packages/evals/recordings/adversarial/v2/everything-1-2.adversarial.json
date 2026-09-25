@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "everything",
+  "run": 1,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "adversarial",
+  "promptVersion": "v2",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:500f219cfc3e607f236b1aa1f4ff164910fb011e76b53046982f6196f08fed39",
+  "request": {
+    "startDate": "2026-10-16",
+    "pace": "balanced",
+    "interests": [
+      "historic",
+      "art",
+      "food",
+      "scenic",
+      "views",
+      "wine",
+      "local-favorite",
+      "cultural"
+    ],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"venice\",\"placeIds\":[\"place_074\",\"place_067\",\"place_096\",\"place_066\",\"place_091\",\"place_068\"],\"reasons\":[{\"placeId\":\"place_074\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_067\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_096\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_066\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_091\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_068\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_029\",\"place_036\",\"place_026\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_029\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_036\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_026\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_041\",\"reason\":\"A good fit for the interests in this trip.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_028\",\"place_031\",\"place_032\",\"place_093\",\"place_103\",\"place_039\",\"place_084\"],\"reasons\":[{\"placeId\":\"place_028\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_031\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_032\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_093\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_103\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_039\",\"reason\":\"A good fit for the interests in this trip.\"},{\"placeId\":\"place_084\",\"reason\":\"A good fit for the interests in this trip.\"}]}],\"summary\":\"A trip built around your interests, with each day kept close to one base.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    "latencyMs": 0,
+    "model": "adversarial"
+  }
+}

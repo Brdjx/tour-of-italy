@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "kind": "adversarial",
+  "caseId": "must-include-two-cities",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "adversarial",
+  "promptVersion": "v2",
+  "recordedAt": "2026-09-24T12:00:00.000Z",
+  "candidateHash": "sha256:5c3ee0ccf25b7e9b621af54da2b8309f18e8fe20e803d4c80ee93eebf62b52ac",
+  "request": {
+    "startDate": "2026-10-15",
+    "pace": "balanced",
+    "interests": ["art", "historic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_007", "place_026"],
+    "exclude": []
+  },
+  "error": {
+    "kind": "server_error",
+    "status": 500,
+    "message": "Model API error",
+    "latencyMs": 8000
+  },
+  "scenario": {
+    "name": "Out of time for a repair after a retry",
+    "note": "A 500 after 8 s, then an answer with an invented id after 11 s: too little of the plan's time is left for a repair, so rules-only, with no repair call.",
+    "expectSource": "deterministic",
+    "expectFallbackReason": "timeout"
+  }
+}

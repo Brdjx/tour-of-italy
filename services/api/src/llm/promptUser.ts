@@ -1,6 +1,7 @@
 import {
   PACE,
   type PlannerContext,
+  TRIP_DAYS,
   type TripRequest,
   transferMinutes,
   weekdayOf,
@@ -22,10 +23,15 @@ const WEEKDAY_NAMES = [
   "Saturday",
 ];
 
+/** The short names the candidate rows give the trip days: d1, d2, d3. */
+export const DAY_KEYS = Array.from({ length: TRIP_DAYS }, (_, index) => `d${index + 1}`);
+
+export const weekdayName = (date: string): string => WEEKDAY_NAMES[weekdayOf(date)] ?? "";
+
 function datesSection(dates: readonly string[]): string[] {
   const lines = ["Trip dates:"];
   dates.forEach((date, index) => {
-    lines.push(`- Day ${index + 1}: ${date} (${WEEKDAY_NAMES[weekdayOf(date)] ?? ""})`);
+    lines.push(`- Day ${index + 1} (d${index + 1}): ${date} (${weekdayName(date)})`);
   });
   return lines;
 }
@@ -39,7 +45,7 @@ function preferencesSection(request: TripRequest, shortlist: Shortlist): string[
   const budget =
     request.maxPriceLevel === null ? "any price" : `up to ${"€".repeat(request.maxPriceLevel)}`;
   const lines = [
-    `Pace: ${request.pace} (up to ${pace.maxVisits} visits a day, not counting meals)`,
+    `Pace: ${request.pace}, at most ${pace.maxVisits} visits a day, not counting meals (fewer is fine)`,
     `Interests: ${request.interests.length === 0 ? "none given" : request.interests.join(", ")}`,
     `Budget: ${budget}`,
     `Must include: ${idList(shortlist.mustInclude)}`,
@@ -103,7 +109,7 @@ export function candidateLine(candidate: Candidate, ctx: PlannerContext): string
 
 function candidatesSection(shortlist: Shortlist, ctx: PlannerContext): string[] {
   const lines = [
-    "Candidates by base (id | name | type | area | tags | rating | price | visit length | meal | status per day | notes):",
+    `Candidates by base (id | name | type | area | tags | rating | price | visit length | meal | status on ${DAY_KEYS.join(", ")} | notes):`,
   ];
   for (const option of shortlist.options) {
     lines.push("", `Base ${option.anchor.id}:`);

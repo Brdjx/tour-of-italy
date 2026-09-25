@@ -32,7 +32,11 @@ describe("clearing recordings", () => {
 
   it("clears only the named case of the named kind", () => {
     const { dir, folder, names } = copyOfAdversarialSet();
-    const target = { kind: "adversarial" as const, model: "adversarial", promptVersion: "v1" };
+    const target = {
+      kind: "adversarial" as const,
+      model: "adversarial",
+      promptVersion: PROMPT_VERSION,
+    };
     expect(clearRecordings(dir, target, ["splurge"])).toBe(2);
     expect(readdirSync(folder).sort()).toEqual(names.filter((n) => !n.startsWith("splurge-")));
   });
@@ -41,7 +45,11 @@ describe("clearing recordings", () => {
 describe("replacing a case's recordings", () => {
   it("leaves the previous recordings in place when a new one is refused for holding a secret", () => {
     const { dir, folder, names } = copyOfAdversarialSet();
-    const target = { kind: "adversarial" as const, model: "adversarial", promptVersion: "v1" };
+    const target = {
+      kind: "adversarial" as const,
+      model: "adversarial",
+      promptVersion: PROMPT_VERSION,
+    };
     const key = "sk-live-planted-secret-value";
     // A scrubber that removes nothing lets the key through to the final check, which refuses.
     class NoScrubbing extends Scrubber {
@@ -58,7 +66,7 @@ describe("replacing a case's recordings", () => {
       attempt: 1,
       turn: "select" as const,
       model: "adversarial",
-      promptVersion: "v1",
+      promptVersion: PROMPT_VERSION,
       recordedAt: "2026-09-24T12:00:00.000Z",
       candidateHash: `sha256:${"0".repeat(64)}`,
       request: {

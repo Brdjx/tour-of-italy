@@ -1,0 +1,23 @@
+{
+  "id": "rome-sunday-balanced",
+  "description": "Three days in Rome from a Friday at a balanced pace, the request that fell back on 2026-09-25 when day 3 repeated days 1 and 2: every day has stops, and nothing on the Sunday closures such as the Vatican Museums.",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": [],
+    "maxPriceLevel": null,
+    "anchors": ["rome"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "expect": {
+    "maxAnchors": 1,
+    "minPreferenceMatch": 0,
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "expectWarningCodes": [],
+    "forbidPlaceIds": [],
+    "expectAnyPlaceIds": [],
+    "summaryMentions": [],
+    "summaryExcludes": []
+  }
+}

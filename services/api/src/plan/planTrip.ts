@@ -9,7 +9,13 @@ import {
 import type { LlmOffReason } from "../config";
 import type { LlmClient, LlmResult, RepairViolation } from "../llm/client";
 import { errorKindOf, fallbackReasonFor, type RetryPolicy, retryPauseMs } from "../llm/errors";
-import { buildRepairMessage, PROMPT_VERSION, SYSTEM_PROMPT } from "../llm/prompt";
+import {
+  buildRepairMessage,
+  NO_REPAIR_NOTES,
+  PROMPT_VERSION,
+  type RepairNotes,
+  SYSTEM_PROMPT,
+} from "../llm/prompt";
 import { buildUserMessage } from "../llm/promptUser";
 import { callWithin } from "./callWithin";
 import { buildShortlist, type Shortlist } from "./candidates";
@@ -24,12 +30,14 @@ import {
   recordFailure,
   recordResult,
 } from "./outcome";
+import { repairNotes } from "./repairNotes";
 import { tidySelection } from "./tidy";
 
 // The plan pipeline (POST /api/plan): shortlist, ask the model, tidy its answer (tidy.ts), time
-// and validate it, one repair turn with the exact violations if time allows, and the rules-only
-// planner for every other outcome. A brief failure (dropped connection, 5xx) gets one retry when
-// time allows. Whatever happens, the result has zero validator errors (see outcome.ts).
+// and validate it, one repair turn with the exact violations and what tidying removed
+// (repairNotes.ts) if time allows, and the rules-only planner for every other outcome. A brief
+// failure (dropped connection, 5xx) gets one retry when time allows. Whatever happens, the
+// result has zero validator errors (see outcome.ts).
 
 export interface PlanTiming {
   reserveMs: number; // time kept back for the fallback plan and the response
@@ -72,7 +80,12 @@ function rulesOnlyPlan(request: TripRequest, ctx: PlannerContext): Itinerary | n
   }
 }
 
-type Problem = { kind: "schema" | "invalid"; text: string; violations: RepairViolation[] };
+type Problem = {
+  kind: "schema" | "invalid";
+  text: string;
+  violations: RepairViolation[];
+  notes: RepairNotes; // what the tidy step removed and moved, for the repair turn
+};
 
 interface Run {
   request: TripRequest;
@@ -135,7 +148,7 @@ function ask(run: Run, previous: Problem | null, timeoutMs: number): Promise<Llm
       ...input,
       previousText: previous.text,
       violations: previous.violations,
-      repairMessage: buildRepairMessage(previous.violations),
+      repairMessage: buildRepairMessage(previous.violations, previous.notes),
     });
   }, timeoutMs);
 }
@@ -207,7 +220,7 @@ async function runModel(run: Run): Promise<PlanOutcome> {
       trace.violationCodes.push("SCHEMA_INVALID");
       const detail = result.schemaIssues.length > 0 ? result.schemaIssues : ["Off-schema answer."];
       const violations = detail.map((text) => ({ code: "SCHEMA_INVALID", detail: text }));
-      problem = { kind: "schema", text: result.rawText, violations };
+      problem = { kind: "schema", text: result.rawText, violations, notes: NO_REPAIR_NOTES };
       continue;
     }
     const meta = {
@@ -235,7 +248,8 @@ async function runModel(run: Run): Promise<PlanOutcome> {
       placeId: v.placeId,
       detail: v.detail,
     }));
-    problem = { kind: "invalid", text: result.rawText, violations };
+    const notes = repairNotes(tidied, request, run.shortlist, deps.ctx);
+    problem = { kind: "invalid", text: result.rawText, violations, notes };
   }
   // Every turn ran and the last answer still had a problem (maxAttempts is at least 1).
   const repaired = deps.config.maxAttempts > 1;

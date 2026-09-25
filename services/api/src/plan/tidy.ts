@@ -33,18 +33,22 @@ import type { Shortlist } from "./candidates";
 //   1. drops a place closed all day on that day's date (a must-include only when the answer
 //      also has it on a day it is open);
 //   2. drops a place already in the trip, and an ordinary place at the same spot (or the same
-//      experience) as one already in the trip or as a must-include;
+//      experience) as one already in the trip or as a must-include, except that a day those
+//      drops would empty keeps one of its places and the day that had it first loses it;
 //   3. puts a day whose order cannot be timed in an order the rules-only planner's day walk
 //      finds for the same places (packages/planner/src/orderDay.ts);
 //   4. drops a day's last ordinary visits until the pace's visit limit holds;
 //   5. drops the ordinary visits a day's hours cannot hold, the last first, until it times cleanly;
 //   6. puts each visit step 5 dropped back into the day's final order where the day holds it,
 //      so a drop that another position makes needless is undone; a meal place dropped in step 4
-//      or 5 goes back only as a lunch or dinner the day lacks.
-// It never changes a base, never adds a place, never drops a meal the day needs, and keeps every
-// must-include in the answer on one of its days. A day holding anything it cannot judge (an id
-// not offered, a place of another base, an unknown base) is not reordered or trimmed: the check
-// reports it and the repair turn fixes it.
+//      or 5 goes back only as a lunch or dinner the day lacks, and a meal place the day's order
+//      times as a visit moves to where it is a lunch or dinner the day lacks;
+//   7. moves each offered place steps 1, 4 and 5 dropped for good to another day at its base
+//      that is open for it and holds it the same way, the day with the fewest stops first.
+// It never changes a base, never adds a place the answer does not have, never drops a meal the
+// day needs, and keeps every must-include in the answer on one of its days. A day holding
+// anything it cannot judge (an id not offered, a place of another base, an unknown base) is not
+// reordered, trimmed, or given a place: the check reports it and the repair turn fixes it.
 
 export type TidyRule =
   | "closed"
@@ -52,12 +56,14 @@ export type TidyRule =
   | "same_spot"
   | "over_visit_limit"
   | "does_not_fit"
-  | "reordered";
+  | "reordered"
+  | "moved_day";
 
 export interface TidyChange {
   rule: TidyRule;
   day: number; // 0-based day index
   placeId?: string; // the place taken out; absent when the day was reordered
+  toDay?: number; // moved_day only: the day the place was moved to
 }
 
 export interface Tidied {
@@ -81,24 +87,30 @@ export function tidySelection(
   );
   const unique = withoutRepeats(open, request, ctx, changes);
   const slots = daySlots(selection, request, ctx);
-  // The trip as tidied so far, which the validator sees when a place goes back (step 6).
+  // The trip as tidied so far, which the validator sees when a place goes back (step 6) or
+  // moves (step 7).
   const trip: DaySelection[] = selection.days.map((day, index) => ({
     anchorId: day.anchorId,
     placeIds: unique[index] ?? [],
   }));
-  const tidy = unique.map((ids, index) => {
+  const jobs = unique.map((ids, index): DayJob | null => {
     const slot = slots[index];
     const offered = (id: string) =>
       shortlist.placeIds.has(id) && ctx.anchorIdByPlaceId.get(id) === slot?.anchor.id;
     // Decision: a day with an unknown base, or a place not offered for its base, keeps the
-    // model's order and length. The check sends such a day back to the model whatever its
-    // order, and the repaired answer is tidied again.
-    if (!slot || !ids.every(offered)) return ids;
-    const order = tidyDay(ids, { index, slot, request, ctx, changes, trip });
-    trip[index] = { anchorId: slot.anchor.id, placeIds: order };
-    return order;
+    // model's order and length, and no place moves to it. The check sends such a day back to
+    // the model whatever its order, and the repaired answer is tidied again.
+    if (!slot || !ids.every(offered)) return null;
+    const job = { index, slot, request, ctx, changes, trip };
+    trip[index] = { anchorId: slot.anchor.id, placeIds: tidyDay(ids, job) };
+    return job;
   });
-  const days = selection.days.map((day, index) => ({ ...day, placeIds: tidy[index] ?? [] }));
+  const moved = withMoves(jobs, changes, trip, shortlist, ctx);
+  const days = selection.days.map((day, index) => ({
+    ...day,
+    placeIds: moved[index] ?? [],
+    reasons: withMovedReasons(day.reasons, index, selection, changes),
+  }));
   return { selection: { ...selection, days }, changes };
 }
 
@@ -134,9 +146,24 @@ function withoutClosed(
   );
 }
 
+/** One place of the answer once closed places are out: its day, its position, and the place. */
+interface Entry {
+  day: number;
+  index: number;
+  placeId: string;
+  place: Place | undefined; // undefined for an id that is not a place
+}
+
+/** An entry the repeat rules take out, and the entry in the trip it repeats. */
+interface Repeat {
+  rule: "duplicate" | "same_spot";
+  rival: Entry;
+}
+
 /**
  * Each place once in the trip, and never two at one spot. The first one in trip order stays,
- * except that a must-include keeps its spot against an ordinary place anywhere in the trip.
+ * except that a must-include keeps its spot against an ordinary place anywhere in the trip, and a
+ * day these drops would empty keeps one of its places (keepEveryDay).
  */
 // Decision: closed places go first, so a place the model put on its closed day and again on an
 // open day keeps the open one. Two must-includes at one spot both stay: the traveler asked for
@@ -148,28 +175,98 @@ function withoutRepeats(
   changes: TidyChange[],
 ): string[][] {
   const must = new Set(request.mustInclude);
-  const inAnswer = new Set(days.flat());
-  const mustPlaces = ctx.places.filter((place) => must.has(place.id) && inAnswer.has(place.id));
-  const seen = new Set<string>();
-  const kept: Place[] = [];
-  return days.map((ids, day) =>
-    ids.filter((placeId) => {
-      if (seen.has(placeId)) {
-        changes.push({ rule: "duplicate", day, placeId });
-        return false;
-      }
-      seen.add(placeId);
-      const place = ctx.placesById.get(placeId);
-      if (!place) return true;
-      const rivals = must.has(placeId) ? [] : [...kept, ...mustPlaces];
-      if (rivals.some((other) => sharesLocation(other, place))) {
-        changes.push({ rule: "same_spot", day, placeId });
-        return false;
-      }
-      kept.push(place);
-      return true;
-    }),
+  const grid: Entry[][] = days.map((ids, day) =>
+    ids.map((placeId, index) => ({ day, index, placeId, place: ctx.placesById.get(placeId) })),
   );
+  const mustEntries = grid.flat().filter((entry) => must.has(entry.placeId));
+  const firsts = new Map<string, Entry>();
+  const repeats = new Map<Entry, Repeat>();
+  const kept: Entry[] = [];
+  for (const entry of grid.flat()) {
+    const first = firsts.get(entry.placeId);
+    if (first) {
+      repeats.set(entry, { rule: "duplicate", rival: first });
+      continue;
+    }
+    firsts.set(entry.placeId, entry);
+    const rivals = must.has(entry.placeId) ? [] : [...kept, ...mustEntries];
+    const rival = rivals.find((other) => atOneSpot(other, entry));
+    if (rival) {
+      repeats.set(entry, { rule: "same_spot", rival });
+      continue;
+    }
+    kept.push(entry);
+  }
+  keepEveryDay(grid, repeats, mustEntries, must);
+  for (const entry of grid.flat()) {
+    const repeat = repeats.get(entry);
+    if (repeat) changes.push({ rule: repeat.rule, day: entry.day, placeId: entry.placeId });
+  }
+  return grid.map((entries) => entries.filter((e) => !repeats.has(e)).map((e) => e.placeId));
+}
+
+/** True when two entries are two places at one spot (never one place with itself). */
+function atOneSpot(a: Entry, b: Entry): boolean {
+  return a.place !== undefined && b.place !== undefined && sharesLocation(a.place, b.place);
+}
+
+/**
+ * For each day the repeat rules would empty, one of its places stays and the entry it repeats
+ * goes instead: the one whose day keeps the most stops, a visit before a meal place, then the
+ * first. Only an entry that repeats a kept one on a day with another stop to keep can stay, and
+ * only one with no other place in the trip at its spot; never against a must-include's spot.
+ * Changes `repeats` in place.
+ */
+// Decision: the day that would be empty needs the place more than the day that had it first. The
+// owner's failed plan of 2026-09-25 (as rebuilt from its log) put its Sunday on places closed that
+// day and places days 1 and 2 had used, so day 3 was empty and the plan fell back; kept there, the
+// Spanish Steps make a day the check passes, and day 1 keeps eight of its nine stops. Of 293
+// recorded answers (the 132 live plans of the failure hunt of 2026-09-25 and the two live evals of
+// that day), 12 tidied to an empty day: this passes all 12, and moving drops alone (step 7) 8.
+// One place is enough to keep the day: step 7 then moves what days 1 and 2 cannot hold to it, and
+// a day the model filled keeps the rest of its choices. Keeping each repeat on whichever of its
+// days had fewer stops passed as many answers and gave day 3 more stops, but left more days with
+// under two visits or without lunch or dinner (512 of 879 against 500), and it moves more of the
+// model's choices between days.
+function keepEveryDay(
+  grid: readonly Entry[][],
+  repeats: Map<Entry, Repeat>,
+  mustEntries: readonly Entry[],
+  must: ReadonlySet<string>,
+): void {
+  const keptOn = (day: number) =>
+    grid.flat().filter((entry) => entry.day === day && !repeats.has(entry));
+  const lonely = (entry: Entry, rival: Entry) =>
+    !grid
+      .flat()
+      .some(
+        (other) =>
+          other !== entry &&
+          other !== rival &&
+          (!repeats.has(other) || mustEntries.includes(other)) &&
+          atOneSpot(other, entry),
+      );
+  const isMeal = (entry: Entry) => entry.place !== undefined && isMealPlace(entry.place);
+  grid.forEach((entries, day) => {
+    if (entries.length === 0 || entries.some((entry) => !repeats.has(entry))) return;
+    const options = [...repeats].flatMap(([entry, repeat]) => {
+      const spare = keptOn(repeat.rival.day).length;
+      if (entry.day !== day || repeats.has(repeat.rival) || spare < 2) return [];
+      const spot = repeat.rule === "same_spot";
+      if (spot && (must.has(repeat.rival.placeId) || !lonely(entry, repeat.rival))) return [];
+      return [{ entry, repeat, spare }];
+    });
+    options.sort(
+      (a, b) =>
+        b.spare - a.spare ||
+        Number(isMeal(a.entry)) - Number(isMeal(b.entry)) ||
+        a.entry.index - b.entry.index,
+    );
+    const chosen = options[0];
+    if (!chosen) return;
+    repeats.delete(chosen.entry);
+    repeats.set(chosen.repeat.rival, { rule: chosen.repeat.rule, rival: chosen.entry });
+  });
 }
 
 /** Each day's date, base, and transfer, worked out as scheduleTrip does; null for an unknown base. */
@@ -213,6 +310,7 @@ function tidyDay(ids: readonly string[], job: DayJob): string[] {
   }
   order = withoutMisfits(order, job);
   order = withDropsBack(ids, order, job);
+  order = withMealsSeated(order, job);
   const before = ids.filter((id) => order.includes(id));
   if (order.some((id, i) => id !== before[i])) {
     job.changes.push({ rule: "reordered", day: job.index });
@@ -425,33 +523,170 @@ function withDropsBack(ids: readonly string[], order: string[], job: DayJob): st
     if (change.day === job.index && goesBack(change, job.ctx)) records.set(change.placeId, change);
   }
   let current = order;
-  let look = lookAt(current, job);
-  let found: Findings | null = null;
   for (const placeId of ids) {
     const record = records.get(placeId);
     if (!record) continue;
+    const next = insertion(placeId, current, job);
+    if (next === null) continue;
+    current = next;
+    job.changes.splice(job.changes.indexOf(record), 1);
+  }
+  return current;
+}
+
+/**
+ * The day's order with the place inserted, or null when no position takes it. Of the positions
+ * where the day is no worse (holdsAsWell), a meal place is the day's lunch or dinner (isMealIn),
+ * and the check finds nothing new (nothingNew), the one that gives the day the most meals, then
+ * moves its other stops least, then comes first.
+ */
+function insertion(placeId: string, order: readonly string[], job: DayJob): string[] | null {
+  const place = job.ctx.placesById.get(placeId);
+  const asMeal = place !== undefined && isMealPlace(place);
+  const look = lookAt(order, job);
+  const fits: { order: string[]; look: DayLook; moved: number }[] = [];
+  for (let at = 0; at <= order.length; at++) {
+    const next = [...order.slice(0, at), placeId, ...order.slice(at)];
+    const nextLook = lookAt(next, job);
+    if (!holdsAsWell(nextLook, look, job)) continue;
+    if (asMeal && !isMealIn(nextLook, placeId)) continue;
+    fits.push({ order: next, look: nextLook, moved: minutesMoved(look.stops, nextLook.stops) });
+  }
+  // Stable, so the earliest position wins a tie.
+  fits.sort((a, b) => b.look.meals.length - a.look.meals.length || a.moved - b.moved);
+  const wasEmpty = order.length === 0 ? job.index : undefined;
+  let found: Findings | null = null;
+  for (const fit of fits) {
+    found ??= findings(order, job);
+    if (nothingNew(findings(fit.order, job), found, placeId, wasEmpty)) return fit.order;
+  }
+  return null;
+}
+
+/** The drops that may move to another day: a closure, the visit limit, or the hours. */
+const MOVABLE: ReadonlySet<TidyRule> = new Set(["closed", "over_visit_limit", "does_not_fit"]);
+
+/**
+ * Step 7: each place a day lost to its closed day, the visit limit, or the hours, that the model
+ * was offered, and that is not in the trip or at the spot of a place that is, moved to another day
+ * at its base: one open on that day's date, with the fewest stops first, then the earliest,
+ * inserted as a put-back is (insertion). Its record becomes moved_day, and the record of its
+ * repeat on the day it joins, if there is one, goes. `trip` is the trip after steps 1 to 6, which
+ * each job reads and this updates; `jobs` has each day's job, or null for a day that was not
+ * tidied.
+ */
+// Decision: moving the model's own choice to another day is not adding a place. The model chose
+// it for the trip, and a day that cannot hold it (full at the pace, out of time, or closed) is the
+// only reason it would go; steps 4 and 5 still decide what each day holds. In the failure hunt's
+// run of the owner's request, days 1 and 2 dropped the Trastevere walk and Giolitti while day 3
+// was empty, and they were the only Rome places open that Sunday left unused. On the 293 recorded
+// answers, moves keep 138 more stops (4,347 against 4,209), day 3 averages 3.02 visits and 0.98
+// meals against 2.78 and 0.89, and no answer that passed the check stops passing.
+// Decision: a meal place moves only as a lunch or dinner the day lacks, never as a visit, as for
+// a put-back; a visit moves under the same checks, so a day never passes its visit limit or its
+// hours to take one. The day with the fewest stops first, since it needs the place most.
+// Decision: only a place the model was offered moves. The closed rule runs before any day is
+// judged, so it also drops a place the shortlist left out (over budget, say) from its closed day.
+// Moved to an open day, that place would be an id the check rejects (UNKNOWN_PLACE), in a plan
+// that passes without it.
+function withMoves(
+  jobs: readonly (DayJob | null)[],
+  changes: TidyChange[],
+  trip: DaySelection[],
+  shortlist: Shortlist,
+  ctx: PlannerContext,
+): string[][] {
+  for (const change of [...changes]) {
+    const place = ctx.placesById.get(change.placeId ?? "");
+    if (!MOVABLE.has(change.rule) || place === undefined) continue;
+    if (!shortlist.placeIds.has(place.id)) continue;
+    const target = moveTarget(place, change.day, trip, jobs, ctx);
+    if (target === null) continue;
+    trip[target.day] = { anchorId: target.anchorId, placeIds: target.order };
+    const repeat = changes.findIndex(
+      (other) =>
+        other.day === target.day && other.placeId === place.id && other.rule === "duplicate",
+    );
+    changes[changes.indexOf(change)] = { ...change, rule: "moved_day", toDay: target.day };
+    if (repeat >= 0) changes.splice(repeat, 1);
+  }
+  return trip.map((day) => [...day.placeIds]);
+}
+
+/** The day a dropped place moves to, with its base and new order, or null when no day takes it. */
+function moveTarget(
+  place: Place,
+  from: number,
+  trip: readonly DaySelection[],
+  jobs: readonly (DayJob | null)[],
+  ctx: PlannerContext,
+): { day: number; anchorId: string; order: string[] } | null {
+  const inTrip = trip.some((day) =>
+    day.placeIds.some((id) => {
+      const other = ctx.placesById.get(id);
+      return id === place.id || (other !== undefined && sharesLocation(other, place));
+    }),
+  );
+  if (inTrip) return null;
+  const base = ctx.anchorIdByPlaceId.get(place.id);
+  const targets = trip.flatMap((day, index) => {
+    const job = jobs[index];
+    if (!job || index === from || day.anchorId !== base) return [];
+    if (openStatusOn(place, job.slot.date).state === "closed") return [];
+    return [{ index, job, day }];
+  });
+  targets.sort((a, b) => a.day.placeIds.length - b.day.placeIds.length || a.index - b.index);
+  for (const { index, job, day } of targets) {
+    const order = insertion(place.id, day.placeIds, job);
+    if (order !== null) return { day: index, anchorId: day.anchorId, order };
+  }
+  return null;
+}
+
+/**
+ * Day `day`'s reasons, with the model's reason for each place moved to it (the first one it wrote
+ * for that place on the day it came from), unless the day has its own. The claims check
+ * (applyAiReasons) still drops one that does not hold for the stop as timed on its new day.
+ */
+function withMovedReasons(
+  reasons: LlmSelection["days"][number]["reasons"],
+  day: number,
+  selection: LlmSelection,
+  changes: readonly TidyChange[],
+): LlmSelection["days"][number]["reasons"] {
+  const joined = changes.flatMap((change) => {
+    if (change.rule !== "moved_day" || change.toDay !== day) return [];
+    const reason = selection.days[change.day]?.reasons.find((r) => r.placeId === change.placeId);
+    return reason && !reasons.some((r) => r.placeId === reason.placeId) ? [reason] : [];
+  });
+  return joined.length === 0 ? reasons : [...reasons, ...joined];
+}
+
+/**
+ * The day with each meal place its order times as a visit moved, by removal and insertion, to
+ * where it is a lunch or dinner the day lacks, when that gives the day more meals. Its record is
+ * "reordered", since the day keeps the same places.
+ */
+// Decision: a restaurant at 15:30 is a lunch the model placed too late, not a visit it chose,
+// and the model cannot see the times. On 341 recorded answers (the failure hunt of 2026-09-25
+// before and after this change, and the two live evals of that day), 103 meal places were timed
+// as visits; seated this way, 53 are, the days gain 50 meals, and no answer that passed stops
+// passing. It moves only that place, and only where the day holds as well and the check finds
+// nothing new, as a put-back does.
+function withMealsSeated(order: string[], job: DayJob): string[] {
+  let current = order;
+  for (const placeId of order) {
+    const look = lookAt(current, job);
     const place = job.ctx.placesById.get(placeId);
-    const asMeal = place !== undefined && isMealPlace(place);
-    const fits: { order: string[]; look: DayLook; moved: number }[] = [];
-    for (let at = 0; at <= current.length; at++) {
-      const next = [...current.slice(0, at), placeId, ...current.slice(at)];
-      const nextLook = lookAt(next, job);
-      if (!holdsAsWell(nextLook, look, job)) continue;
-      if (asMeal && !isMealIn(nextLook, placeId)) continue;
-      fits.push({ order: next, look: nextLook, moved: minutesMoved(look.stops, nextLook.stops) });
-    }
-    // Stable, so the earliest position wins a tie.
-    fits.sort((a, b) => b.look.meals.length - a.look.meals.length || a.moved - b.moved);
-    for (const fit of fits) {
-      found ??= findings(current, job);
-      const nextFound = findings(fit.order, job);
-      if (!nothingNew(nextFound, found, placeId)) continue;
-      current = fit.order;
-      look = fit.look;
-      found = nextFound;
-      job.changes.splice(job.changes.indexOf(record), 1);
-      break;
-    }
+    const asVisit = look.stops.some((stop) => stop.placeId === placeId && stop.role === "visit");
+    if (!asVisit || place === undefined || !isMealPlace(place)) continue;
+    if (!DAY_MEALS.some((meal) => servesMeal(place, meal) && !look.meals.includes(meal))) continue;
+    const next = insertion(
+      placeId,
+      current.filter((id) => id !== placeId),
+      job,
+    );
+    if (next !== null && lookAt(next, job).meals.length > look.meals.length) current = next;
   }
   return current;
 }
@@ -552,7 +787,8 @@ const CHECK_META = { attempts: 0, latencyMs: 0, generatedAt: "1970-01-01T00:00:0
 /**
  * True when the check finds nothing the day did not have before, apart from a warning about the
  * place put back itself (its rating, budget, or unknown hours), which came with the model's
- * choice. A warning that a meal is missing or a must-include cannot be placed is new.
+ * choice, and a missing meal on the day `wasEmpty` names. Any other warning that a meal is
+ * missing or a must-include cannot be placed is new.
  */
 // Decision: the check is asked, not only the error count, which lets a day that still fails
 // trade one error for another. On 3,000 random answers it turned away 50 put-backs the count
@@ -563,10 +799,16 @@ const CHECK_META = { attempts: 0, latencyMs: 0, generatedAt: "1970-01-01T00:00:0
 // Decision: a warning about the place put back is not new. It came with the model's choice, and
 // without this, 46 of the 651 places put back on 3,000 random answers, and 217 of 874 in Bologna,
 // would stay out (each warned of unknown hours).
-function nothingNew(next: Findings, now: Findings, placeId: string): boolean {
+// Decision: on a day that was empty, a missing lunch or dinner is not new either. The check says
+// only EMPTY_DAY of a day with no stops, so the first place moved to it always brings a warning for
+// the meal it is not; the day trades an error for warnings. Without this, no place could move to an
+// empty day: of the 12 recorded answers that tidied to one, moves alone saved none, and 8 with it.
+function nothingNew(next: Findings, now: Findings, placeId: string, wasEmpty?: number): boolean {
   for (const [key, { finding, count }] of next) {
     if (count <= (now.get(key)?.count ?? 0)) continue;
-    if (finding.severity !== "warning" || finding.placeId !== placeId) return false;
+    const own = finding.placeId === placeId;
+    const firstMeals = finding.code === "MEAL_MISSING" && finding.day === wasEmpty;
+    if (finding.severity !== "warning" || !(own || firstMeals)) return false;
   }
   return true;
 }

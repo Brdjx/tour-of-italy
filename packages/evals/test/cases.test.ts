@@ -24,6 +24,7 @@ const PLANNED = [
   "must-include-closed",
   "must-include-two-cities",
   "rome-food-balanced",
+  "rome-sunday-balanced",
   "sparse-interest",
   "splurge",
   "tuscany-wine-relaxed",
@@ -36,7 +37,7 @@ function states(placeId: string, startDate: string): string[] {
 }
 
 describe("eval case files", () => {
-  it("has exactly the fifteen planned cases, each file named by its id", () => {
+  it("has exactly the sixteen planned cases, each file named by its id", () => {
     expect(CASES.map((c) => c.id)).toEqual(PLANNED);
   });
 
@@ -84,6 +85,12 @@ describe("eval case files", () => {
     expect(tripDates(c.request.startDate)).toContain("2028-02-29");
   });
 
+  it("keeps the Vatican Museums closed on the Sunday of rome-sunday-balanced, its day 3", () => {
+    const { request } = caseById("rome-sunday-balanced");
+    expect(weekdayOf(request.startDate)).toBe(5);
+    expect(states("place_010", request.startDate)).toEqual(["open", "open", "closed"]);
+  });
+
   it("runs the injection case across the new year", () => {
     expect(tripDates(caseById("adversarial-injection").request.startDate)).toEqual([
       "2026-12-30",
@@ -123,12 +130,13 @@ describe("eval cases a model can pass", () => {
     }
   });
 
-  it("would flag a meal check on rome-food-balanced: five meal places offered for six meals", () => {
+  it("lets rome-food-balanced forbid a missing meal: seven meal places offered for six meals", () => {
+    // The shortlist offered five until it was sized for a whole trip at one base (candidates.ts).
     const c = caseById("rome-food-balanced");
     const shortlist = shortlistFor(c.request, ctx);
-    // When this fails, the shortlist offers enough meals: forbid MEAL_MISSING in the case again.
-    expect(shortlist.options.map((o) => o.candidates.filter((x) => x.meal).length)).toEqual([5]);
-    expect(mealsFillable(shortlist, c.expect.maxAnchors)).toBe(false);
+    expect(shortlist.options.map((o) => o.candidates.filter((x) => x.meal).length)).toEqual([7]);
+    expect(mealsFillable(shortlist, c.expect.maxAnchors)).toBe(true);
+    expect(c.expect.forbidViolationCodes).toContain("MEAL_MISSING");
   });
 
   it("never expects a place the model is not offered", () => {
@@ -200,7 +208,7 @@ describe("--case filter", () => {
       "lake-como-january",
       "lake-como-july",
     ]);
-    expect(selectCases(CASES, [])).toHaveLength(15);
+    expect(selectCases(CASES, [])).toHaveLength(16);
   });
 
   it("fails loudly on a filter that matches nothing, instead of running zero cases", () => {

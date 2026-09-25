@@ -47,7 +47,7 @@ async function fakeMessagesApi(): Promise<{ baseURL: string; keysSeen: string[] 
     const key = String(req.headers["x-api-key"]);
     keysSeen.push(key);
     const user = body.messages[0]?.content ?? "";
-    if (user.includes(`Day 1: ${rome.request.startDate}`)) {
+    if (user.includes(`Day 1 (d1): ${rome.request.startDate}`)) {
       const text = JSON.stringify(validSelection(rome.request, user, ctx));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(

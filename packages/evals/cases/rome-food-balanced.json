@@ -1,6 +1,6 @@
 {
   "id": "rome-food-balanced",
-  "description": "Food and local favorites in Rome from a Tuesday in October: interests matched, nothing on a closed day, and the 2.1-rated Hard Rock Cafe never suggested.",
+  "description": "Food and local favorites in Rome from a Tuesday in October: interests matched, a lunch and a dinner every day, nothing on a closed day, and the 2.1-rated Hard Rock Cafe never suggested.",
   "request": {
     "startDate": "2026-10-13",
     "pace": "balanced",
@@ -13,7 +13,7 @@
   "expect": {
     "maxAnchors": 1,
     "minPreferenceMatch": 0.5,
-    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED"],
+    "forbidViolationCodes": ["CLOSED_AT_TIME", "SEASONAL_CLOSED", "MEAL_MISSING"],
     "expectWarningCodes": [],
     "forbidPlaceIds": ["place_025"],
     "expectAnyPlaceIds": [],

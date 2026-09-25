@@ -35,7 +35,7 @@ describe("replay of the committed recordings", () => {
   });
 
   it("ends every replayed plan valid, bad answers included (the one blocking check)", () => {
-    expect(first.plans).toBe(26); // 15 simulated cases and 11 guardrail recordings
+    expect(first.plans).toBe(28); // 16 simulated cases and 12 guardrail recordings
     expect(first.invalidPlans).toBe(0);
   });
 
@@ -47,7 +47,7 @@ describe("replay of the committed recordings", () => {
 
   it("ends every guardrail recording by the path it names", () => {
     const scenarios = first.groups.flatMap((g) => g.scenarios);
-    expect(scenarios).toHaveLength(11);
+    expect(scenarios).toHaveLength(12);
     for (const s of scenarios) {
       expect(s.finalValid, s.name).toBe(true);
       // A stale recording (the candidates changed since it was made) is still replayed, but its
@@ -149,7 +149,7 @@ describe("stale and partial recordings", () => {
     const chosen = chooseRecordings([...committed, ...live]);
     expect(chosen.some((r) => r.kind === "simulated")).toBe(false);
     expect(chosen.filter((r) => r.kind === "live")).toHaveLength(live.length);
-    expect(chosen.filter((r) => r.kind === "adversarial")).toHaveLength(19);
+    expect(chosen.filter((r) => r.kind === "adversarial")).toHaveLength(20);
   });
 });
 

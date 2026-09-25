@@ -38,7 +38,9 @@ POST /api/plan
   -> TripRequest parsed with Zod against the dataset's ids and bases (400 on any problem)
   -> ?mode=deterministic, AI switched off, or no key --------------------> rules-only plan
   -> rules-only plan made once (about 10 ms): the fallback, and a source of bases to offer
-  -> shortlist: up to 4 bases; per base the best 12 visits and 5 meal places for the dates
+  -> shortlist: up to 4 bases; per base the best visits and meal places for a whole trip
+       there at the pace (each day's visits plus two, two meals a day plus one), none
+       that cannot be a day's only stop on any trip date unless the traveler asked for it
   -> Claude selects: per day a base id and ordered place ids, a reason per stop, a summary
        structured outputs (JSON schema), ids only, no times
   -> stop_reason checked (refusal, max_tokens -> fallback), then parsed with Zod
@@ -46,13 +48,18 @@ POST /api/plan
        the pace's limit; reorder a day the scheduler cannot time (bases and choices kept,
        and every must-include in the answer stays on one of its days); then drop the latest
        ordinary visit a day's hours cannot hold until it times cleanly (never a must-include
-       or a meal the day needs), and put each back where the day's order holds it after all
+       or a meal the day needs), and put each back where the day's order holds it after all;
+       a restaurant timed as a visit moves to where it is the meal the day lacks; a day
+       repeats would empty keeps one of them, and what a day cannot hold moves to another
+       day at its base that holds it
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
        no errors, nothing tidied  -> reasons and summary sanitized -> source "ai"
        no errors, tidied          -> source "ai_repaired", the log lists what was tidied
-       errors, time left          -> one repair turn with the exact violations left
+       errors, time left          -> one repair turn with the exact violations left, what
+                                     tidying removed and why, and the free candidates for
+                                     an empty day
                                      -> tidied, timed and validated again -> source "ai_repaired"
        still invalid, timeout,
        refusal, API error         -> rules-only plan, fallbackReason set -> "deterministic"

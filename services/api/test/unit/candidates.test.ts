@@ -1,7 +1,14 @@
-import { openStatusOn, TRIP_DAYS, TripRequestSchema, tripDates } from "@italy/planner";
+import {
+  isCandidate,
+  openStatusOn,
+  sharesLocation,
+  TRIP_DAYS,
+  TripRequestSchema,
+  tripDates,
+} from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { shippedData } from "../../src/data";
-import { buildShortlist, SHORTLIST } from "../../src/plan/candidates";
+import { buildShortlist, SHORTLIST, shortlistSize } from "../../src/plan/candidates";
 import { START_DATE } from "../helpers/app";
 
 // The shortlist is the model's whole world: anything not on it is rejected later. It must hold
@@ -68,6 +75,18 @@ describe("buildShortlist", () => {
     }
   });
 
+  it("never offers a place that cannot be a day's only stop on any trip date, unless asked for", () => {
+    // Osteria Francescana's dinner in Modena ends at 22:00, 65 minutes from Bologna: past a
+    // balanced day's last return at 23:00, but inside a packed day's.
+    const francescana = "place_043";
+    const bologna = (overrides: Record<string, unknown>) =>
+      buildShortlist(request({ startDate: "2026-10-09", anchors: ["bologna"], ...overrides }), ctx);
+
+    expect(bologna({}).placeIds.has(francescana)).toBe(false);
+    expect(bologna({ pace: "packed" }).placeIds.has(francescana)).toBe(true);
+    expect(bologna({ mustInclude: [francescana] }).placeIds.has(francescana)).toBe(true);
+  });
+
   it("never offers a low-rated place the traveler did not ask for", () => {
     const shortlist = buildShortlist(request({ anchors: ["rome"] }), ctx);
     const low = ctx.places.filter((p) => p.rating !== null && p.rating < 3.5).map((p) => p.id);
@@ -90,17 +109,62 @@ describe("buildShortlist", () => {
     expect(shortlist.mustInclude).toEqual([venicePlace]);
   });
 
-  it("keeps each base to the top visits and meals, plus must-includes", () => {
-    const shortlist = buildShortlist(request({ anchors: ["rome"] }), ctx);
-    const rome = shortlist.options[0];
+  it("sizes a base for a whole trip there: each day's visits at the pace plus two, and two meals a day plus one", () => {
+    expect(shortlistSize("relaxed")).toEqual({ visits: 12, meals: 7 });
+    expect(shortlistSize("balanced")).toEqual({ visits: 17, meals: 7 });
+    expect(shortlistSize("packed")).toEqual({ visits: 23, meals: 7 });
+  });
 
-    expect(rome?.candidates.filter((c) => !c.meal).length).toBeLessThanOrEqual(
-      SHORTLIST.visitsPerAnchor,
+  it("offers the best visits until enough are open every trip day, one per spot", () => {
+    // Friday 9 to Sunday 11 October 2026 in Rome, the owner's failed request. The Vatican Museums
+    // and one other visit are closed on the Sunday, and the Trevi Fountain by night shares the
+    // fountain's spot: they are offered but do not count, so 20 visits are offered for 17.
+    const shortlist = buildShortlist(request({ startDate: "2026-10-09", anchors: ["rome"] }), ctx);
+    const visits = shortlist.options[0]?.candidates.filter((c) => !c.meal) ?? [];
+    const everyDay = visits.filter((c) => c.statuses.every((status) => status.kind !== "closed"));
+    const spots = everyDay.filter(
+      (c, i) => !everyDay.slice(0, i).some((other) => sharesLocation(other.place, c.place)),
     );
-    expect(rome?.candidates.filter((c) => c.meal).length).toBeLessThanOrEqual(
-      SHORTLIST.mealsPerAnchor,
+
+    expect(visits).toHaveLength(20);
+    expect(spots).toHaveLength(shortlistSize("balanced").visits);
+    expect(visits.map((c) => c.place.id)).toEqual(
+      expect.arrayContaining(["place_010", "place_018", "place_077"]),
     );
-    expect(rome?.candidates.some((c) => c.meal)).toBe(true);
+    const scores = visits.map((c) => c.score);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
+  });
+
+  it("offers every visit and meal place a base has when a whole trip there could use them", () => {
+    const req = request({ startDate: "2026-10-09", anchors: ["rome"], pace: "packed" });
+    const rome = buildShortlist(req, ctx).options[0]?.candidates ?? [];
+    const eligible = (ctx.anchorById.get("rome")?.placeIds ?? [])
+      .map((id) => ctx.placesById.get(id))
+      .filter((place) => place !== undefined && isCandidate(place, req, "rome", ctx));
+
+    expect(rome.filter((c) => !c.meal)).toHaveLength(
+      eligible.filter((p) => !p?.mealCapable).length,
+    );
+    expect(rome.filter((c) => c.meal)).toHaveLength(eligible.filter((p) => p?.mealCapable).length);
+  });
+
+  it("still offers every must-include beyond the size", () => {
+    const low = buildShortlist(request({ anchors: ["rome"], pace: "relaxed" }), ctx);
+    const offered = new Set(low.placeIds);
+    const extra = (ctx.anchorById.get("rome")?.placeIds ?? []).find((id) => {
+      const place = ctx.placesById.get(id);
+      return (
+        place !== undefined && !place.mealCapable && !offered.has(id) && (place.rating ?? 5) >= 3.5
+      );
+    });
+    if (!extra) throw new Error("no Rome place left off the relaxed shortlist");
+
+    const asked = buildShortlist(
+      request({ anchors: ["rome"], pace: "relaxed", mustInclude: [extra] }),
+      ctx,
+    );
+
+    expect(asked.placeIds.has(extra)).toBe(true);
   });
 
   it("is deterministic, so the same request always builds the same prompt", () => {

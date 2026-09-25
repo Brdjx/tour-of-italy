@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ErrorResponseSchema } from "../../src/contract";
 import { shippedData } from "../../src/data";
 import { FixtureClient } from "../../src/llm/fixture";
+import { PROMPT_VERSION } from "../../src/llm/prompt";
 import { lastRequestLog, makeApp, postPlan, tripBody } from "../helpers/app";
 import { expectValidItinerary, placeIdsOf } from "../helpers/validPlan";
 
@@ -27,7 +28,11 @@ describe("POST /api/plan", () => {
     const stops = itinerary.days.flatMap((d) => d.stops);
     expect(stops.every((s) => s.reasonSource === "ai")).toBe(true);
     expect(itinerary.summary).toBeDefined();
-    expect(lastRequestLog(logs)).toMatchObject({ source: "ai", attempts: 1, promptVersion: "v1" });
+    expect(lastRequestLog(logs)).toMatchObject({
+      source: "ai",
+      attempts: 1,
+      promptVersion: PROMPT_VERSION,
+    });
   });
 
   it("repairs an unknown id and labels the plan ai_repaired", async () => {

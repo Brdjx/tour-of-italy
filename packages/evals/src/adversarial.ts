@@ -40,7 +40,32 @@ function withIdsFirst(valid: LlmSelection, dayIndex: number, ids: string[]): Llm
   return copy;
 }
 
+/** An answer with these place ids per day, all in Rome, as numbers (5 is place_005). */
+function romeDays(...days: number[][]): LlmSelection {
+  const id = (n: number) => `place_${String(n).padStart(3, "0")}`;
+  return {
+    days: days.map((ids) => ({
+      anchorId: "rome",
+      placeIds: ids.map(id),
+      reasons: ids.map((n) => ({ placeId: id(n), reason: "A strong fit for this day." })),
+    })),
+    summary: "Three days in Rome.",
+  };
+}
+
 export const ADVERSARIAL: readonly AdversarialScenario[] = [
+  {
+    name: "Day 3 made only of closed places and repeats",
+    caseId: "rome-sunday-balanced",
+    note: "The owner's failed first answer of 2026-09-25, rebuilt from its log: nine stops on day 1, and day 3 on the Vatican Museums (closed that Sunday) and three places days 1 and 2 have. Tidying keeps one of the repeats on day 3, with no repair turn.",
+    expectSource: "ai_repaired",
+    steps: () => [
+      answer(
+        "select",
+        romeDays([7, 5, 11, 3, 18, 19, 2, 20, 9], [1, 4, 15, 14, 97, 22, 77], [10, 97, 19, 20]),
+      ),
+    ],
+  },
   {
     name: "Places outside the data, then a valid answer",
     caseId: "adversarial-outside-data",
