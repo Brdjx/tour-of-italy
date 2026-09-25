@@ -1,0 +1,56 @@
+name: e2e
+
+# Decision (2026-09-25): E2E runs in a workflow of its own, not as a job in ci.yml. The deploy
+# workflow starts only when the ci run concludes "success", and a job that hits its timeout marks
+# its whole run "cancelled", even with continue-on-error; one slow E2E run skipped the deploy of
+# c4997c7. Here its result is shown on every commit and gates nothing until T62 makes it blocking
+# again (then add it back to ci.yml and to ci-ok's needs).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  e2e:
+    # Decision (2026-09-24, owner's call): E2E reports but does not block while the page is being
+    # redesigned; the specs are rewritten for the new page before it gates again (task T62).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          # No cache yet: until test:e2e exists nothing is installed, so there is nothing to save.
+          package-manager-cache: false
+      - run: bash .github/scripts/run-e2e.sh test:e2e
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            **/playwright-report/
+            **/test-results/
+            !**/node_modules/**
+          if-no-files-found: ignore
+          retention-days: 7
+
