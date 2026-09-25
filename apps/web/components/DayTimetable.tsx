@@ -136,7 +136,7 @@ export function DayTimetable(props: DayTimetableProps) {
       </ol>
       {view.returnLeg ? (
         <div className="timetable-grid" data-testid="return-leg">
-          <div className="leg-line" aria-hidden="true" />
+          <div className="leg-line leg-line--end" aria-hidden="true" />
           <p className="py-1.5 text-sm text-muted">{view.returnLeg}</p>
         </div>
       ) : null}

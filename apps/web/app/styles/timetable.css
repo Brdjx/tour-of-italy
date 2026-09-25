@@ -69,6 +69,13 @@
     border-left: 1px dashed var(--line-strong);
   }
 
+  /* Decision: the trip back to the base after the day's last stop keeps its words but not the
+     dashed line. The line joins one stop to the next; after the last stop there is none to join,
+     and the owner found the trailing dots read as a stop still to come. */
+  .leg-line--end {
+    border-left-color: transparent;
+  }
+
   /* Times and durations line up like a printed board. Only numbers get tabular figures: in this
      font the feature also widens commas and periods, which reads badly in prose. */
   .stop-times,
