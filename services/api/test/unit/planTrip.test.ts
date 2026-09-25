@@ -48,7 +48,9 @@ async function run(llm: PlanDeps["llm"], overrides: Partial<PlanDeps> = {}, req 
 const EXPECTED: Record<FixtureScenario, { source: string; reason?: string; attempts: number }> = {
   valid: { source: "ai", attempts: 1 },
   "unknown-id-then-valid": { source: "ai_repaired", attempts: 2 },
-  "closed-day-then-valid": { source: "ai_repaired", attempts: 2 },
+  // Tidied before the check, so no repair turn; a changed answer is never labelled "ai".
+  "closed-day-tidied": { source: "ai_repaired", attempts: 1 },
+  "messy-tidied": { source: "ai_repaired", attempts: 1 },
   "always-invalid": { source: "deterministic", reason: "invalid_after_repair", attempts: 2 },
   "schema-invalid": { source: "ai_repaired", attempts: 2 },
   truncated: { source: "deterministic", reason: "max_tokens", attempts: 1 },
@@ -149,6 +151,105 @@ describe("planTrip with every fixture scenario", () => {
     );
     expect(outcome.itinerary.source).toBe("ai_repaired");
     expect(outcome.trace.violationCodes).toContain("UNKNOWN_PLACE");
+  });
+
+  it("labels an answer that passes exactly as written ai, with nothing tidied", async () => {
+    const { outcome } = await run(new FixtureClient(ctx, "valid"));
+
+    expect(outcome.itinerary.source).toBe("ai");
+    expect(outcome.trace.tidied).toEqual([]);
+  });
+
+  it("tidies a messy answer into a valid plan without a repair turn, and says so", async () => {
+    const client = new FixtureClient(ctx, "messy-tidied");
+
+    // With these interests the prompt offers a place that is closed on day 1, so the messy
+    // answer breaks three rules at once: an order that cannot be timed, a repeat, and a closure.
+    const { outcome } = await run(client, {}, request({ interests: ["historic", "food"] }));
+
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(client.calls).toBe(1);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(itinerary.meta.attempts).toBe(1);
+    expect(outcome.trace.violationCodes).toEqual([]);
+    const rules = new Set(outcome.trace.tidied.map((change) => change.rule));
+    expect([...rules]).toEqual(expect.arrayContaining(["closed", "duplicate", "reordered"]));
+    expect(outcome.trace.tidied.every((change) => change.answer === 1)).toBe(true);
+  });
+
+  it("sends only what is still wrong after tidying to the repair turn", async () => {
+    const client = new ScriptedClient(async (input, call) => {
+      const selection = validSelection(input.request, input.user, ctx);
+      const [first, , last] = selection.days;
+      if (call === 1 && first && last) {
+        last.placeIds.push(first.placeIds[0] ?? ""); // a repeat, which tidying drops
+        first.placeIds.unshift("place_999"); // an invented id, which only the model can fix
+      }
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client);
+
+    const repair = client.inputs[1];
+    const message = repair && "repairMessage" in repair ? repair.repairMessage : "";
+    expect(message).toContain("UNKNOWN_PLACE");
+    expect(message).not.toContain("DUPLICATE_PLACE");
+    expect(outcome.trace.tidied).toEqual([
+      expect.objectContaining({ rule: "duplicate", answer: 1 }),
+    ]);
+    expect(outcome.itinerary.source).toBe("ai_repaired");
+    expectValidItinerary(outcome.itinerary);
+  });
+
+  it("sends a must-include on its closed day to the repair turn rather than tidying it away", async () => {
+    // Sunday 25 October: the Vatican Museums (a must-include) are closed, and the first answer
+    // puts them on its only Rome day. Tidied away, that answer would pass without them.
+    const vatican = "place_010";
+    const sunday = request({
+      startDate: "2026-10-25",
+      anchors: ["rome", "florence"],
+      mustInclude: [vatican],
+    });
+    const client = new ScriptedClient(async (input, call) => {
+      const selection = validSelection(input.request, input.user, ctx);
+      if (call === 1) {
+        const day = (anchorId: string, placeIds: string[]) => ({ anchorId, placeIds, reasons: [] });
+        selection.days = [
+          day("rome", [vatican, "place_001", "place_020", "place_005"]),
+          day("florence", ["place_029", "place_036", "place_084", "place_027"]),
+          day("florence", ["place_032", "place_033", "place_103", "place_093", "place_039"]),
+        ];
+      }
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client, {}, sunday);
+
+    const repair = client.inputs[1];
+    const message = repair && "repairMessage" in repair ? repair.repairMessage : "";
+    expect(message).toContain(`CLOSED_AT_TIME, day 1, ${vatican}`);
+    expect(outcome.trace.tidied.filter((change) => change.placeId === vatican)).toEqual([]);
+    const itinerary = expectValidItinerary(outcome.itinerary);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(itinerary.days.flatMap((d) => d.stops.map((s) => s.placeId))).toContain(vatican);
+  });
+
+  it("tidies the repaired answer too", async () => {
+    const client = new ScriptedClient(async (input, call) => {
+      const selection = validSelection(input.request, input.user, ctx);
+      const [first, , last] = selection.days;
+      if (call === 1) first?.placeIds.unshift("place_999");
+      if (call === 2 && first && last) last.placeIds.push(first.placeIds[0] ?? "");
+      return textResult({ selection, rawText: JSON.stringify(selection) });
+    });
+
+    const { outcome } = await run(client);
+
+    expect(client.inputs).toHaveLength(2);
+    expect(outcome.trace.tidied).toEqual([
+      expect.objectContaining({ rule: "duplicate", answer: 2 }),
+    ]);
+    expect(expectValidItinerary(outcome.itinerary).source).toBe("ai_repaired");
   });
 
   it("rejects a real place the model was not offered", async () => {

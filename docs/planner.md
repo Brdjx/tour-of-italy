@@ -7,7 +7,7 @@
 1. It turns a trip request (start date, pace, interests, budget, bases, must-includes, exclusions) and the 103 normalized places into a timed three-day itinerary.
 2. It chooses one or two bases, then walks the days in turns. At each step a day takes the best stop that fits the hard rules and the day's preferences.
 3. A repair pass puts back any must-include the walk left out. A meal pass then seats any lunch or dinner the walk missed.
-4. The scheduler times every stop from the place ids alone, so AI plans, shared links, and edits are all timed by the same function.
+4. The scheduler times every stop from the place ids alone, so AI plans, shared links, and edits are all timed by the same function. When the model's order for a day cannot be timed, the API's tidy step puts the model's own places in the order this day walk finds for them (`orderDay.ts`); it never adds a place or changes a base, and the plan is then labelled `ai_repaired`.
 5. An independent validator checks every plan again from its own stop times. A plan with an error never reaches the traveler.
 
 ## Pipeline
@@ -72,6 +72,7 @@ data/italy.json
 | `mealFill.ts` | Seats missing meals after the walk. |
 | `alternatives.ts` | Swap candidates and `rescheduleDay` for edits in the browser. |
 | `stopEdits.ts` | Remove, move, and replace helpers that return a day's new ids. |
+| `orderDay.ts` | `orderDay`: the day walk over a fixed set of places, which the AI path's tidy step uses to order a day the scheduler cannot time as the model wrote it. |
 | `validate.ts` | The validator's entry: trip shape, then each day, then must-includes. |
 | `violations.ts` | The one severity table and the one violation constructor. |
 | `validate/days.ts` | Day facts rebuilt from the plan; each day's date, transfer, base, and emptiness. |

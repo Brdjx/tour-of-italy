@@ -14,7 +14,7 @@ export interface CheckResult {
 
 export interface CheckInput {
   itinerary: Itinerary; // the plan the traveler would get
-  rejectedCodes: readonly string[]; // error codes of model answers the pipeline rejected
+  rejectedCodes: readonly string[]; // error codes the model's answers had, as written or rejected
   preferenceMatch: number | null;
   textChecks: boolean; // false when no model wrote the summary (the rules-only baseline)
 }
@@ -37,8 +37,8 @@ function checkCodes(expect: Expect, input: CheckInput, ctx: PlannerContext): Che
   const out: CheckResult[] = [];
   const planCodes = validateItinerary(input.itinerary, ctx).map((v) => v.code);
   if (expect.forbidViolationCodes.length > 0) {
-    // Decision: forbidden codes are looked for in the model's rejected answers too, not only in
-    // the final plan. Error codes can never reach the final plan (the pipeline replaces it), so
+    // Decision: forbidden codes are looked for in the model's answers too, not only in the final
+    // plan. Error codes can never reach the final plan (the pipeline tidies or replaces it), so
     // checking only the plan would always pass; the question is whether the model made the mistake.
     const seen = new Set([...planCodes, ...input.rejectedCodes]);
     const found = expect.forbidViolationCodes.filter((code) => seen.has(code));

@@ -39,12 +39,15 @@ describe("POST /api/plan", () => {
     expect(placeIdsOf(itinerary)).not.toContain("place_999");
   });
 
-  it("repairs a place picked on its closed day", async () => {
-    const { body, logs } = await plan("closed-day-then-valid");
+  it("tidies away a place picked on its closed day, with no repair turn, and logs it", async () => {
+    const { body, logs } = await plan("closed-day-tidied");
 
-    expect(expectValidItinerary(body).source).toBe("ai_repaired");
-    const codes = lastRequestLog(logs).violationCodes as string[];
-    expect(codes.some((c) => c === "CLOSED_AT_TIME" || c === "SEASONAL_CLOSED")).toBe(true);
+    const itinerary = expectValidItinerary(body);
+    expect(itinerary.source).toBe("ai_repaired");
+    expect(itinerary.meta.attempts).toBe(1);
+    const log = lastRequestLog(logs);
+    expect(log.violationCodes).toEqual([]);
+    expect(log.tidied).toEqual([expect.objectContaining({ rule: "closed", day: 0, answer: 1 })]);
   });
 
   it("falls back to the rules-only plan when the repair is also invalid", async () => {

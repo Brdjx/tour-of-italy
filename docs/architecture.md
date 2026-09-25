@@ -42,19 +42,23 @@ POST /api/plan
   -> Claude selects: per day a base id and ordered place ids, a reason per stop, a summary
        structured outputs (JSON schema), ids only, no times
   -> stop_reason checked (refusal, max_tokens -> fallback), then parsed with Zod
+  -> tidy: drop places closed that day, repeats and second places at one spot, visits over
+       the pace's limit; reorder a day the scheduler cannot time (bases and choices kept,
+       and every must-include in the answer stays on one of its days)
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
-       no errors                  -> reasons and summary sanitized -> source "ai"
-       errors, time left          -> one repair turn with the exact violations
-                                     -> timed and validated again -> source "ai_repaired"
+       no errors, nothing tidied  -> reasons and summary sanitized -> source "ai"
+       no errors, tidied          -> source "ai_repaired", the log lists what was tidied
+       errors, time left          -> one repair turn with the exact violations left
+                                     -> tidied, timed and validated again -> source "ai_repaired"
        still invalid, timeout,
        refusal, API error         -> rules-only plan, fallbackReason set -> "deterministic"
   -> final guard: zero validator errors and the response schema, else the rules-only plan
   -> response: itinerary, warnings (exactly the validator's), source, meta
 ```
 
-Code: `services/api/src/routes/plan.ts` (the route), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, each model call at most 12 s, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
+Code: `services/api/src/routes/plan.ts` (the route), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, each model call at most 12 s, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
 
 ## Monorepo layout
 

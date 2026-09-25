@@ -20,6 +20,12 @@ describe("sourceText", () => {
     expect(sourceText(ai, "shared").label).toBe("Shared plan, checked against hours and distance");
   });
 
+  it("names both ways a draft is fixed, since the server may tidy it without asking the AI", () => {
+    const [first] = sourceText({ ...aiPlan(), source: "ai_repaired" }, "api").details;
+    expect(first).toContain("first draft broke a rule");
+    expect(first).toContain("dropped or reordered stops, or asked the AI");
+  });
+
   it("labels a browser-built plan offline only when the server could not be reached", () => {
     const plan = fixturePlan();
     expect(sourceText(plan, "offline", { cause: "offline" })).toMatchObject({

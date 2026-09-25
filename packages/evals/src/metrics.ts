@@ -37,7 +37,7 @@ export interface PlanMeasure {
   source: PlanSource | "error"; // "error" when the pipeline threw (never expected)
   fallbackReason: string | null; // why the rules-only plan was used; null when it was not a fallback
   answered: boolean; // the model returned at least one answer
-  firstPassValid: boolean; // the first answer became the plan with no repair
+  firstPassValid: boolean; // the first answer became the plan as written: nothing tidied, no repair
   repairTried: boolean; // the pipeline asked for a repair
   calls: number; // model calls, retries included
   shape: PlanShape | null; // null when the pipeline threw

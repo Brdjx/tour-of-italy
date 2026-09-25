@@ -87,8 +87,10 @@ function baseFor(itinerary: Itinerary, origin: PlanOrigin, cause: FallbackCause 
     return { ...base, who: "Planned with AI", checked: true, details, ai: true };
   }
   if (itinerary.source === "ai_repaired") {
+    // Decision: the page cannot tell whether the server tidied the draft itself or asked the AI
+    // again (services/api/src/plan/tidy.ts), so the sentence names both and claims neither.
     const details = [
-      "The AI planner's first draft broke a rule, so it was asked to fix it.",
+      "The AI planner's first draft broke a rule, so it was fixed: the app dropped or reordered stops, or asked the AI to fix it.",
       `The fixed plan passed. ${CHECKED}`,
       MARKERS,
     ];

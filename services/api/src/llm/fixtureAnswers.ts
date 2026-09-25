@@ -5,6 +5,7 @@ import {
   type TripRequest,
 } from "@italy/planner";
 import type { LlmSelection } from "./client";
+import { MAX_STOPS_PER_DAY } from "./schema";
 
 // Answers a scripted model gives, derived only from what a real model would see: the request and
 // the user message (base options and candidate rows). Used by the fixture client in tests,
@@ -109,6 +110,31 @@ export function withClosedDayPick(selection: LlmSelection, user: string): LlmSel
     return copy;
   }
   return withUnknownId(selection);
+}
+
+/**
+ * The valid answer made messy in ways a model cannot see, because code assigns the times: each
+ * day's stops in reverse order, a candidate added on a day the prompt marks it closed, and the
+ * trip's first stop repeated at the end of the last day (while a day has room in the schema).
+ * The tidy step (plan/tidy.ts) turns it back into a valid plan without a repair turn.
+ */
+export function messySelection(selection: LlmSelection, user: string): LlmSelection {
+  const offered = parseOffered(user);
+  const copy = structuredClone(selection);
+  const used = new Set(copy.days.flatMap((day) => day.placeIds));
+  const first = copy.days[0]?.placeIds[0];
+  const add = (day: LlmSelection["days"][number], id: string) => {
+    if (day.placeIds.length < MAX_STOPS_PER_DAY) day.placeIds.push(id);
+  };
+  for (const [index, day] of copy.days.entries()) {
+    day.placeIds.reverse();
+    const pool = offered.placesByAnchor.get(day.anchorId) ?? [];
+    const closed = pool.find((id) => offered.closedOn.get(id)?.includes(index) && !used.has(id));
+    if (closed !== undefined) add(day, closed);
+  }
+  const last = copy.days.at(-1);
+  if (first !== undefined && last) add(last, first);
+  return copy;
 }
 
 /** An answer that follows injected notes: a place outside the data and a leaky summary. */

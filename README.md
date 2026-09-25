@@ -37,17 +37,19 @@ No API key is needed. Without one, every trip comes from the rules-only planner 
 TripRequest (checked with Zod)
   -> shortlist: up to 4 bases, and per base the best visits and meal places for the dates
   -> Claude selects: a base per day and ordered place ids, with a reason per stop (ids only)
-  -> parse with Zod -> ids outside the shortlist are errors -> scheduler assigns every time
-  -> independent validator
-       no errors                    -> source "ai"
-       errors                       -> one repair turn with the exact violations
-                                       -> validated again -> source "ai_repaired"
+  -> parse with Zod -> tidy what the model cannot see (closed days, repeats, the visit limit,
+     an order the scheduler cannot time) -> ids outside the shortlist are errors
+  -> scheduler assigns every time -> independent validator
+       no errors, nothing tidied    -> source "ai"
+       no errors, tidied            -> source "ai_repaired"
+       errors                       -> one repair turn with the exact violations left
+                                       -> tidied and validated again -> source "ai_repaired"
        still invalid, timeout,
        refusal, API error, no key   -> rules-only planner -> source "deterministic"
   -> response: itinerary, warnings, source, meta (fallback reason, attempts, latency)
 ```
 
-The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. A plan with any error never reaches the traveler: the model gets one chance to fix it, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
+The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. Before the check, code tidies what the model cannot see because code assigns the times: it drops a place on its closed day, a repeat, and visits over the pace's limit, and reorders a day the scheduler cannot time, keeping the model's bases and places. A plan with any error never reaches the traveler: the model gets one chance to fix what is left, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
 
 ## Messy data
 
@@ -69,6 +71,7 @@ The source file `data/italy.json` is never edited. The normalizer keeps all 103 
 | A shortlist of places open on the dates, enforced after the answer | `services/api/src/plan/candidates.ts`, `plan/materialize.ts` |
 | Structured outputs, ids only, parsed with Zod | `services/api/src/llm/anthropic.ts`, `llm/schema.ts` |
 | Every time and travel leg computed in code, then an independent validator | `packages/planner/src/schedule.ts`, `validate.ts` |
+| Tidying of what the model cannot see, labelled "fixed after a check" | `services/api/src/plan/tidy.ts`, `packages/planner/src/orderDay.ts` |
 | One repair turn with the exact violations | `services/api/src/plan/planTrip.ts`, `llm/prompt.ts` |
 | Rules-only plan for every other outcome, and a final guard on every response | `services/api/src/plan/outcome.ts` |
 | Traveler notes escaped as data, reasons and summary sanitized | `llm/prompt.ts`, `plan/reasons.ts`, `plan/summary.ts`, `plan/textGuards.ts` |

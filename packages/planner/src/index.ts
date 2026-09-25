@@ -11,6 +11,7 @@ export * from "./normalize/chips";
 export * from "./normalize/index";
 export { ISSUE_KIND_TEXT } from "./normalize/issueText";
 export { buildDataSummary } from "./normalize/summary";
+export * from "./orderDay";
 export * from "./plan";
 export * from "./reasons";
 export * from "./schedule";

@@ -24,11 +24,12 @@ import {
   recordFailure,
   recordResult,
 } from "./outcome";
+import { tidySelection } from "./tidy";
 
-// The plan pipeline (POST /api/plan): shortlist, ask the model, time and validate its choice,
-// one repair turn with the exact violations if time allows, and the rules-only planner for every
-// other outcome. A brief failure (dropped connection, 5xx) gets one retry when time allows.
-// Whatever happens, the result has zero validator errors (see outcome.ts).
+// The plan pipeline (POST /api/plan): shortlist, ask the model, tidy its answer (tidy.ts), time
+// and validate it, one repair turn with the exact violations if time allows, and the rules-only
+// planner for every other outcome. A brief failure (dropped connection, 5xx) gets one retry when
+// time allows. Whatever happens, the result has zero validator errors (see outcome.ts).
 
 export interface PlanTiming {
   reserveMs: number; // time kept back for the fallback plan and the response
@@ -216,9 +217,15 @@ async function runModel(run: Run): Promise<PlanOutcome> {
       latencyMs: 0,
       generatedAt: new Date(deps.now()).toISOString(),
     };
-    const made = materializeSelection(result.selection, request, run.shortlist, deps.ctx, meta);
+    const tidied = tidySelection(result.selection, request, run.shortlist, deps.ctx);
+    for (const change of tidied.changes) trace.tidied.push({ ...change, answer: turn });
+    const made = materializeSelection(tidied.selection, request, run.shortlist, deps.ctx, meta);
     if (made.errors.length === 0) {
-      const source = turn === 1 ? "ai" : "ai_repaired";
+      // Decision: a plan code had to tidy is not a first-try AI plan. Only an answer that passed
+      // the check exactly as the model wrote it is "ai"; any other is "ai_repaired" (fixed after
+      // a check), and the trace says what was tidied.
+      const untouched = turn === 1 && tidied.changes.length === 0;
+      const source = untouched ? "ai" : "ai_repaired";
       return finishPlan(made, source, request, deps, startedAt, trace, run.witness);
     }
     for (const violation of made.errors) trace.violationCodes.push(violation.code);

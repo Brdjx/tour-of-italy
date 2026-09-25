@@ -4,6 +4,7 @@ import { LlmError } from "./errors";
 import {
   injectedSelection,
   leakyTextSelection,
+  messySelection,
   validSelection,
   withClosedDayPick,
   withUnknownId,
@@ -18,7 +19,8 @@ import { parseSelectionText } from "./schema";
 export const FIXTURE_SCENARIOS = [
   "valid",
   "unknown-id-then-valid",
-  "closed-day-then-valid",
+  "closed-day-tidied",
+  "messy-tidied",
   "always-invalid",
   "schema-invalid",
   "truncated",
@@ -59,10 +61,20 @@ const fail = (error: () => Error): Step => ({ kind: "throw", error });
 const SCRIPTS: Record<FixtureScenario, { select: Step; repair: Step }> = {
   valid: { select: valid, repair: valid },
   "unknown-id-then-valid": { select: unknownId, repair: valid },
-  "closed-day-then-valid": {
+  // The next two first answers break only rules the model cannot see (a closed day, a repeat,
+  // an order the scheduler cannot time). The tidy step fixes them before the check, so the plan
+  // is ai_repaired with no repair call; the repair answer is there for a request it cannot fix.
+  "closed-day-tidied": {
     select: {
       kind: "answer",
       build: (i, ctx) => withClosedDayPick(validSelection(i.request, i.user, ctx), i.user),
+    },
+    repair: valid,
+  },
+  "messy-tidied": {
+    select: {
+      kind: "answer",
+      build: (i, ctx) => messySelection(validSelection(i.request, i.user, ctx), i.user),
     },
     repair: valid,
   },

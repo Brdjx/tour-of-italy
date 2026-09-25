@@ -52,6 +52,7 @@ function traceFields(fields: LogFields, trace: PlanTrace): void {
     promptVersion: trace.promptVersion,
     attempts: trace.attempts,
     violationCodes: trace.violationCodes,
+    tidied: trace.tidied,
     llmErrors: trace.llmErrors,
     llmFailures: trace.llmFailures.length > 0 ? trace.llmFailures : undefined,
     stopReasons: trace.stopReasons,

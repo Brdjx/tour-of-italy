@@ -13,6 +13,7 @@ import type { LlmResult, LlmUsage } from "../llm/client";
 import { describeLlmFailure, errorKindOf } from "../llm/errors";
 import type { Materialized } from "./materialize";
 import type { ReasonRejection } from "./reasons";
+import type { TidyChange } from "./tidy";
 
 // How a plan leaves the pipeline: the trace for the log line, the meta block, and the final
 // guard. Every itinerary passes the guard (zero validator errors, and the response schema) or it
@@ -26,6 +27,7 @@ export interface PlanTrace {
   model?: string;
   promptVersion?: string;
   violationCodes: string[]; // error codes from rejected answers, in order
+  tidied: TracedTidy[]; // what code changed in each answer before the check (tidy.ts), in order
   llmErrors: string[]; // LlmError kinds of failed calls
   llmFailures: Record<string, unknown>[]; // per failed call: kind, status, API type, id, message
   stopReasons: string[]; // stop_reason of each answer
@@ -35,6 +37,9 @@ export interface PlanTrace {
   reasonRejections: ReasonRejection[]; // why other AI reasons were replaced
   guardFailed: boolean; // an AI plan failed the final guard (a bug; see the log)
 }
+
+/** One change the tidy step made, and which answer it was made to (1 is the first answer). */
+export type TracedTidy = TidyChange & { answer: number };
 
 export interface PlanOutcome {
   itinerary: Itinerary;
@@ -46,6 +51,7 @@ export function newTrace(): PlanTrace {
     source: "deterministic",
     attempts: 0,
     violationCodes: [],
+    tidied: [],
     llmErrors: [],
     llmFailures: [],
     stopReasons: [],

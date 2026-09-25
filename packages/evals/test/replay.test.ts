@@ -90,6 +90,21 @@ describe("replay isolation", () => {
   });
 });
 
+describe("what the model did, not what code tidied", () => {
+  it("counts a closed-day pick the tidy step dropped as the model's mistake", async () => {
+    // The first answer puts a museum on its closed Monday. Tidying drops it, so the plan passes
+    // with no repair and no rejected answer, but the case forbids a closed pick by the model.
+    const [first] = recordingsFor("adversarial", "florence-art-monday");
+    const [group] = await replayRecordings(writeAll([first as Recording]), CASES, ctx);
+    const m = group?.measures[0];
+    expect(m?.source).toBe("ai_repaired");
+    expect(m?.repairTried).toBe(false);
+    expect(m?.firstPassValid).toBe(false);
+    const forbid = m?.checks.find((check) => check.name === "forbidViolationCodes");
+    expect(forbid?.status).toBe("fail");
+  });
+});
+
 describe("stale and partial recordings", () => {
   it("marks a run stale when the candidate list changed since recording, and still replays it", async () => {
     const [attempt] = recordingsFor("simulated", "lake-como-july");
@@ -112,8 +127,9 @@ describe("stale and partial recordings", () => {
   });
 
   it("falls back and counts the gap when the recordings end before the pipeline is done", async () => {
-    // Only the closed-day answer: the pipeline asks for a repair that was never recorded.
-    const [bad] = recordingsFor("adversarial", "florence-art-monday");
+    // Only the first answer, whose invented ids no tidying can fix: the pipeline asks for a
+    // repair that was never recorded. (A closed-day answer no longer needs one: tidy.ts drops it.)
+    const [bad] = recordingsFor("adversarial", "adversarial-outside-data");
     const [group] = await replayRecordings(writeAll([bad as Recording]), CASES, ctx);
     const m = group?.measures[0];
     expect(m?.source).toBe("deterministic");

@@ -70,6 +70,7 @@ async function smoke(model: string, apiKey: string) {
     outputTokens: trace.usage.outputTokens,
     stopReasons: trace.stopReasons,
     violationCodes: trace.violationCodes,
+    tidied: trace.tidied,
     llmErrors: trace.llmErrors,
     llmFailures: redactor.value(trace.llmFailures),
     reasonsKept: trace.reasonsKept,

@@ -78,7 +78,7 @@ None.
 
 ## How to read this
 
-- First-pass valid: the model's first answer became the plan with no repair. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.
+- First-pass valid: the model's first answer became the plan exactly as written, with nothing tidied and no repair. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.
 - Preference match: share of non-meal stops with at least one requested interest. Must-includes placed: in the model's first answer (in the plan, for the baseline), since the final plan always has them.
 - A check that cannot apply is not run, and a case passed without it says so: the rules-only planner writes no summary, so its summary checks are never run, while a model column must pass them.
 - Travel per day: legs between stops and back to the base. Transfer time: moving between bases.

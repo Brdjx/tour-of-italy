@@ -52,6 +52,8 @@ const PLANNER_CORE_FUNCTIONS = [
   // reasons.ts
   "ruleReason",
   "withMealsCovered",
+  // orderDay.ts
+  "orderDay",
   // schedule.ts, plan.ts, and validate.ts
   "scheduleDay",
   "planDeterministic",
