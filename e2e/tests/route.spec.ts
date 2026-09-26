@@ -170,23 +170,28 @@ test.describe("setting a city for each day", () => {
     const action = sheet.getByTestId("route-confirm");
     await expect(action).toHaveText("No changes to plan");
     await expect(action).toHaveAttribute("aria-disabled", "true");
-    const box = await sheet.boundingBox();
-    const foot = await action.boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual((tall?.height ?? 0) - 1);
-    expect(
-      (box?.y ?? 0) + (box?.height ?? 0) - ((foot?.y ?? 0) + (foot?.height ?? 0)),
-    ).toBeLessThan(60);
+    const below = await action.evaluate((pill) => {
+      const box = pill.closest("dialog")?.getBoundingClientRect();
+      return {
+        height: box?.height ?? 0,
+        gap: (box?.bottom ?? 0) - pill.getBoundingClientRect().bottom,
+      };
+    });
+    expect(below.height).toBeGreaterThanOrEqual((tall?.height ?? 0) - 1);
+    expect(below.gap).toBeLessThan(60);
     await press(routeDay(sheet, 3));
     await expect(sheet.getByRole("heading", { name: "City for day 3" })).toBeFocused();
     await press(city(sheet, "venice"));
     await expect(action).toHaveText("Plan day 3");
-    // The changed day's wash stays inside the board's rules.
-    const board = await sheet.locator(".route-days").boundingBox();
-    const changed = await routeDay(sheet, 3).boundingBox();
-    expect(changed?.x ?? 0).toBeGreaterThanOrEqual((board?.x ?? 0) - 0.5);
-    expect((changed?.x ?? 0) + (changed?.width ?? 0)).toBeLessThanOrEqual(
-      (board?.x ?? 0) + (board?.width ?? 0) + 0.5,
-    );
+    // The changed day's wash stays inside the board's rules. Both measured at one instant: the
+    // level is still sliding in.
+    const edges = await routeDay(sheet, 3).evaluate((row) => {
+      const board = row.closest(".route-days")?.getBoundingClientRect();
+      const wash = row.getBoundingClientRect();
+      return { left: wash.left - (board?.left ?? 0), right: (board?.right ?? 0) - wash.right };
+    });
+    expect(edges.left).toBeGreaterThanOrEqual(-0.5);
+    expect(edges.right).toBeGreaterThanOrEqual(-0.5);
     await press(routeDay(sheet, 3));
     await page.keyboard.press("Escape");
     await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();
