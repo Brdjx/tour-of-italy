@@ -1,3 +1,4 @@
+import type { APIResponse } from "@playwright/test";
 import { DEFAULT_START_DATE } from "../support/env";
 import { expect, test } from "../support/fixtures";
 import {
@@ -26,6 +27,29 @@ const PLACES_ROUTE = "**/api/places";
 const API_DEADLINE_MS = 24_000;
 /** The page's deadline for a plan request (TIMEOUTS.plan in apps/web/lib/api.ts). */
 const CLIENT_DEADLINE_MS = 28_000;
+/**
+ * How far off the next plan must be when the page's request is let through to the API: a refusal
+ * with Retry-After 4 leaves more than 3 s. In 64 runs with 12 workers and the CPU loaded, the API
+ * answered the page's request at most 1.3 s after the refusal, and with 4 waiting out a shorter
+ * refusal kept the plan under 5 s of planTrip's 10 (26 September 2026).
+ */
+const REFUSED_FOR_S = 4;
+
+/**
+ * Sends plans with `spend` until the API refuses one with Retry-After of at least `seconds`, and
+ * returns that Retry-After, or 0 if none came. A shorter refusal means a plan is due back soon:
+ * the loop asks again every 250 ms until it gets that plan, which puts the next one 6 s away.
+ */
+async function spendUntilRefused(spend: () => Promise<APIResponse>, seconds: number) {
+  for (let sent = 0; sent < 40; sent++) {
+    const answer = await spend();
+    if (answer.status() !== 429) continue;
+    const retryAfter = Number(answer.headers()["retry-after"]);
+    if (retryAfter >= seconds) return retryAfter;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return 0;
+}
 
 test.describe("when the planner service fails", () => {
   test("builds the plan on the device and labels it offline when the service cannot be reached", async ({
@@ -143,14 +167,33 @@ test.describe("when the planner service fails", () => {
       mustInclude: [],
       exclude: [],
     };
+    // page.request is not routed, so these reach the API even while the page's request is held.
+    const spend = () => page.request.post("/api/plan?mode=deterministic", { data: body });
     let status = 200;
     for (let sent = 0; sent < 20 && status !== 429; sent++) {
-      const answer = await page.request.post("/api/plan?mode=deterministic", { data: body });
+      const answer = await spend();
       status = answer.status();
     }
     expect(status, "the API never rate limited this client").toBe(429);
 
+    // Decision: the page's own plan request waits here until the API refuses this client with
+    // the next plan at least REFUSED_FOR_S away, then leaves at once. The bucket gives a plan
+    // back every 6 s, so a refusal is only good until then. Sent after the loop above, the
+    // request lost that race in 4 of 32 runs with 12 workers (26 September 2026): the loop took
+    // up to 6.7 s, the refusal said 1 to 2 s, and the API answered the page 0.3 to 1.7 s later.
+    let refusedFor = 0;
+    await page.route(PLAN_ROUTE, async (route) => {
+      try {
+        refusedFor = await spendUntilRefused(spend, REFUSED_FOR_S);
+      } finally {
+        await route.continue();
+      }
+    });
     await planTrip(page, press);
+    expect(
+      refusedFor,
+      "no long enough refusal came before the page's request",
+    ).toBeGreaterThanOrEqual(REFUSED_FOR_S);
     await expect(page.getByTestId("source-badge")).toContainText(
       `${BADGE.onDevice}: the server was busy`,
     );
