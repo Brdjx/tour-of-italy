@@ -193,10 +193,10 @@ Run everything from the repository root with `export AWS_PROFILE=fortissimo AWS_
 
 ## How CI/CD takes over
 
-- Pull request: `ci.yml` runs lint, typecheck, tests, the Playwright E2E suite, the infra checks
-  (`terraform test`, tflint, `sam validate --lint`, trivy, `check-infra-contract.py`) and posts a
-  Terraform plan made with the read-only plan role (only for runs started by `github_actor_ids`;
-  others skip the plan).
+- Pull request: `ci.yml` runs lint, typecheck, tests, the Playwright E2E guard on Chromium (the
+  full suite runs locally), the infra checks (`terraform test`, tflint, `sam validate --lint`,
+  trivy, `check-infra-contract.py`) and posts a Terraform plan made with the read-only plan role
+  (only for runs started by `github_actor_ids`; others skip the plan).
 - Push to `main`: when CI passes, `deploy.yml` builds without credentials, then the `production`
   job assumes the deploy role and runs `deploy-api.sh`, `apply-platform.sh`, `publish-web.sh` and
   `smoke-test.sh`. The smoke test requires `/api/health` on the site and `/health` on the API host

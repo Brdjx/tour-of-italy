@@ -58,15 +58,18 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
 | `pnpm test:props` | The planner's property tests at 5,000 runs each | about 1.5 min |
-| `pnpm test:e2e` | 372 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
-| `pnpm test:e2e route --project chromium-desktop` | One spec on one project. Add `E2E_SKIP_BUILD=1` to reuse the last build | 1 to 2 min, including the build |
+| `pnpm test:e2e` | The E2E gate, run before a push: 372 Playwright tests on eight projects (WebKit iPhone SE, iPhone 15 Pro and iPad Pro 11 portrait and landscape, Chromium Pixel 7 and desktop, the installed app, the smoke tests). Builds the site and starts the API with scripted answers, no key needed | about 5 min |
+| `E2E_SKIP_BUILD=1 pnpm test:e2e` | The same against the last build in `apps/web/out`, when only tests changed. Works with every command below | about 5 min |
+| `pnpm test:e2e --project webkit-iphone-se` | One project (names in `e2e/playwright.config.ts`) | about 1 min |
+| `pnpm test:e2e route --project chromium-desktop` | One spec on one project; `route.spec.ts:57` runs only the test on line 57 | 10 to 20 s |
+| `pnpm test:e2e:ci` | What CI runs: the Chromium guard (chromium-desktop, pwa-chromium and smoke, 72 tests) | under 1 min |
 | `E2E_BASE_URL=https://italy-planner.brdjx.com pnpm test:e2e:smoke` | The smoke tests against a deployed site | seconds |
 | `pnpm eval:replay` | Replays the recorded model answers through the current code, no network, and rewrites the results | seconds |
 | `pnpm eval --model claude-sonnet-5 --runs 1` | Live evals: the 16 cases against Claude, one after another. Needs a key and costs about 40 cents a run | about 3 min |
 | `terraform -chdir=infra/terraform/platform init -backend=false && terraform -chdir=infra/terraform/platform test` | Terraform tests with mocked providers, no AWS account needed. The same for `infra/terraform/bootstrap` | about 1 min |
 | `python3 .github/scripts/check-infra-contract.py .` | Checks that the SAM template and Terraform provide every name the deploy relies on, and that the trips table stays protected | seconds |
 
-Install the browsers once before the first E2E run: `pnpm exec playwright install`. Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+Install the browsers once before the first E2E run: `pnpm exec playwright install chromium webkit`. CI runs only the Chromium guard, so the iPhone, iPad and Pixel projects run on your machine: run `pnpm test:e2e` before pushing a change to the page. A failed run leaves its report in `e2e/playwright-report` (`pnpm exec playwright show-report e2e/playwright-report`). More in [docs/testing.md](docs/testing.md#e2e-the-local-gate-and-the-ci-guard). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Results
 
