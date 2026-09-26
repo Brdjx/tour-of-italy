@@ -40,6 +40,12 @@ interface ToastProps {
   onUndo: () => void;
 }
 
+// Decision: Undo says only "Undo" on phones, as the header's Undo does, and keeps its full words
+// as its name for screen readers and voice control. "Undo route change" took half of a 390 px
+// toast and squeezed a route's message into five lines over the board (design review,
+// 2026-09-26); from 640 px the toast is its full 560 px and has room for the words.
+const WIDE_WORDS = "max-sm:sr-only";
+
 export function Toast({ message, serial, undoLabel, onUndo }: ToastProps) {
   const [visible, setVisible] = useState(false);
 
@@ -53,6 +59,7 @@ export function Toast({ message, serial, undoLabel, onUndo }: ToastProps) {
   }, [message, serial]);
 
   if (!visible || !message) return null;
+  const [verb, ...rest] = (undoLabel ?? "").split(" ");
   // aria-hidden: the live region already announces this text; the toast is the visual echo.
   return (
     <div className="toast" data-testid="toast">
@@ -70,7 +77,10 @@ export function Toast({ message, serial, undoLabel, onUndo }: ToastProps) {
           data-testid="toast-undo"
         >
           <UndoIcon size={18} />
-          {undoLabel}
+          <span>
+            {verb}
+            {rest.length > 0 ? <span className={WIDE_WORDS}> {rest.join(" ")}</span> : null}
+          </span>
         </button>
       ) : null}
     </div>
