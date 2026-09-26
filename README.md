@@ -2,6 +2,8 @@
 
 A trip planner that turns a list of 103 places in Italy into a three-day itinerary with times that respect opening hours, meals, and travel.
 
+The submission note, on what I built, why, what I would do with more time, and how I used AI: [WRITEUP.md](WRITEUP.md).
+
 - Web app: https://italy-planner.brdjx.com
 - Public API: https://api.italy-planner.brdjx.com (for example `/health`, `/places`, `POST /plan`, `POST /trips`, `GET /trips/<id>`; see [docs/deploy.md](docs/deploy.md#why-two-hostnames))
 
@@ -135,7 +137,7 @@ pnpm test:props      # planner property tests at 5,000 runs
 pnpm test:e2e        # Playwright on six device profiles plus the installed app
 ```
 
-`pnpm test` runs 3,121 tests in 189 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+`pnpm test` runs 3,123 tests in 189 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Deploy
 

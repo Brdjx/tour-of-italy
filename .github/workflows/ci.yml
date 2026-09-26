@@ -86,8 +86,8 @@ jobs:
         run: pnpm exec vitest run --project planner
 
   e2e:
-    # Brief section 6: E2E is its own job, and ci-ok waits for it, so no commit that breaks a user
-    # flow deploys.
+    # E2E is its own job, and ci-ok waits for it, so no commit that breaks a user flow deploys
+    # (docs/testing.md, F12).
     # Decision: 30 minutes. Locally the whole suite (312 tests, 4 workers) runs in 4 to 5 minutes.
     # On this runner, also with 4 workers, each test takes 2.3 to 4.5 times as long (the tests that
     # passed both locally and in the E2E runs for 6038aa2, b89f4d6 and 02ef29b; the last was the
