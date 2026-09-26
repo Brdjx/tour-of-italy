@@ -25,6 +25,9 @@ export interface CachedSecretOptions {
   onError?: (error: unknown) => void; // called with each failed read (for logging)
 }
 
+/** How late a read's timer may fire before the read counts as frozen rather than slow. */
+const FROZEN_SLACK_MS = 1_000;
+
 export function createCachedSecret(options: CachedSecretOptions): SecretSource {
   const now = options.now ?? Date.now;
   let value: string | null = null;
@@ -33,24 +36,45 @@ export function createCachedSecret(options: CachedSecretOptions): SecretSource {
   let inFlight: Promise<string | null> | null = null;
   const neverRead = (): boolean => fetchedAt === Number.NEGATIVE_INFINITY;
 
-  const read = async (): Promise<string | null> => {
+  /** One try at the parameter, settled by its own timer. `late` says the timer fired late. */
+  const attempt = async (timeoutMs: number): Promise<{ value: string } | { late: boolean }> => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = now();
     // Decision: the read settles at the timeout even when the fetcher ignores its signal. Every
     // request waits on this read (the origin check gates them all), so a stuck fetch must never
     // hold inFlight open.
-    const timeoutMs = neverRead()
-      ? (options.firstTimeoutMs ?? options.timeoutMs)
-      : options.timeoutMs;
-    const expired = new Promise<never>((_, reject) => {
+    const expired = new Promise<{ late: boolean }>((resolve) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new Error(`Parameter read exceeded ${timeoutMs} ms`));
+        resolve({ late: now() - startedAt > timeoutMs + FROZEN_SLACK_MS });
       }, timeoutMs);
     });
     try {
-      const fetching = Promise.resolve().then(() => options.fetch(options.name, controller.signal));
-      const fresh = await Promise.race([fetching, expired]);
+      const fetching = Promise.resolve()
+        .then(() => options.fetch(options.name, controller.signal))
+        .then((fresh) => ({ value: fresh }));
+      return await Promise.race([fetching, expired]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const read = async (): Promise<string | null> => {
+    const timeoutMs = neverRead()
+      ? (options.firstTimeoutMs ?? options.timeoutMs)
+      : options.timeoutMs;
+    try {
+      let result = await attempt(timeoutMs);
+      // Decision: a timer that fired well after its time means the process was frozen while the
+      // read was in flight (Lambda freezes an instance between invocations, and can start one
+      // before any request arrives). The wall clock ran on and the frozen socket is dead, so that
+      // read says nothing about SSM: try once more at once instead of failing. On 2026-09-26 both
+      // reads started at cold start "exceeded" their timeouts at the same instant on the first
+      // request after a thaw, and the origin check refused it.
+      if ("late" in result && result.late) result = await attempt(timeoutMs);
+      if ("late" in result) throw new Error(`Parameter read exceeded ${timeoutMs} ms`);
+      const fresh = result.value;
       if (typeof fresh !== "string" || fresh === "") throw new Error("Parameter is empty");
       value = fresh;
       fetchedAt = now();
@@ -60,8 +84,6 @@ export function createCachedSecret(options: CachedSecretOptions): SecretSource {
       failedAt = now();
       options.onError?.(error);
       return null;
-    } finally {
-      clearTimeout(timer);
     }
   };
 

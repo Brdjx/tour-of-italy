@@ -125,6 +125,67 @@ describe("createCachedSecret", () => {
     }
   });
 
+  it("tries again at once when its timer fires late, as after a Lambda freeze", async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      let calls = 0;
+      const fetch: ParameterFetcher = (_, signal) => {
+        calls++;
+        if (calls === 2) return Promise.resolve("value-1");
+        return new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("aborted"))),
+        );
+      };
+      const onError = vi.fn();
+      const secret = source(fetch, () => now, { onError });
+
+      const pending = secret.get();
+      // Frozen for a minute: the wall clock jumps past the timeout before the timer runs.
+      now = 60_000;
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(await pending).toBe("value-1");
+      expect(calls).toBe(2);
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still fails a read that is merely slow, and one that times out late twice", async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      const fetch = vi.fn<ParameterFetcher>(
+        (_, signal) =>
+          new Promise((_, reject) =>
+            signal.addEventListener("abort", () => reject(new Error("aborted"))),
+          ),
+      );
+      const secret = source(fetch, () => now);
+
+      // On time: one attempt, then null.
+      const slow = secret.get();
+      now = 1_000;
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(await slow).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      // Late twice: two attempts at most, then null.
+      now = 10_000;
+      const frozen = secret.get();
+      now = 70_000;
+      await vi.advanceTimersByTimeAsync(1_000);
+      now = 140_000;
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(await frozen).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("treats an empty parameter as a failure", async () => {
     const secret = source(
       async () => "",
