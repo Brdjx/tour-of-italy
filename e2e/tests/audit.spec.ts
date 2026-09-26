@@ -130,7 +130,8 @@ for (const scheme of ["light", "dark"] as const) {
       // Decision: three times the project's limit (test.slow), for this one test. It audits 13
       // states in a row, each a settle, the layout checks and a full axe run: 16 to 22 s on a
       // laptop and up to 115 s with 12 workers (26 September 2026). Before axe's legacy mode it
-      // took 72 to 78 s on CI's Chromium desktop and 120 to 138 s on CI's WebKit.
+      // took 55 to 78 s on CI's Chromium desktop and 84 to 138 s on CI's WebKit (runs
+      // 36249317699, 36251394496 and 36265600500).
       test.slow();
       await openPlanner(page);
       await auditState(page, "form");
