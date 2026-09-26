@@ -8,7 +8,7 @@ import { API_PORT, LOCAL_URL, REMOTE_URL, TIME_ZONE, WEB_PORT } from "./support/
 // (the post-deploy job) only the @smoke tests run, against that site, and nothing is started.
 //
 //   pnpm test:e2e          every project below: the local gate before a push
-//   pnpm test:e2e:ci       what CI runs: chromium-desktop, pwa-chromium and smoke
+//   pnpm test:e2e:ci       what CI runs: chromium-desktop, pwa-chromium and smoke, 10 min at most
 //   pnpm test:e2e:smoke    the smoke project (E2E_BASE_URL=https://... for production)
 //   E2E_SKIP_BUILD=1       reuse apps/web/out instead of building it again (local iteration)
 //   E2E_REUSE=1            test against servers already running on the ports (local iteration)

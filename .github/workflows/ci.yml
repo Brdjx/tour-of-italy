@@ -101,6 +101,12 @@ jobs:
     # Decision: 15 minutes, two and a half times the slowest run of the guard's projects, for a
     # retry and a slow runner. A run that still hits it is cancelled, which fails ci-ok like any
     # other failure.
+    # Decision: Playwright stops the guard itself after 10 minutes, build included
+    # (--global-timeout in test:e2e:ci), so a run that hangs fails with its report uploaded before
+    # the job's limit cancels it. Playwright started 1 to 2 minutes into the job in runs
+    # 36220235109, 36251394496 and 36265600500, and the guard's projects need about 4 minutes of
+    # build and tests. Run locally with a 20 s limit, the guard exited 1 with its HTML report
+    # written and both servers stopped (26 September 2026).
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
