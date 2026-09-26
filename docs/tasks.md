@@ -112,7 +112,7 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | review | architecture, decisions, testing from ac3e79f; README results table and quickstart, and the AI usage log, on the submission docs branch |
+| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | review | architecture, decisions, testing from ac3e79f; README results table and quickstart from 329246f; AI usage log in `docs/ai-usage-log.md` |
 
 ## Phase 9: final pass
 

@@ -53,12 +53,11 @@ How I used AI to build this project, dated, from the git history, [tasks.md](tas
   twice (decision 14, T79).
 - 09-25: the tricolour band and flag mark, stop details in a sheet, and Edit trip disabled while
   a plan is on its way (T78).
-- 09-25: the source line is one line of fact, not a disclosure.
+- 09-25: the source line is one line of fact, not a disclosure (fe6556c).
 
 ## How I checked the output
 
-An agent's work was never accepted because it looked right. Each kind of work had a check that
-did not depend on the agent that wrote it.
+Each kind of work had a check that did not depend on the agent that wrote it.
 
 - Tests named after failure vectors. [testing.md](testing.md) lists twelve (an invalid plan
   reaching a traveler, a hung model call, a leaked secret, runaway cost, a bad deploy, date bugs,
@@ -86,8 +85,9 @@ did not depend on the agent that wrote it.
 
 - Sonnet 5 thinks by default, and on the plan request that pushed some answers past the 24 s
   deadline (measured 09-24). Thinking is off for this request (418afb3).
-- On the 45 first answers of 09-25, 14 passed the check. Dropping the visits a day's hours
-  cannot hold, in the tidy step, raised that to 43 (7c56ecb).
+- On 90 recorded Sonnet 5 first answers of 09-25, 7 passed the check as written and 28 after
+  tidying. Dropping the visits a day's hours cannot hold, in the tidy step, raised that to 85
+  (7c56ecb).
 - A price of `__proto__` returned `Object.prototype` from a lookup table, found by fuzzing the
   normalizer. Lookups now ignore inherited keys.
 - A review found both Trevi Fountain listings planned back to back. Two listings of one spot now
