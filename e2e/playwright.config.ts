@@ -105,7 +105,9 @@ export default defineConfig({
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   // Decision: 4 workers in CI (the runner has 4 cores). Locally Playwright's default, half the
-  // cores, keeps the machine usable while the suite runs.
+  // cores, keeps the machine usable while the suite runs. On an 8-core laptop with 8 GB the whole
+  // suite took 4.7 to 5.0 minutes with the default 4 and 8.2 to 9.1 with 12, which overloaded it
+  // (26 September 2026).
   ...(CI ? { workers: 4 } : {}),
   timeout: 60_000,
   expect: { timeout: 10_000 },
