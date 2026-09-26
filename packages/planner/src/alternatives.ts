@@ -3,12 +3,12 @@ import { MAX_TRAVEL_MINUTES } from "./config";
 import { isCandidate, sharesLocation } from "./constraints";
 import { type PlannerContext, placesOfAnchor } from "./context";
 import { mayVisit } from "./dayLimits";
-import { compareViolations } from "./plan";
+import { compareViolations, planWarnings } from "./plan";
 import { scheduleDay } from "./schedule";
 import { compareScored, scorePlace } from "./score";
 import { idsOf, replaceStop, requireIndex } from "./stopEdits";
 import { isValidIsoDate } from "./time";
-import { attachReasons } from "./trip";
+import { attachReasons, scheduleTrip } from "./trip";
 import type { DayPlan, Itinerary, Place, Stop, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
 import { isError, isWarning, makeViolation } from "./violations";
@@ -26,6 +26,41 @@ export interface Alternative {
   score: number; // how well it fits where the replaced stop was, higher first
   day: DayPlan; // the rebuilt day with the swap applied
   stop: Stop; // the new stop as timed in that day
+}
+
+/**
+ * The itinerary with day `dayIndex` replaced by a re-planned day (POST /api/plan/day, or planDay
+ * in the browser): its base and stops, the whole trip timed again, since the next day's transfer
+ * changes with the day's base. AI reasons on the new day, and on the other days, are kept where
+ * the stop keeps its place and role and the reason still holds (attachReasons); every other stop
+ * gets a rule reason. The warnings become the validator's. Throws RangeError on a bad day index.
+ */
+// Decision: the summary goes when the day's base changes. "Three days in Rome" names no place the
+// sentence check (summaryForPlaces) could catch, and a saved trip drops it in the same case
+// (services/api/src/trips/rebuild.ts). A new version of the day at the same base keeps it; the
+// page still drops any sentence naming a place the trip no longer has.
+export function withReplannedDay(
+  itinerary: Itinerary,
+  dayIndex: number,
+  day: Pick<DayPlan, "anchorId" | "stops">,
+  ctx: PlannerContext,
+): Itinerary {
+  requireIndex(dayIndex, itinerary.days.length, "Day");
+  const previous = itinerary.days.map((old, index) =>
+    index === dayIndex ? { ...old, anchorId: day.anchorId, stops: day.stops } : old,
+  );
+  const selection = previous.map((old) => ({ anchorId: old.anchorId, placeIds: idsOf(old) }));
+  const { days } = scheduleTrip(itinerary.request, selection, ctx, previous);
+  const { summary, ...rest } = itinerary;
+  const sameBase = itinerary.days[dayIndex]?.anchorId === day.anchorId;
+  const next: Itinerary = {
+    ...rest,
+    ...(sameBase && summary !== undefined ? { summary } : {}),
+    days,
+    warnings: [],
+  };
+  next.warnings = planWarnings(next, ctx);
+  return next;
 }
 
 /** A day retimed after an edit. */

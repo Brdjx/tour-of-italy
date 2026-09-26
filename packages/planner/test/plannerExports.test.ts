@@ -80,6 +80,16 @@ const PLANNER_CORE_FUNCTIONS = [
   "planDeterministic",
   "planWarnings",
   "validateItinerary",
+  // planDay.ts, dayBases.ts and alternatives.ts (one day of a trip planned again: the API and
+  // the page share the rules-only day, the cities a day may move to, and applying the new day)
+  "planDay",
+  "dayMustIncludes",
+  "usedOnOtherDays",
+  "withDay",
+  "checkDayBase",
+  "dayBaseOptions",
+  "newTripErrors",
+  "withReplannedDay",
 ] as const;
 
 // Decision: read the namespace through Object.entries, the static way to list what it exports.

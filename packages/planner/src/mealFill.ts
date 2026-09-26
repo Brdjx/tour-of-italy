@@ -30,13 +30,18 @@ const MIN_VISITS_KEPT = 2;
 /** A swap may not make the day's longest wait longer than this, or than it already was. */
 const SWAP_WAIT_MAX_MIN = 60;
 
-/** The draft with every missing meal that an unused meal place can seat added. Pure. */
+/**
+ * The draft with every missing meal that an unused meal place can seat added. Pure. With `only`,
+ * just that day is filled: planDay (planDay.ts) re-plans one day of a trip whose other days are
+ * fixed.
+ */
 export function fillMissingMeals(
   draft: TripDraft,
   request: TripRequest,
   ctx: PlannerContext,
   dates: readonly string[],
   pools: PoolCache,
+  only?: number,
 ): TripDraft {
   const days = draft.days.map((ids) => [...ids]);
   const kept = wantedMustIncludes(request, ctx);
@@ -49,6 +54,7 @@ export function fillMissingMeals(
   ];
   for (const pass of passes) {
     days.forEach((_, index) => {
+      if (only !== undefined && index !== only) return;
       for (const meal of ["lunch", "dinner"] as const) {
         const day = dayToFill({ ...draft, days }, index, request, ctx, dates);
         if (!day) return;

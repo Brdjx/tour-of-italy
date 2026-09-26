@@ -164,7 +164,7 @@ function canSeat(walk: DayWalk, place: Place): boolean {
 // Decision: one place, and only for a day that is still empty, so a starved day cannot take
 // every public space. If even that is empty, the arrangement is dropped and the planner tries
 // other bases. Measured on thin bases: without it, 3 more trips in 100 leave a chosen base.
-function rescueEmptyDay(empty: DayWalk, pools: PoolCache): void {
+export function rescueEmptyDay(empty: DayWalk, pools: PoolCache): void {
   let rescued: { ids: string[]; score: number } | null = null;
   for (const extra of pools.openAccessExtras(empty.input.anchor.id)) {
     const pool = [...empty.input.pool, extra].sort((a, b) => compareText(a.id, b.id));

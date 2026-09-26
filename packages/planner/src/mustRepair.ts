@@ -16,12 +16,16 @@ import { isError } from "./violations";
 // reorders the stops it keeps. It checks the hard rules only (scheduleDay), not the day rules,
 // so a must-include the walk's preferences kept out still gets in wherever it validly fits.
 
-/** The draft with as many missing must-includes inserted as possible. Pure. */
+/**
+ * The draft with as many missing must-includes inserted as possible. Pure. With `only`, just that
+ * day may change: planDay (planDay.ts) re-plans one day of a trip whose other days are fixed.
+ */
 export function repairMustIncludes(
   draft: TripDraft,
   request: TripRequest,
   ctx: PlannerContext,
   dates: readonly string[],
+  only?: number,
 ): TripDraft {
   const wanted = wantedMustIncludes(request, ctx);
   const days = draft.days.map((ids) => [...ids]);
@@ -29,7 +33,7 @@ export function repairMustIncludes(
     if (days.some((ids) => ids.includes(id)) || twinIsPlaced(id, days, ctx)) continue;
     const base = ctx.anchorIdByPlaceId.get(id);
     for (const index of daysToTry(id, days.length, dates, ctx)) {
-      if (draft.anchorIds[index] !== base) continue;
+      if (draft.anchorIds[index] !== base || (only !== undefined && index !== only)) continue;
       const repaired = insertInto(
         { ids: days[index] ?? [], id, index, draft, dates, wanted },
         request,
