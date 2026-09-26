@@ -5,9 +5,11 @@ import type { PlannerContext } from "./context";
 import { dayRuleBreaks, inSatelliteArea } from "./dayRules";
 import { wantedMustIncludes } from "./planAnchors";
 import { EVENING_FROM } from "./planPolicy";
-import type { PoolCache } from "./pools";
+import { PoolCache } from "./pools";
 import { type ScheduledDay, scheduleDay } from "./schedule";
 import { scorePlace } from "./score";
+import { tripDates } from "./time";
+import type { DaySelection } from "./trip";
 import type { TripDraft } from "./tripBuilder";
 import { transferInto } from "./tripWalk";
 import type { Anchor, Meal, Place, Stop, TripRequest } from "./types";
@@ -45,26 +47,102 @@ export function fillMissingMeals(
 ): TripDraft {
   const days = draft.days.map((ids) => [...ids]);
   const kept = wantedMustIncludes(request, ctx);
+  const chosen = (index: number) => only === undefined || index === only;
   // Adding first on every day, then giving up a visit where adding could not seat the meal, so a
   // swap never takes the place another day could have added without losing anything.
-  const passes = [
-    (day: DayToFill, meal: Meal, candidates: readonly Place[]) => withMeal(day, meal, candidates),
-    (day: DayToFill, meal: Meal, candidates: readonly Place[]) =>
-      withMealForVisit(day, meal, candidates, request, kept),
-  ];
-  for (const pass of passes) {
-    days.forEach((_, index) => {
-      if (only !== undefined && index !== only) return;
-      for (const meal of ["lunch", "dinner"] as const) {
-        const day = dayToFill({ ...draft, days }, index, request, ctx, dates);
-        if (!day) return;
-        const candidates = mealPlacesFor(day.anchor, meal, days, request, ctx, pools);
-        const filled = pass(day, meal, candidates);
-        if (filled) days[index] = filled;
-      }
-    });
-  }
+  fillPass(draft, days, request, ctx, dates, pools, chosen, withMeal);
+  fillPass(draft, days, request, ctx, dates, pools, chosen, (day, meal, candidates) =>
+    withMealForVisit(day, meal, candidates, request, kept),
+  );
   return { ...draft, days };
+}
+
+/** A lunch or dinner addMissingMeals added: the day, the place, and the meal it takes. */
+export interface AddedMeal {
+  day: number; // 0-based
+  placeId: string;
+  meal: Meal;
+}
+
+/** Which days addMissingMeals may add to, and which places it may add. */
+export interface AddMealsOptions {
+  only?: readonly number[]; // just these days (0-based); every day when absent
+  allowed?: (place: Place) => boolean; // a place it may add; any of the fill's candidates when absent
+}
+
+/**
+ * The trip with each missing lunch and dinner that an unused meal place can seat added, by the
+ * meal fill's first pass alone (withMeal), and what it added. Pure. It only inserts: every stop
+ * keeps its place in the order and its role, no meal is lost, no stop newly breaks a day rule and
+ * the day stays free of scheduler errors; a day that already has one is left alone. The meal is
+ * the rules planner's own choice (mealPlacesFor: a place of the day's base, not avoided, not in
+ * the trip or at the same spot as a place in it, within the budget first, a meal place one level
+ * over only when none within it fits), limited to `options.allowed`. A day none of whose places
+ * can take the meal that date gets nothing (mealGaps calls that "none open"). Days are filled in
+ * order, so a place added to one day is taken for the next.
+ */
+// Decision: the add pass only, never the swap. The model chose the day's visits; a meal may join
+// them but not replace one. This is how the API completes an AI day (services/api/src/plan/
+// mealAdd.ts): on the recorded evals it adds 10 meals to Sonnet 5's plans and 47 to Haiku 4.5's,
+// and days missing a meal fall from 26% to 20% and from 72% to 24%. Giving up a visit too would
+// take both to about 17%, by taking out places the model chose.
+export function addMissingMeals(
+  request: TripRequest,
+  days: readonly DaySelection[],
+  ctx: PlannerContext,
+  options: AddMealsOptions = {},
+): { days: DaySelection[]; added: AddedMeal[] } {
+  const ids = days.map((day) => [...day.placeIds]);
+  const draft: TripDraft = { anchorIds: days.map((day) => day.anchorId), days: ids, score: 0 };
+  const dates = tripDates(request.startDate, days.length);
+  const pools = new PoolCache(request, ctx);
+  const allowed = options.allowed ?? (() => true);
+  const chosen = (index: number) => options.only === undefined || options.only.includes(index);
+  const added: AddedMeal[] = [];
+  fillPass(draft, ids, request, ctx, dates, pools, chosen, (day, meal, candidates, index) => {
+    const filled = withMeal(day, meal, candidates.filter(allowed));
+    const placeId = filled?.find((id) => !day.ids.includes(id));
+    if (placeId !== undefined) added.push({ day: index, placeId, meal });
+    return filled;
+  });
+  return {
+    days: days.map((day, index) => ({ anchorId: day.anchorId, placeIds: ids[index] as string[] })),
+    added,
+  };
+}
+
+/** Seats one meal on one day from the candidates, or null; the index is the day's. */
+type MealPass = (
+  day: DayToFill,
+  meal: Meal,
+  candidates: readonly Place[],
+  index: number,
+) => string[] | null;
+
+/**
+ * One pass over the chosen days of `days` (the draft's ids, changed in place): for each day and
+ * each meal, the day as it now is and the unused meal places of its base, given to `pass`.
+ */
+function fillPass(
+  draft: TripDraft,
+  days: string[][],
+  request: TripRequest,
+  ctx: PlannerContext,
+  dates: readonly string[],
+  pools: PoolCache,
+  chosen: (index: number) => boolean,
+  pass: MealPass,
+): void {
+  days.forEach((_, index) => {
+    if (!chosen(index)) return;
+    for (const meal of ["lunch", "dinner"] as const) {
+      const day = dayToFill({ ...draft, days }, index, request, ctx, dates);
+      if (!day) return;
+      const candidates = mealPlacesFor(day.anchor, meal, days, request, ctx, pools);
+      const filled = pass(day, meal, candidates, index);
+      if (filled) days[index] = filled;
+    }
+  });
 }
 
 /**

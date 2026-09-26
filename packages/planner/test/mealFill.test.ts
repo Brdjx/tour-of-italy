@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { PACE, TRAVEL } from "../src/config";
 import { servesMeal, withinBudget } from "../src/constraints";
-import { fillMissingMeals } from "../src/mealFill";
+import { addMissingMeals, fillMissingMeals } from "../src/mealFill";
+import { mealGaps } from "../src/mealSupply";
 import { planDeterministic } from "../src/plan";
 import { MEAL_WAIT_MAX_MIN } from "../src/planPolicy";
 import { PoolCache } from "../src/pools";
 import { scheduleDay } from "../src/schedule";
 import { tripDates } from "../src/time";
+import { type DaySelection, scheduleTrip } from "../src/trip";
 import type { TripDraft } from "../src/tripBuilder";
-import type { TripRequest } from "../src/types";
+import type { Itinerary, Place, TripRequest } from "../src/types";
+import { validationErrors } from "../src/validate";
 import { makeRequest, realContext } from "./plannerFixtures";
 
 // The meal fill (mealFill.ts) is the last pass before timing: it seats a missing lunch or dinner
@@ -192,5 +195,85 @@ describe("fillMissingMeals, giving up a visit", () => {
     expect(
       itinerary.days.some((day) => day.stops.some((stop) => stop.placeId === "place_013")),
     ).toBe(true);
+  });
+});
+
+describe("addMissingMeals, on days someone else chose", () => {
+  // The API completes an AI day with it (services/api/src/plan/mealAdd.ts): the model chose the
+  // visits, and code may only add the lunch or dinner a day lacks, never move or drop a stop.
+  const request = makeRequest({ startDate: "2026-10-20", anchors: ["rome"] });
+  const visitsOnly = [
+    { anchorId: "rome", placeIds: ["place_001", "place_004", "place_005"] },
+    { anchorId: "rome", placeIds: ["place_002", "place_007"] },
+    { anchorId: "rome", placeIds: ["place_013", "place_016"] },
+  ];
+
+  function timed(days: readonly DaySelection[], req: TripRequest = request) {
+    const trip = scheduleTrip(req, days, ctx);
+    const itinerary: Itinerary = {
+      request: req,
+      days: trip.days,
+      source: "ai",
+      warnings: [],
+      meta: { attempts: 1, latencyMs: 0, generatedAt: "2026-09-26T00:00:00.000Z" },
+    };
+    return itinerary;
+  }
+
+  it("adds the lunch and dinner each day lacks, keeping every stop in its order and role", () => {
+    const before = timed(visitsOnly);
+    const { days, added } = addMissingMeals(request, visitsOnly, ctx);
+    const after = timed(days);
+
+    expect(added.length).toBeGreaterThanOrEqual(3);
+    expect(validationErrors(after, ctx)).toEqual([]);
+    const ids = days.flatMap((day) => day.placeIds);
+    expect(new Set(ids).size).toBe(ids.length);
+    days.forEach((day, index) => {
+      const own = day.placeIds.filter((id) => visitsOnly[index]?.placeIds.includes(id));
+      expect(own).toEqual(visitsOnly[index]?.placeIds);
+      const roles = (plan: Itinerary) =>
+        new Map(plan.days[index]?.stops.map((stop) => [stop.placeId, stop.role]));
+      for (const [id, role] of roles(before)) expect(roles(after).get(id)).toBe(role);
+    });
+    for (const meal of added) {
+      const stop = after.days[meal.day]?.stops.find((s) => s.placeId === meal.placeId);
+      expect(stop?.role).toBe(meal.meal);
+      expect(servesMeal(ctx.placesById.get(meal.placeId) as Place, meal.meal)).toBe(true);
+    }
+    expect(after.days.flatMap((d) => d.stops).filter((s) => s.role !== "visit")).toHaveLength(
+      added.length,
+    );
+  });
+
+  it("adds only places the caller allows, and only to the days it names", () => {
+    expect(addMissingMeals(request, visitsOnly, ctx, { allowed: () => false })).toEqual({
+      days: visitsOnly,
+      added: [],
+    });
+    const second = addMissingMeals(request, visitsOnly, ctx, { only: [1] });
+    expect(second.added.every((meal) => meal.day === 1)).toBe(true);
+    expect(second.added.length).toBeGreaterThan(0);
+    expect(second.days[0]).toEqual(visitsOnly[0]);
+    expect(second.days[2]).toEqual(visitsOnly[2]);
+  });
+
+  it("never adds a place another day has, or one at its spot", () => {
+    const withDinner = [
+      { anchorId: "rome", placeIds: ["place_001", "place_009"] },
+      ...visitsOnly.slice(1),
+    ];
+    const { added } = addMissingMeals(request, withDinner, ctx);
+    expect(added.map((meal) => meal.placeId)).not.toContain("place_009");
+  });
+
+  it("adds no dinner on a Monday in Bologna, where no dinner place opens (the owner's day)", () => {
+    const monday = makeRequest({ startDate: "2026-10-12" });
+    const bologna = [{ anchorId: "bologna", placeIds: ["place_048", "place_054"] }];
+    const { days, added } = addMissingMeals(monday, bologna, ctx);
+
+    expect(added.map((meal) => meal.meal)).toEqual(["lunch"]);
+    const gaps = mealGaps(timed(days, monday), ctx);
+    expect(gaps.map((gap) => [gap.meal, gap.cause])).toEqual([["dinner", "none_open"]]);
   });
 });

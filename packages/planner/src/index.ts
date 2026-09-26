@@ -11,6 +11,7 @@ export * from "./dataVersion";
 export * from "./dayBases";
 export * from "./dayChecks";
 export * from "./dayRoute";
+export { type AddedMeal, type AddMealsOptions, addMissingMeals } from "./mealFill";
 export * from "./mealSupply";
 export * from "./normalize/chips";
 export * from "./normalize/index";

@@ -104,6 +104,8 @@ const PLANNER_CORE_FUNCTIONS = [
   "mealGaps",
   "mealPlaces",
   "mealFacts",
+  // mealFill.ts (the API adds the lunch or dinner an AI day lacks where one fits)
+  "addMissingMeals",
 ] as const;
 
 // Decision: read the namespace through Object.entries, the static way to list what it exports.
