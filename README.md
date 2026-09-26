@@ -7,6 +7,67 @@ The submission note, on what I built, why, what I would do with more time, and h
 - Web app: https://italy-planner.brdjx.com
 - Public API: https://api.italy-planner.brdjx.com (for example `/health`, `/places`, `POST /plan`, `POST /plan/day`, `POST /trips`, `GET /trips/<id>`; see [docs/deploy.md](docs/deploy.md#why-two-hostnames))
 
+## Run it locally
+
+You need Node 24 and pnpm 12.6 (`corepack enable` picks up the version pinned in `package.json`). No API key is needed.
+
+```sh
+pnpm install
+LLM_MODE=fixture pnpm dev
+```
+
+Open http://localhost:3000 and press Plan my trip. This starts the API on http://localhost:8787 and the web app on port 3000. Both ports are fixed: the local API accepts the page only from port 3000.
+
+How the trip gets planned depends on one setting:
+
+| Setting | Who plans | Cost |
+|---|---|---|
+| `LLM_MODE=fixture` | Scripted model answers, no network. The page says "Planned with AI", but no model chose the places | Free |
+| A key in `.env` (copy `.env.example`, set `ANTHROPIC_API_KEY`) | Claude Sonnet 5 | About 2 cents a plan |
+| Neither, or `?mode=deterministic` on the page's address | The rules-only planner, labelled on the page | Free |
+
+The map's background tiles are not in the repository (one 140 MB file, served from the site's bucket in production), so a local map draws the stops and routes on a blank background.
+
+### Each part on its own
+
+| Part | Command | Notes |
+|---|---|---|
+| API | `LLM_MODE=fixture pnpm --filter @italy/api dev` | Listens on 127.0.0.1:8787 and reloads on change. Reads `.env` at the repository root; shell variables win. |
+| Web app | `pnpm --filter @italy/web dev` | Next.js on port 3000. It needs the API above for the places and plans. Set `NEXT_PUBLIC_API_BASE` in `apps/web/.env.local` to use another local port. |
+| Production build | `pnpm build`, then `E2E_API_PORT=8787 node e2e/serve.mjs` | Builds the static site (`apps/web/out`) and the Lambda bundle (`services/api/dist`), then serves the site on http://127.0.0.1:14390 with `/api` passed to the local API, the way CloudFront does. |
+| Planner | none, it is a library | `packages/planner` is plain TypeScript, used by both the API and the page. Run its tests with `pnpm test --project planner`. |
+
+Try the API by hand:
+
+```sh
+curl localhost:8787/api/health
+curl localhost:8787/api/places
+curl -X POST localhost:8787/api/plan -H 'content-type: application/json' \
+  -d '{"startDate":"2026-10-15","pace":"balanced","interests":["historic","food"]}'
+curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: application/json' \
+  -d '{"startDate":"2026-10-15","pace":"balanced","interests":["historic","food"]}'
+```
+
+## Tests
+
+| Command | What it runs | Time |
+|---|---|---|
+| `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
+| `pnpm test` | 3,315 unit and integration tests in 201 files (Vitest) | under 1 min |
+| `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
+| `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
+| `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
+| `pnpm test:props` | The planner's property tests at 5,000 runs each | about 1.5 min |
+| `pnpm test:e2e` | 330 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
+| `pnpm test:e2e daycity --project chromium-desktop` | One spec on one project. Add `E2E_SKIP_BUILD=1` to reuse the last build | 1 to 2 min, including the build |
+| `E2E_BASE_URL=https://italy-planner.brdjx.com pnpm test:e2e:smoke` | The smoke tests against a deployed site | seconds |
+| `pnpm eval:replay` | Replays the recorded model answers through the current code, no network, and rewrites the results | seconds |
+| `pnpm eval --model claude-sonnet-5 --runs 1` | Live evals: the 16 cases against Claude, one after another. Needs a key and costs about 40 cents a run | about 3 min |
+| `terraform -chdir=infra/terraform/platform init -backend=false && terraform -chdir=infra/terraform/platform test` | Terraform tests with mocked providers, no AWS account needed. The same for `infra/terraform/bootstrap` | about 1 min |
+| `python3 .github/scripts/check-infra-contract.py .` | Checks that the SAM template and Terraform provide every name the deploy relies on, and that the trips table stays protected | seconds |
+
+Install the browsers once before the first E2E run: `pnpm exec playwright install`. Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+
 ## Results
 
 Live evals on 16 cases, replayed through the current code. Full report: [packages/evals/results/latest.md](packages/evals/results/latest.md).
@@ -24,31 +85,6 @@ Live evals on 16 cases, replayed through the current code. Full report: [package
 - Cases meeting every expectation, in the full report: Sonnet 5 0 of 16, Haiku 4.5 4, rules-only 10. Most cases forbid a stop at a closed hour and judge the answer as written, so a stop the tidy step fixed still fails its case. Two cases want the summary to say a request was not possible. Every answer said so, but the summary guard dropped that sentence each time: it drops any sentence with a capitalized word the place data never uses, such as Eiffel or Amalfi.
 - AI plans skip more meals than the rules-only planner: 26% of Sonnet 5's days lack a lunch or a dinner, against 19%. Haiku 4.5 is faster at the median but misses a meal on most days, so Sonnet 5 stays the default.
 - Costs are estimates from list prices checked on 2026-09-24 ($2 and $10 per million input and output tokens for Sonnet 5, $1 and $5 for Haiku 4.5). The whole run cost about $1.60.
-
-## Quickstart
-
-Requires Node 24 and pnpm 12.6 (`corepack enable` picks up the version pinned in `package.json`).
-
-```sh
-pnpm install
-LLM_MODE=fixture pnpm dev
-```
-
-Open http://localhost:3000. The API runs at http://localhost:8787 (try `/api/health`). Both ports are fixed: the web dev server uses 3000, and the local API accepts the page only from there.
-
-- `LLM_MODE=fixture` runs the AI path with no key and no network. The API answers with scripted model answers, so the page says "Planned with AI", but no model chose those places.
-- Add `?mode=deterministic` to the page's address (http://localhost:3000/?mode=deterministic) to plan with the rules-only planner.
-- With no `LLM_MODE` and no key, every trip comes from the rules-only planner and the page says so. To plan with Claude, copy `.env.example` to `.env` at the repository root and set `ANTHROPIC_API_KEY`. The local API listens on 127.0.0.1 only.
-- The map's basemap tiles are not in the repository (one 140 MB file, served from the site's bucket in production). A local run draws the stops and routes on a blank background.
-- `pnpm check` runs lint, typecheck, and the unit and integration tests.
-
-| Command | What it does |
-|---|---|
-| `pnpm dev` | API on port 8787 and web on port 3000 |
-| `pnpm build` | Static web export (`apps/web/out`) and Lambda bundle (`services/api/dist`) |
-| `pnpm check` | Lint, typecheck, unit and integration tests |
-| `pnpm test:e2e` | Playwright end to end (builds the app, starts the API with scripted model answers) |
-| `pnpm data:audit` | Regenerates `docs/data-issues.md` from the normalizer |
 
 ## What it does
 
@@ -129,17 +165,6 @@ Sixteen cases on real places, each with what a good plan must show: interests ma
 | `infra` | Terraform (`bootstrap`, `platform`), the SAM template, and infra tests |
 | `data/italy.json` | Source data, never edited |
 | `docs` | Architecture, decisions, testing, deploy guide, data reports |
-
-## Testing
-
-```sh
-pnpm check           # lint, typecheck, unit and integration tests
-pnpm test:coverage   # the same tests with per-area coverage floors
-pnpm test:props      # planner property tests at 5,000 runs
-pnpm test:e2e        # Playwright on six device profiles plus the installed app
-```
-
-`pnpm test` runs 3,315 tests in 201 files (2026-09-26). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Deploy
 
