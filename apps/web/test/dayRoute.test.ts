@@ -27,6 +27,7 @@ import {
   routeView,
   SHORT_REASONS,
   sameRoute,
+  travelFacts,
   tripRoute,
   waitingText,
 } from "../lib/dayRoute";
@@ -132,6 +133,60 @@ describe("the route view", () => {
       "Day 1 has Uffizi Gallery, which you asked for, and no other day of this route is in Florence. Keep day 1 in Florence, or remove Uffizi Gallery from day 1 first.",
     );
     expect(view.rows.slice(1).every((row) => row.refusal === null)).toBe(true);
+  });
+});
+
+// Decision 17: a city that leaves a day with no lunch or dinner open says so before it is
+// chosen, as a fact like the travel ones, and stays a choice. The owner's route: Rome, Venice,
+// Bologna from Saturday 10 October, day 3 a Monday, when none of Bologna's dinner places opens.
+describe("a meal a city cannot give a day", () => {
+  const saturday = fixturePlan({ startDate: "2026-10-10" });
+  const BOLOGNA = "bologna";
+
+  it("says on the route that Bologna has no dinner on Mondays, not the hours left before it", () => {
+    const view = routeView(saturday, [ROME, VENICE, BOLOGNA], ctx);
+    expect(view).toMatchObject({ allowed: true, action: "Plan day 2 and day 3" });
+    expect(view.rows[2]).toMatchObject({
+      name: "Bologna",
+      start: "11:55",
+      legIn: "2 h 25 min by train or car",
+      facts: ["No dinner in Bologna on Mondays."],
+    });
+    // Venice has dinner on a Sunday: its day keeps what the travel leaves.
+    expect(view.rows[1]?.facts).toEqual(["Leaves about 6 h before dinner."]);
+  });
+
+  it("warns on Bologna in day 3's cities, and on no other city, and Bologna stays a choice", () => {
+    const choices = dayChoices(saturday, [ROME, VENICE, ROME], 2, ctx);
+    const bologna = must(choices.rows.find((row) => row.anchorId === BOLOGNA));
+    expect(bologna).toMatchObject({
+      allowed: true,
+      warnings: [
+        "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
+        "No dinner in Bologna on Mondays.",
+      ],
+    });
+    const others = choices.rows.filter((row) => row.anchorId !== BOLOGNA);
+    expect(others.flatMap((row) => row.warnings).filter((fact) => fact.startsWith("No "))).toEqual(
+      [],
+    );
+  });
+
+  it("says both meals when the train from Rome also leaves no lunch in reach", () => {
+    const relaxed = fixturePlan({ startDate: "2026-10-10", pace: "relaxed" });
+    const view = routeView(relaxed, [ROME, ROME, BOLOGNA], ctx);
+    expect(view.rows[2]?.facts).toEqual([
+      "No lunch in Bologna after the travel from Rome.",
+      "No dinner in Bologna on Mondays.",
+    ]);
+  });
+
+  it("drops only the hours before dinner, and only when there is no dinner to have", () => {
+    const travel = ["2 h by train from Venice, so the day starts at 11:30.", "Leaves about 7 h."];
+    expect(travelFacts(travel, [])).toEqual(travel);
+    expect(travelFacts(travel, ["No lunch in Bologna on Sundays."])).toEqual(travel);
+    expect(travelFacts(travel, ["No dinner in Bologna on Mondays."])).toEqual([travel[0]]);
+    expect(travelFacts([], ["No dinner place in Testville."])).toEqual([]);
   });
 });
 

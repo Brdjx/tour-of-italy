@@ -99,7 +99,7 @@ export interface RouteRow {
   was: string | null; // the day's city now, when the route changes it
   legIn: string | null; // the travel into the day ("2 h 10 min by high-speed train", "Same city")
   note: string | null; // what happens to a day kept in its city ("Day 3 will be planned again: ...")
-  facts: string[]; // what its travel leaves of it, on a day the route changes or retimes
+  facts: string[]; // what its travel leaves of it and the meals it cannot have, on a day the route changes or retimes
   replan: boolean; // planned again
   refusal: string | null; // why the route cannot be planned, and the way out
 }
@@ -126,7 +126,9 @@ export interface RouteView {
 // whose city changes has no note: "Florence, was Rome" says it, and "Day 1 will be planned in
 // Florence." under it said it again and pushed its facts down. A day kept in its city still says
 // what happens to it (planned again for its travel or to hold a place asked for, or kept at a new
-// start). A day the route leaves as it is shows no facts.
+// start). A day the route leaves as it is shows no facts. A meal no place of the day's city can
+// take that date is a fact too (decision 17: "No dinner in Bologna on Mondays."), said before the
+// day is planned, as its travel is.
 export function routeView(
   itinerary: Itinerary,
   draft: readonly string[],
@@ -146,7 +148,7 @@ export function routeView(
       was: day.changes ? (ctx.anchorById.get(now ?? "")?.name ?? null) : null,
       legIn: day.day === 0 ? null : (day.travelIn?.label ?? "Same city"),
       note: day.changes ? null : day.note,
-      facts: touched ? day.warnings.slice(1) : [],
+      facts: touched ? [...travelFacts(day.warnings, day.meals).slice(1), ...day.meals] : [],
       replan: day.replan !== null,
       refusal: refusal ? `${refusal.reason} ${refusal.fix}` : null,
     };
@@ -159,6 +161,17 @@ export function routeView(
     action: planAction(plan.replan),
     travel: plan.travelMin > 0 ? `Travel between cities: ${formatDuration(plan.travelMin)}` : null,
   };
+}
+
+/**
+ * A day's travel facts (dayTravel: the train and when the day starts, then what it leaves before
+ * dinner), without the second when `meals` (mealFacts) says the day has no dinner to have.
+ */
+// Decision: "Leaves about 7 h before dinner." and "No dinner in Bologna on Mondays." together read
+// as a contradiction, and the owner's day 3 showed the first over a day with no dinner. The start
+// the first line gives says what the travel takes; the day's board drops it the same way.
+export function travelFacts(travel: readonly string[], meals: readonly string[]): string[] {
+  return meals.some((fact) => fact.startsWith("No dinner ")) ? travel.slice(0, 1) : [...travel];
 }
 
 /** "Plan day 2", "Plan day 2 and day 3", "Plan all three days": the route sheet's action. */
@@ -175,7 +188,7 @@ export interface CityRow {
   chosen: boolean; // the day's city in the route being set
   allowed: boolean;
   line: string; // how the day meets its neighbours, and the city's places
-  warnings: string[]; // the day's travel as facts, and what else the choice plans again
+  warnings: string[]; // the day's travel and the meals it cannot have as facts, and what else the choice plans again
   reason: string | null; // why not, and the way out, when not allowed
 }
 
@@ -241,8 +254,13 @@ export function dayChoices(
     const full = `${option.reason ?? ""} ${option.fix ?? ""}`.trim();
     const short = said.has(full) ? shortReason(option, day) : undefined;
     if (option.refusal) said.add(full);
-    // The day's own travel facts come first; the other days' notes end the warnings.
-    const own = option.warnings.slice(0, option.warnings.length - option.others.length);
+    // The day's own travel facts come first, then its meals; the other days' notes end the
+    // warnings.
+    const travel = option.warnings.slice(
+      0,
+      option.warnings.length - option.meals.length - option.others.length,
+    );
+    const own = [...travelFacts(travel, option.meals), ...option.meals];
     const others = option.others
       .filter((other) => !known.has(other.note))
       .map((other) => otherNote(other, day, option));
