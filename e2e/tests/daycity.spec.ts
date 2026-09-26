@@ -50,13 +50,19 @@ test.describe("changing a day's city", () => {
     const current = sheet.getByTestId("city-current");
     await expect(current).toContainText("Rome");
     await expect(current).toContainText("This day");
-    // A third city would break the two-city limit: shown, dimmed in place, with its reason.
+    // A third city would break the two-city limit: shown, dimmed in place, with its reason in
+    // full on the first such row and short after it, and no onward chevron.
     const milan = sheet.locator('[data-testid="city-option"][data-anchor-id="milan"]');
     await expect(milan).toHaveAttribute("aria-disabled", "true");
     await expect(milan).toContainText("A trip can use at most 2 cities");
+    await expect(milan.locator(".city-option-chevron")).toHaveCount(0);
+    const venice = sheet.locator('[data-testid="city-option"][data-anchor-id="venice"]');
+    await expect(venice).toContainText("Would be a third city.");
+    // Florence can take the day: it points onward, and its line says both sides of the day.
     const florence = sheet.locator('[data-testid="city-option"][data-anchor-id="florence"]');
     await expect(florence).toHaveAttribute("data-allowed", "true");
-    await expect(florence).toContainText("from Rome");
+    await expect(florence.locator(".city-option-chevron")).toBeVisible();
+    await expect(florence).toContainText("from Rome, same city as day 3");
 
     await press(florence);
     await expect(sheet).toBeHidden();
