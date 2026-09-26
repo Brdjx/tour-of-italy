@@ -7,9 +7,10 @@ import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
 // axe violation, no horizontal scroll or zoom-out, every control a traveler can press at least
 // 44x44 px (a link in a sentence aside, as WCAG allows), and field text at least 16 px
 // (support/audit.ts). Each state is one a traveler actually reaches: the form, a plan, a map
-// stop's popup, the full-screen map and a popup on it, the swap sheet, a rule-breaking edit, the
-// form reopened over a plan with More options over it, the data notes with every photo credit, a
-// place's sheet, the places failing to load, and the 404 page.
+// stop's popup, the full-screen map and a popup on it, the swap sheet, the Change city sheet, a
+// day while it is planned again and once it is, a rule-breaking edit, the form reopened over a
+// plan with More options over it, the data notes with every photo credit, a place's sheet, the
+// places failing to load, and the 404 page.
 
 /** How long the edit toast stays up (components/StatusRegion.tsx). */
 const TOAST_MS = 5000;
@@ -56,6 +57,36 @@ async function auditMap(page: Page, press: Press, touch: boolean): Promise<void>
   await expect(full).toBeHidden();
 }
 
+/**
+ * Change city on day 2, the day while it is planned again (its answer held back until the audit
+ * is done), and the day once planned, after its toast has gone. The fixture plan's day 2 can move
+ * to Florence (e2e/tests/daycity.spec.ts).
+ */
+async function auditDayCity(page: Page, press: Press): Promise<void> {
+  await readDay(page, press, 2);
+  await press(page.getByTestId("city-button"));
+  await expect(page.getByTestId("city-sheet")).toBeVisible();
+  await auditState(page, "change city sheet");
+
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/plan/day*", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await press(page.locator('[data-testid="city-option"][data-anchor-id="florence"]'));
+  await expect(page.getByTestId("day-planning")).toBeVisible();
+  await auditState(page, "a day being planned again");
+  release();
+  await expect(page.getByTestId("day-source")).toBeVisible();
+  await page.unroute("**/api/plan/day*");
+  await page.clock.runFor(TOAST_MS);
+  await expect(page.getByTestId("toast")).toHaveCount(0);
+  await auditState(page, "a day planned again");
+}
+
 async function breakARule(page: Page, press: Press): Promise<void> {
   await readDay(page, press, 1);
   const rows = page.getByTestId("stop-row");
@@ -84,7 +115,7 @@ for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} mode`, () => {
     test.use({ colorScheme: scheme });
 
-    test("the form, a plan, its map, the swap sheet and a flagged edit pass the audits", async ({
+    test("the form, a plan, its map, the swap and city sheets and a flagged edit pass the audits", async ({
       page,
       press,
       touch,
@@ -106,6 +137,8 @@ for (const scheme of ["light", "dark"] as const) {
       await auditState(page, "swap sheet");
       await press(page.getByTestId("alternatives-close"));
       await expect(page.getByTestId("alternatives-sheet")).toHaveCount(0);
+
+      await auditDayCity(page, press);
 
       await breakARule(page, press);
       await auditState(page, "edit that breaks a rule");
