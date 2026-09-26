@@ -86,22 +86,26 @@ Code: `services/api/src/routes/plan.ts` (the route), `plan/planCache.ts` (the ca
 
 ## Day re-plan
 
-One day of a trip the page already has, planned again at a base the traveler picked: another city, or the day's own for a new version of it. The other days never change.
+One day of a trip the page already has, planned again at a base the traveler picked: another city, or the day's own for a new version of it; alone, or as one day of a route the traveler set (a city a day, below). A request plans one day and never changes another.
 
 ```
-POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid? }
+POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid?, route? }
   -> the plan route's guards: origin check, the same per-client bucket, JSON only, 16 KB cap
   -> strict Zod: the request as POST /api/plan takes it; known bases and places, each place in
-       its day's base and once in the trip, every day but this one with a stop (400 otherwise)
-  -> checkDayBase (planner): at most 2 bases; a day holding a must-include keeps its city; the
-       rules-only day there (planDay) is not empty and adds no error to the trip, the next day
-       included after its new transfer -> 422 day_not_allowed with the traveler's reason
+       its day's base and once in the trip, every day but this one with a stop; with a route,
+       every day at its route city, anchorId = route[day], no avoid, and a later day may be
+       empty (still waiting its turn); anything else is a 400
+  -> checkDayBase (planner): alone, a day holding a must-include keeps its city; the rules-only
+       day there (planDay) is not empty and adds no error to the trip, the next day included
+       after its new transfer (a later day waiting in a route is judged in its own turn)
+       -> 422 day_not_allowed with the planner's reason
   -> ?mode=deterministic, AI off, or no key -------------------------> the rules-only day
   -> day cache: memory, then the table (not for notes), served only if it still fits the trip
   -> shortlist: every place of the base open that date and able to fit the day after its
        transfer, less every place on another day or at its spot, excluded or left out
-  -> prompt day-v1: the day, its base and transfer, the other days' bases, the places already
-       used, the day's must-includes, the candidate rows with that day's hours
+  -> prompt day-v2: the day, its base and transfer, the other days' bases (for a route, which
+       ones are planned after this one), the places already used, the day's must-includes, the
+       candidate rows with that day's hours
   -> Claude: the day's ordered place ids and a reason per stop (one-day JSON schema)
   -> tidy: drop a repeat of another day or its spot, then the trip's tidy step on this day
   -> ids outside the shortlist are errors; scheduleTrip and validateItinerary on the whole
@@ -110,7 +114,27 @@ POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid? }
   -> response: { day, dayPlan (timed, why lines marked ai or rule), source, meta }
 ```
 
-The page applies the day with the planner's `withReplannedDay`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its reason and the transfers in and out. Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
+The page applies the day with the planner's `withReplannedDay`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its verdict, the transfers in and out, the facts and the other days it would plan again. Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`, `dayRoute.ts`, `dayChecks.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
+
+A route (decision 16) is a city for every day, set by hand, in any order and back again. The planner judges it before anything is planned, fast enough for every tap:
+
+```
+planRoute(request, days, route)                       packages/planner/src/dayRoute.ts, about 1 ms
+  -> per day: city, changes, travel in and out, start, time before dinner, facts, note
+  -> days planned again: city changed; travel changed and the validator says the kept stops no
+       longer fit; the first day of a must-include's city when its day moves
+  -> checked by planning them with the rules in day order (planDay), then the validator on the
+       trip; refused only for a must-include no day of its city can take, or nothing fitting a
+       day (with the fix), never for travel
+page, for each day planned again, in day order:
+  POST /api/plan/day { ..., day, anchorId: route[day], route }  the trip: days planned so far,
+                                                                 later ones empty (routeStartDays)
+  -> the one-day pipeline above; the answer goes into the trip for the next request
+  -> an unreachable API: checkDayBase on the same trip, the rules' day, labelled as such
+then withReplannedDays: all the route's days as one edit, one Undo
+```
+
+`routeOptions` lists the cities for one day of a route being edited, each judged as that route with the day's city changed; `dayTravel` gives a planned day's travel facts. The validator allows a base a day; a whole-trip plan still keeps two (`materialize.ts` asks for `MAX_ANCHORS_PER_TRIP`). A saved trip keeps decision 15's rule: the days planned again carry the rules' why lines, and a trip of three cities saves and reopens like any other.
 
 On the page (`apps/web/lib/dayCity.ts`, `useDayCity.ts`, `itineraryReducer.ts`, `components/DayCitySheet.tsx`): the city on a day's line opens Change city with `dayBaseOptions` for that day (new ideas checked with the day's own places left out). Choosing a city sends the body above from the trip on screen (`avoid` holds the day's places for new ideas), shows that day's skeleton and keeps the rest of the trip in use. The reducer then resolves the answer against the trip as it is now: the API's day if it is the day and city asked for, repeats no place, names only known places and adds no validator error; otherwise the rules' day from `checkDayBase`, labelled with why (the call failed, or its day broke a rule on the unchanged trip). `withReplannedDay` applies it as one undoable edit, the validator checks the whole trip, and the day keeps a record of how it was made for the line under its heading, stored with the last plan.
 

@@ -53,7 +53,7 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | Command | What it runs | Time |
 |---|---|---|
 | `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
-| `pnpm test` | 3,315 unit and integration tests in 201 files (Vitest) | under 1 min |
+| `pnpm test` | 3,386 unit and integration tests in 206 files (Vitest) | under 1 min |
 | `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
@@ -91,7 +91,7 @@ Live evals on 16 cases, replayed through the current code. Full report: [package
 - Plans three days from a start date, a pace, interests, a budget, bases to stay in, places to include and places to skip. Each stop gets a time, the travel from the previous stop, and a reason.
 - Checks every plan against opening hours on the actual dates, meal windows, travel time and the day's pace, and shows what the data could not confirm (estimated hours, approximate locations, seasonal closures).
 - Lets the traveler swap, remove, reorder and undo stops, and re-checks each edit in the browser. It installs as an app and still plans offline.
-- Moves one day to another city, or plans a new version of it ("New ideas for this day"), from the city on the day's line, and fills it again: Claude chooses from the places of that city open on that date that the trip has not used, code times and checks the whole trip, and the other days stay as they are. A city the day cannot take (a third city, a next day that would no longer fit) is listed with the reason (`POST /api/plan/day`, [decision 15](docs/decisions.md#15-re-plan-one-day-of-a-trip)).
+- Sets the city of any day from the city on the day's line, up to a city a day, in any order and back again (Rome, Florence, Rome), or plans a new version of a day ("New ideas for this day"). Travel is the traveler's choice, stated as facts ("2 h 10 min by high-speed train from Rome, so the day starts at 11:40"); only the days that change city, or no longer fit their new start, are planned again, one request a day, and applied as one edit. Claude chooses each day from the places of its city open on that date that no other day has, and code times and checks the whole trip. A city is refused only when a place the traveler asked for would be lost or nothing fits the day, with the way out (`POST /api/plan/day`, decisions [15](docs/decisions.md#15-re-plan-one-day-of-a-trip) and [16](docs/decisions.md#16-a-city-a-day-set-by-hand)).
 - Copy link saves the trip as shown, with the AI's why lines and summary, behind a short link, and the link opens it as saved.
 - Opens each stop and highlight in a sheet (photo and credit, the facts for the date, the listing's own words), the day's map full screen, and About this data as an overlay with every note, source and credit.
 
@@ -138,7 +138,7 @@ The source file `data/italy.json` is never edited. The normalizer keeps all 103 
 | Every time and travel leg computed in code, then an independent validator | `packages/planner/src/schedule.ts`, `validate.ts` |
 | Tidying of what the model cannot see, labelled "fixed after a check" | `services/api/src/plan/tidy.ts`, `packages/planner/src/orderDay.ts` |
 | One repair turn with the exact violations | `services/api/src/plan/planTrip.ts`, `llm/prompt.ts` |
-| One day planned again from the places no other day has, the other days never changed, the whole trip validated | `services/api/src/plan/replanDay.ts`, `plan/dayShortlist.ts`, `packages/planner/src/dayBases.ts` |
+| One day planned again from the places no other day has, the other days never changed, the whole trip validated; a route of a city a day planned a day at a time, judged first by the rules | `services/api/src/plan/replanDay.ts`, `plan/dayShortlist.ts`, `packages/planner/src/dayBases.ts`, `dayRoute.ts` |
 | Rules-only plan for every other outcome, and a final guard on every response | `services/api/src/plan/outcome.ts` |
 | Traveler notes escaped as data, reasons and summary sanitized | `llm/prompt.ts`, `plan/reasons.ts`, `plan/summary.ts`, `plan/textGuards.ts` |
 | 24 s deadline, 15 s per call, 29 s function timeout under API Gateway's 30 s | `plan/planTrip.ts`, `infra/sam/template.yaml` |
