@@ -212,9 +212,10 @@ describe("a day with no lunch or dinner", () => {
     const venice = must(trip.days[1]);
     const kept = venice.stops.filter((stop) => stop.role !== "dinner").map((stop) => stop.placeId);
     const edited = rescheduleDay(trip, 1, kept, ctx).itinerary;
-    const chip = must(buildDayView(edited, 1, ctx, [])).dayChips.find(
-      (one) => one.label === "No dinner planned",
-    );
+    const view = must(buildDayView(edited, 1, ctx, []));
+    const chip = view.dayChips.find((one) => one.label === "No dinner planned");
+    // A dinner the day could still have: the transfer keeps the hours left before it.
+    expect(view.transfer?.left).toBe("Leaves about 6 h before dinner.");
     expect(chip?.explanation).toMatch(/^\w+ places in Venice could take dinner that day\.$/);
     expect(chip?.places?.length).toBeGreaterThan(1);
     expect(chip?.wayOut).toBe(
