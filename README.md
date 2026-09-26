@@ -17,8 +17,9 @@ Live evals on 16 cases, replayed through the current code. Full report: [package
 
 - Recorded on the evening of 2026-09-25 (the report shows the UTC date, 2026-09-26), prompt v3, production settings: 15 s per call, a 24 s deadline, at most one repair. Sonnet 5 ran each case 3 times, Haiku 4.5 twice.
 - Every plan a traveler gets passes the validator: final valid is 100% in every row, and CI replays these recordings on every push and fails otherwise.
-- Valid as written is low because the model never sees times. The code times its order, and a place often lands on an hour it is closed (`CLOSED_AT_TIME`); the tidy step reorders or drops it before the check. The evals still count that as the model's mistake.
+- Valid as written is low because code, not the model, times each stop. The model sees each place's opening hours but not the time its order gives each stop, so a place often lands at an hour it is closed (`CLOSED_AT_TIME`) or outside the day's window (`OUTSIDE_DAY_WINDOW`). The tidy step reorders or drops it before the check. The evals still count that as the model's mistake.
 - Valid after tidying: the first answer became the plan, with no repair turn and no fallback. Haiku 4.5 needed a repair on 9 plans, and 2 still fell back to the rules-only plan.
+- Cases meeting every expectation, in the full report: Sonnet 5 0 of 16, Haiku 4.5 4, rules-only 10. Most cases forbid a stop at a closed hour and judge the answer as written, so a stop the tidy step fixed still fails its case. Two cases want the summary to say a request was not possible. Every answer said so, but the summary guard dropped that sentence each time: it drops any sentence with a capitalized word the place data never uses, such as Eiffel or Amalfi.
 - AI plans skip more meals than the rules-only planner: 26% of Sonnet 5's days lack a lunch or a dinner, against 19%. Haiku 4.5 is faster at the median but misses a meal on most days, so Sonnet 5 stays the default.
 - Costs are estimates from list prices checked on 2026-09-24 ($2 and $10 per million input and output tokens for Sonnet 5, $1 and $5 for Haiku 4.5). The whole run cost about $1.60.
 
