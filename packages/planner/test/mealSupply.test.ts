@@ -210,6 +210,26 @@ describe("dayMealGaps", () => {
     expect(lunch?.text).toMatch(/^[A-Z][a-z]+ places in Rome could take lunch that day\.$/);
   });
 
+  it("never counts a place the planner does not suggest as one that could take the meal, unless asked for", () => {
+    // Hard Rock Cafe Rome is rated 2.1: neither the planner, the meal code adds nor a swap offers
+    // it, so it is not a place that could take lunch (found in review, 2026-09-26).
+    const plan = [day("2026-10-20", "rome", [stop("place_001", "visit", 570, 690)])];
+    const request = makeRequest({ startDate: "2026-10-20" });
+
+    const [lunch] = dayMealGaps(trip(request, plan), 0, ctx);
+
+    expect(lunch?.text).toBe("Six places in Rome could take lunch that day.");
+    expect(lunch?.places.at(-1)).toMatchObject({
+      placeId: "place_025",
+      block: "low_rating",
+      why: "rated below 3.5",
+    });
+    const asked = { ...request, mustInclude: ["place_025"] };
+    const [again] = dayMealGaps(trip(asked, plan), 0, ctx);
+    expect(again?.text).toBe("Seven places in Rome could take lunch that day.");
+    expect(again?.places.find((p) => p.placeId === "place_025")?.block).toBeNull();
+  });
+
   it("finds a gap exactly where the validator warns: an outing through lunch is lunch, an empty day has none", () => {
     const request = makeRequest({ startDate: "2026-10-20" });
     // The Vatican Museums from 10:00 to 14:00 are under way through lunch.
@@ -336,6 +356,68 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
     expect(mealFacts(request, "testville", MONDAY, 570, null, small)).toEqual([
       "No lunch place in Testville.",
       "No dinner in Testville on Mondays.",
+    ]);
+  });
+
+  it("says a dinner that would end after the day's window is out of reach, even with time to get back", () => {
+    // A relaxed day ends at 22:00; a dinner from 20:45 would end at 22:15, inside the half hour
+    // the trip back may take after dinner, but the stop itself must end inside the window.
+    const late = testPlace("place_901", {
+      meals: ["dinner"],
+      hours: makeWeek([0, 1, 2, 3, 4, 5, 6], [{ open: 1245, close: 1410 }]),
+    });
+    const small = buildPlannerContext([late, testPlace("place_902", { meals: ["lunch"] })]);
+    const relaxed = makeRequest({ startDate: MONDAY, pace: "relaxed" });
+
+    expect(mealPlaces(relaxed, "testville", "dinner", MONDAY, 600, small)).toMatchObject([
+      { placeId: "place_901", block: "out_of_reach" },
+    ]);
+    // A balanced day ends at 22:30, so the same dinner fits.
+    const balanced = { ...relaxed, pace: "balanced" as const };
+    expect(mealPlaces(balanced, "testville", "dinner", MONDAY, 570, small)[0]?.block).toBeNull();
+  });
+
+  it("says which day holds a place at the same spot as a meal place", () => {
+    const small = buildPlannerContext([
+      testPlace("place_901", { meals: ["dinner"], sharedLocationWith: ["place_903"] }),
+      testPlace("place_902", { meals: ["lunch"] }),
+      testPlace("place_903", { mealCapable: false, meals: [], type: "museum" }),
+    ]);
+    const request = makeRequest({ startDate: MONDAY });
+    const plan = [
+      day(MONDAY, "testville", [stop("place_903", "visit", 600, 690)]),
+      day("2026-10-13", "testville", [stop("place_902", "lunch", 720, 810)]),
+    ];
+
+    const [dinner] = dayMealGaps(trip(request, plan), 1, small);
+
+    expect(dinner).toMatchObject({
+      cause: "not_planned",
+      text: "Every place in Testville that could take dinner that day is already in the trip.",
+    });
+    expect(dinner?.places.map((p) => [p.placeId, p.day])).toEqual([["place_901", 0]]);
+  });
+
+  it("says none is open when the only place open is one the planner does not suggest", () => {
+    const small = buildPlannerContext([
+      testPlace("place_901", {
+        meals: ["dinner"],
+        hours: makeWeek([0, 2, 3, 4, 5, 6], [{ open: 720, close: 1380 }]),
+      }),
+      testPlace("place_902", { meals: ["dinner"], rating: 2 }),
+      testPlace("place_903", { meals: ["lunch"] }),
+    ]);
+    const request = makeRequest({ startDate: MONDAY });
+    const plan = [day(MONDAY, "testville", [stop("place_903", "lunch", 720, 810)])];
+
+    expect(dayMealGaps(trip(request, plan), 0, small)).toMatchObject([
+      {
+        cause: "none_open",
+        text: "Of Testville's two dinner places, one is closed on Mondays and one is rated below 3.5.",
+      },
+    ]);
+    expect(mealFacts(request, "testville", MONDAY, 570, null, small)).toEqual([
+      "No dinner in Testville on Mon 12 Oct 2026.",
     ]);
   });
 

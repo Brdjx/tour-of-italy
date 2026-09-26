@@ -1,6 +1,13 @@
 import { dayOrigin, transferMinutes } from "./anchors";
-import { PACE } from "./config";
-import { coversMeal, earliestMealStart, isExcluded, servesMeal, withinBudget } from "./constraints";
+import { MIN_SUGGEST_RATING, PACE } from "./config";
+import {
+  coversMeal,
+  earliestMealStart,
+  isExcluded,
+  isSuggestable,
+  servesMeal,
+  withinBudget,
+} from "./constraints";
 import { type PlannerContext, placesOfAnchor, twinIds } from "./context";
 import { isValidIsoDate, MONTH_SHORT, monthDayOf, openStatusOn } from "./time";
 import { latestReturn, travelMinutes } from "./travel";
@@ -16,8 +23,12 @@ import { dateText, listText, weekdayPlural } from "./validate/text";
 // Decision: a place "can take" a meal when it serves it, the traveler does not avoid it, it is
 // open that date for the meal's length with a start inside the meal window, and it fits the day as
 // its only stop: reached from the base after the day's start (the travel in included) and left
-// with time to get back. Budget and rating are left out: they are the traveler's settings, not the
-// city's. So "none open" is only said when nothing could change it but another city or date.
+// with time to get back. The budget is left out: it is the traveler's setting, not the city's. So
+// "none open" is only said when nothing could change it but another city or date.
+// Decision: a place rated below the planner's floor (isSuggestable) cannot take the meal, unless
+// the traveler asked for it. Neither the planner, the meal code adds nor a swap ever offers it, so
+// naming it as a place that could take the meal was a way out that could not work. Found in review
+// (2026-09-26): every "not planned" lunch in Rome counted and listed Hard Rock Cafe Rome (2.1).
 // Found by the owner (2026-09-26): Bologna on Monday 12 October had no dinner, and the page said
 // to swap a stop near that meal time, but none of Bologna's three dinner places opens on Mondays.
 
@@ -27,7 +38,8 @@ export type MealBlock =
   | "closed_weekday" // closed on that weekday: its weekly hours, or a rule of weekdays
   | "closed_date" // closed on that date: a season, or a rule of days of the month
   | "hours" // open that date, but not for the meal inside its window
-  | "out_of_reach"; // it fits its hours, but not the day: too late after the travel, or back too late
+  | "out_of_reach" // it fits its hours, but not the day: too late after the travel, or back too late
+  | "low_rating"; // it fits the day, but is rated below what the planner suggests and not asked for
 
 /** One place of the base that serves the meal, and whether it can take it that day. */
 export interface MealPlaceStatus {
@@ -121,6 +133,9 @@ function blockOf(
   const dayEnd = PACE[request.pace].dayEnd;
   if (end > dayEnd || end + travelMinutes(place, origin) > latestReturn(dayEnd, meal)) {
     return { block: "out_of_reach", why: "too far to get back from in time" };
+  }
+  if (!isSuggestable(place, request)) {
+    return { block: "low_rating", why: `rated below ${MIN_SUGGEST_RATING}` };
   }
   return null;
 }
