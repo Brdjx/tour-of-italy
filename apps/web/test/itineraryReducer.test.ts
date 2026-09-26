@@ -1,12 +1,25 @@
 import {
   alternativesFor,
+  type DaySelection,
   type Itinerary,
   placesOfAnchor,
+  planRoute,
   validateItinerary,
   validationErrors,
+  withDay,
 } from "@italy/planner";
 import { describe, expect, it } from "vitest";
-import { dayAsk, tripKey } from "../lib/dayCity";
+import type { DayReply } from "../lib/dayCity";
+import { tripSelection } from "../lib/dayCity";
+import {
+  ideasRun,
+  jobBody,
+  type ReplannedResult,
+  type ReplanRun,
+  replanMessage,
+  resolveJob,
+  routeRun,
+} from "../lib/dayRoute";
 import {
   HISTORY_LIMIT,
   type ItineraryState,
@@ -15,7 +28,7 @@ import {
   itineraryReducer,
   undoLabel,
 } from "../lib/itineraryReducer";
-import { AI_DAY_REASON, aiPlan, ctx, dayAnswer, fixturePlan, must } from "./fixtures";
+import { AI_DAY_REASON, aiPlan, ctx, dayAnswerFor, fixturePlan, must } from "./fixtures";
 
 // Every edit must rebuild the day with the planner, rerun the independent validator, keep undo
 // exact, and never mutate the plan it started from (undo depends on that).
@@ -343,24 +356,45 @@ describe("undo", () => {
   });
 });
 
-describe("a day planned again", () => {
-  function replanned(state: ItineraryState, day: number, anchorId: string) {
+describe("days planned again", () => {
+  /** Runs `run` on `state` as the page does, each day answered by `reply`, and applies it. */
+  function applied(
+    state: ItineraryState,
+    run: ReplanRun,
+    reply: (body: ReturnType<typeof jobBody>) => DayReply = (body) => ({
+      kind: "answer",
+      response: dayAnswerFor(body),
+    }),
+  ): ItineraryState {
     const itinerary = must(state.itinerary);
-    const response = dayAnswer(itinerary, day, anchorId);
-    const ask = dayAsk(itinerary, day, anchorId);
-    const action = {
-      type: "day",
-      ask,
-      reply: { kind: "answer", response },
-      basis: tripKey(itinerary),
-    } as const;
-    return itineraryReducer(state, action, ctx);
+    let working: DaySelection[] = run.start;
+    const days: ReplannedResult[] = [];
+    for (const job of run.jobs) {
+      const answer = reply(jobBody(itinerary.request, working, job, run.route));
+      const resolved = resolveJob(itinerary, working, job, answer, ctx);
+      if (resolved.kind !== "day") throw new Error(resolved.reason);
+      const placeIds = resolved.dayPlan.stops.map((stop) => stop.placeId);
+      working = withDay(working, job.day, { anchorId: job.anchorId, placeIds });
+      days.push({ day: job.day, dayPlan: resolved.dayPlan, made: resolved.made });
+    }
+    const message = replanMessage(run, days);
+    return itineraryReducer(
+      state,
+      { type: "replan", kind: run.kind, basis: run.basis, days, message },
+      ctx,
+    );
+  }
+
+  function routed(state: ItineraryState, route: string[]): ItineraryState {
+    const itinerary = must(state.itinerary);
+    const plan = planRoute(itinerary.request, tripSelection(itinerary), route, ctx);
+    return applied(state, routeRun(itinerary, plan, ctx));
   }
 
   it("goes in as one edit: the new city, the whole trip timed again, and the validator's verdict", () => {
     const before = planned(aiPlan());
     deepFreeze(before);
-    const after = replanned(before, 2, "florence");
+    const after = routed(before, ["rome", "rome", "florence"]);
     const day = must(after.itinerary?.days[2]);
     expect(day.anchorId).toBe("florence");
     expect(after.errors).toEqual([]);
@@ -384,9 +418,33 @@ describe("a day planned again", () => {
     expect(after.itinerary?.summary).toBeUndefined();
   });
 
+  it("puts a route of three new cities in as one edit that one Undo takes back exactly", () => {
+    const before = planned(aiPlan());
+    deepFreeze(before);
+    const after = routed(before, ["florence", "venice", "milan"]);
+    expect(after.itinerary?.days.map((day) => day.anchorId)).toEqual([
+      "florence",
+      "venice",
+      "milan",
+    ]);
+    expect(after.history).toHaveLength(1);
+    expect(undoLabel(after)).toBe("Undo route change");
+    expect(after.message).toBe("Route changed: Florence, Venice, Milan.");
+    expect(after.dayMade.every((made) => made?.kind === "api")).toBe(true);
+    expect(after.errors).toEqual([]);
+    const all = [0, 1, 2].flatMap((index) => ids(after, index));
+    expect(new Set(all).size).toBe(all.length);
+    expect(all.some((id) => [0, 1, 2].some((day) => ids(before, day).includes(id)))).toBe(false);
+    const undone = itineraryReducer(after, { type: "undo" }, ctx);
+    expect(undone.itinerary).toEqual(before.itinerary);
+    expect(undone.dayMade).toEqual([null, null, null]);
+    expect(undone.errors).toEqual(before.errors);
+    expect(isEdited(undone)).toBe(false);
+  });
+
   it("gives new ideas at the same city: other places, the summary kept, its own undo label", () => {
     const before = planned(aiPlan());
-    const after = replanned(before, 1, "rome");
+    const after = applied(before, ideasRun(must(before.itinerary), 1, ctx));
     expect(after.itinerary?.days[1]?.anchorId).toBe("rome");
     expect(ids(after, 1).some((id) => ids(before, 1).includes(id))).toBe(false);
     expect(after.itinerary?.summary).toBe("Three days of food in Rome.");
@@ -394,10 +452,10 @@ describe("a day planned again", () => {
     expect(after.message).toBe("New ideas for day 2.");
   });
 
-  it("is undone whole: the day, its city, the next day's times and how it was made", () => {
+  it("is undone a run at a time: the days, their cities, the next day's times and how they were made", () => {
     const before = planned(aiPlan());
-    const moved = replanned(before, 2, "florence");
-    const again = replanned(moved, 1, "florence");
+    const moved = routed(before, ["rome", "rome", "florence"]);
+    const again = routed(moved, ["rome", "florence", "florence"]);
     expect(again.dayMade).toEqual([
       null,
       { kind: "api", source: "ai" },
@@ -414,7 +472,7 @@ describe("a day planned again", () => {
   });
 
   it("keeps the record of a day planned again through other edits, and drops it with a new plan", () => {
-    const moved = replanned(planned(), 2, "florence");
+    const moved = routed(planned(), ["rome", "rome", "florence"]);
     const swapped = itineraryReducer(
       moved,
       { type: "move", day: 2, stop: 0, direction: "down" },
@@ -443,49 +501,56 @@ describe("a day planned again", () => {
     expect(restored.dayMade).toEqual(swapped.dayMade);
   });
 
-  it("plans the day here when the call failed, and says so", () => {
+  it("takes days planned on this device, and says so", () => {
     const before = planned();
     const itinerary = must(before.itinerary);
-    const action = {
-      type: "day",
-      ask: dayAsk(itinerary, 2, "venice"),
-      reply: { kind: "failed", cause: "offline" },
-      basis: tripKey(itinerary),
-    } as const;
-    const after = itineraryReducer(before, action, ctx);
+    const plan = planRoute(
+      itinerary.request,
+      tripSelection(itinerary),
+      ["rome", "rome", "venice"],
+      ctx,
+    );
+    const after = applied(before, routeRun(itinerary, plan, ctx), () => ({
+      kind: "failed",
+      cause: "offline",
+    }));
     expect(after.itinerary?.days[2]?.anchorId).toBe("venice");
     expect(after.dayMade[2]).toEqual({ kind: "device", cause: "offline" });
     expect(after.message).toBe("Day 3 now in Venice. Planned without AI on this device.");
     expect(after.errors).toEqual([]);
   });
 
-  it("refuses a city the rules cannot plan either, with the planner's reason, and changes nothing", () => {
+  it("leaves a trip that changed while it was planned as it is", () => {
     const before = planned();
     const itinerary = must(before.itinerary);
-    const action = {
-      type: "day",
-      ask: dayAsk(itinerary, 1, "florence"),
-      reply: { kind: "failed", cause: "server" },
-      basis: tripKey(itinerary),
-    } as const;
-    const after = itineraryReducer(before, action, ctx);
-    expect(after.itinerary).toBe(before.itinerary);
-    expect(after.history).toEqual([]);
-    expect(after.message).toContain("and its plan would not fit.");
+    const run = ideasRun(itinerary, 2, ctx);
+    const swapped = itineraryReducer(before, { type: "remove", day: 0, stop: 0 }, ctx);
+    const response = dayAnswerFor(jobBody(itinerary.request, run.start, must(run.jobs[0]), null));
+    const days: ReplannedResult[] = [
+      { day: 2, dayPlan: response.dayPlan, made: { kind: "api", source: "ai" } },
+    ];
+    const action = { type: "replan", kind: "ideas", basis: run.basis, days, message: "x" } as const;
+    const after = itineraryReducer(swapped, action, ctx);
+    expect(after.itinerary).toBe(swapped.itinerary);
+    expect(after.history).toHaveLength(1);
+    expect(after.message).toBe("Your trip changed while it was planned, so it was left as it was.");
   });
 
-  it("does nothing without a plan or the places", () => {
+  it("does nothing without a plan, a day or the places", () => {
     const itinerary = fixturePlan();
-    const action = {
-      type: "day",
-      ask: dayAsk(itinerary, 2, "florence"),
-      reply: { kind: "failed", cause: "server" },
-      basis: tripKey(itinerary),
-    } as const;
+    const run = ideasRun(itinerary, 2, ctx);
+    const response = dayAnswerFor(jobBody(itinerary.request, run.start, must(run.jobs[0]), null));
+    const days: ReplannedResult[] = [
+      { day: 2, dayPlan: response.dayPlan, made: { kind: "api", source: "ai" } },
+    ];
+    const action = { type: "replan", kind: "ideas", basis: run.basis, days, message: "x" } as const;
     expect(itineraryReducer(initialItineraryState(), action, ctx).message).toBe(
-      "That day is no longer here.",
+      "That plan is no longer here.",
     );
     const before = planned();
+    expect(itineraryReducer(before, { ...action, days: [] }, ctx).message).toBe(
+      "That plan is no longer here.",
+    );
     expect(itineraryReducer(before, action, null).message).toBe(
       "Places are still loading. Try again in a moment.",
     );

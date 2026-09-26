@@ -1,13 +1,18 @@
 /*
- * Change city (components/DayCitySheet.tsx) and a day planned again. The city in "Day 2 in Rome"
+ * The route sheet (components/RouteSheet.tsx) and days planned again. The city in "Day 2 in Rome"
  * is a quiet pill in the line of text, its 44 px target hung over the line's own height so the
- * heading keeps its rhythm; its chevron points onward, as Details' and More options' do, since
- * it opens a sheet. The sheet lists the day's own city first, marked with a gold check and New
- * ideas for this day, then every other city as one row between hairlines, with the pill's onward
- * chevron after the name of each city the day can take; a city the planner does not allow stays
- * in its place with its reason, in muted text and with no chevron, never hidden. While a day is
- * planned again its line says so with the board's busy flap, its rows are a skeleton and its map
- * dims. Once planned, one line under it says how, with the source line's mark.
+ * heading keeps its rhythm; its chevron points onward, as Details' and More options' do, since it
+ * opens a sheet. The sheet has two levels. The route is a small board of the three days (the day
+ * and its date in a column of their own, the city with the onward chevron) under an ink rule,
+ * joined by dashed legs that carry the travel into each day, and a day the route changes wears
+ * the gold wash of a chosen option, with its facts under its city. A day's cities list its own
+ * city first, then every city on hairline rows with its line and its warnings behind caution
+ * squares; a city the planner refuses stays in place with its reason, in muted text and with no
+ * chevron, never hidden. The levels slide 10 px from the side they were reached from, as the day
+ * boards do. While days are planned their lines say so with the board's busy flap (turning on the
+ * day being planned, still on a day waiting its turn, on its tab too), their rows are a skeleton
+ * and their map dims; the other days say editing waits. Once planned, one line under a day says
+ * how, with the source line's mark.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -113,9 +118,60 @@
     transition: opacity var(--dur-fade) var(--ease-out);
   }
 
+  /* The other days wait while a run plans: one muted line says so. */
+  .day-locked {
+    max-width: 62ch;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  /* A day waiting its turn: the busy flap holds still, dimmed. */
+  .flap-spinner--still {
+    opacity: 0.45;
+  }
+
+  .flap-spinner--still::before {
+    animation: none;
+  }
+
+  /* On a day's tab, the flap sits after its name at the size of its letters. */
+  .flap-spinner--tab {
+    width: 9px;
+    height: 12px;
+    margin-left: 6px;
+    vertical-align: -1px;
+  }
+
+  /* What the travel into a day leaves of it, under the transfer on the board. */
+  .transfer-left {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
   /* ----- The sheet ----- */
 
-  .city-body {
+  .route-sheet .form-sheet-head-row {
+    align-items: flex-start;
+  }
+
+  /* Back, then the title and its date: Back lines up with the sheet's text edge, as Close does. */
+  .route-head {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .route-back {
+    flex-shrink: 0;
+    margin-left: -10px;
+  }
+
+  .route-body {
     display: flex;
     flex-direction: column;
   }
@@ -129,36 +185,20 @@
     text-wrap: pretty;
   }
 
-  .city-current {
-    --i: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 14px 0 16px;
-    border-top: 1px solid var(--fg);
-  }
-
-  .city-current-head {
-    display: flex;
-    width: 100%;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
   .city-name {
     color: var(--fg);
     font-size: 1.0625rem;
     line-height: 1.3;
   }
 
-  /* The day's own city: a gold check, as gold marks the chosen thing (the day tab, focus). */
+  /* The day's city in the route: a gold check, as gold marks the chosen thing (the day tab,
+     focus). */
   .city-now {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
     gap: 4px;
+    margin-left: auto;
     color: var(--muted);
     font-size: 0.8125rem;
     font-stretch: 87.5%;
@@ -170,25 +210,215 @@
     color: var(--accent);
   }
 
+  /* "Planned now" and "was Rome": the label role, muted. */
+  .city-planned,
+  .route-was {
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-stretch: 87.5%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
   .city-line,
   .city-reason {
+    display: block;
     color: var(--muted);
     font-size: 0.875rem;
     line-height: 1.35;
     text-wrap: pretty;
   }
 
-  .city-ideas {
+  /* A fact about the choice (its travel, what it plans again) with the caution square, the
+     note marker. */
+  .city-warning {
+    position: relative;
+    display: block;
+    max-width: 62ch;
+    padding-left: 17px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+
+  .city-warning::before {
+    position: absolute;
+    top: 0.4em;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    background: var(--warn);
+    content: "";
+  }
+
+  /* ----- The route: the days as a small board ----- */
+
+  .route-days {
+    --route-when: 5.75rem;
+    border-top: 1px solid var(--fg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* The travel into a day, on a dashed leg in the days' column, as the board draws travel. */
+  .route-leg {
+    display: grid;
+    min-height: 32px;
+    grid-template-columns: var(--route-when) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 14px;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.3;
+  }
+
+  .route-leg-line {
+    align-self: stretch;
+    margin-left: 19px;
+    border-left: 1px dashed var(--line-strong);
+  }
+
+  .route-day {
+    display: grid;
+    width: 100%;
+    min-height: 44px;
+    grid-template-columns: var(--route-when) minmax(0, 1fr);
+    column-gap: 14px;
+    padding: 12px 10px;
+    margin-inline: -10px;
+    box-sizing: content-box;
+    text-align: left;
+    transition: background-color var(--dur-color) ease;
+  }
+
+  .route-day:hover {
+    background: var(--hover);
+  }
+
+  /* A day the route changes wears the gold wash, a chosen option's background. */
+  .route-day[data-changed="true"],
+  .route-day[data-changed="true"]:hover {
+    background: var(--accent-soft);
+  }
+
+  .route-day:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+
+  .route-day-when {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .route-day-title {
+    color: var(--fg);
+    font-size: 1rem;
+    font-stretch: 112.5%;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+
+  .route-day-date {
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .route-day-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .route-day-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 2px;
+  }
+
+  .route-day-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .route-note {
+    display: block;
+    max-width: 62ch;
+    color: var(--fg);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+
+  /* A refused route: danger text after the danger dot, never a red fill. */
+  .route-refusal {
+    position: relative;
+    display: block;
+    padding-left: 15px;
+    color: var(--danger);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  .route-refusal::before {
+    position: absolute;
+    top: 0.4em;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--danger);
+    content: "";
+  }
+
+  .route-travel {
     margin-top: 12px;
-    padding: 0 18px 0 14px;
+    color: var(--muted);
+    font-size: 0.875rem;
   }
 
-  .city-current .city-reason {
-    margin-top: 6px;
+  /* Reset, then the route's one action: the ink pill, the widest thing in the foot. */
+  .route-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
-  .city-list {
-    border-top: 1px solid var(--line);
+  .route-reset {
+    flex-shrink: 0;
+    margin-left: -12px;
+  }
+
+  .route-confirm {
+    min-height: 52px;
+    flex: 1 1 auto;
+    font-size: 1rem;
+  }
+
+  /* The foot rises in with the first change. */
+  .route-sheet .form-sheet-foot {
+    animation: route-foot-in 280ms var(--ease-content) both;
+  }
+
+  @keyframes route-foot-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  /* ----- A day's cities ----- */
+
+  .route-sheet .city-list {
+    border-top: 1px solid var(--fg);
   }
 
   .city-list > li {
@@ -201,7 +431,7 @@
     min-height: 44px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 4px;
     padding: 12px 10px;
     margin-inline: -10px;
     box-sizing: content-box;
@@ -209,7 +439,7 @@
     transition: background-color var(--dur-color) ease;
   }
 
-  .city-option:hover:not([aria-disabled="true"]) {
+  .city-option:hover:not([aria-disabled="true"], .city-option--chosen) {
     background: var(--hover);
   }
 
@@ -221,9 +451,17 @@
   /* The name, and after it on a city the day can take the city pill's chevron: muted at rest,
      ink on hover and focus, leaning onward on a pointer. */
   .city-option-head {
-    display: inline-flex;
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 2px;
+    column-gap: 2px;
+  }
+
+  .city-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .city-option-chevron {
@@ -235,12 +473,14 @@
       translate var(--dur-press) var(--ease-out);
   }
 
-  .city-option:focus-visible .city-option-chevron {
+  .city-option:focus-visible .city-option-chevron,
+  .route-day:focus-visible .city-option-chevron {
     color: var(--fg);
   }
 
   @media (hover: hover) {
-    .city-option:hover .city-option-chevron {
+    .city-option:hover .city-option-chevron,
+    .route-day:hover .city-option-chevron {
       color: var(--fg);
       translate: 2px 0;
     }
@@ -255,12 +495,34 @@
     color: var(--muted);
   }
 
+  /* New ideas for this day, under the trip's city for it. */
+  .city-ideas-wrap {
+    padding: 2px 0 16px;
+  }
+
+  .city-ideas {
+    padding: 0 18px 0 14px;
+  }
+
+  .city-ideas-wrap .city-reason {
+    margin-top: 6px;
+  }
+
+  /* ----- Motion ----- */
+
   /* The rows drop in 28 ms apart as the sheet rises, as More options' fields do. The sheet shows
      them again each time it opens, since a closed dialog is not displayed. */
-  .form-sheet[open] .city-current,
-  .form-sheet[open] .city-list > li {
+  .form-sheet[open] .route-level[data-entry="open"] .city-list > li,
+  .form-sheet[open] .route-level[data-entry="open"] .route-days > li {
     animation: field-in 240ms var(--ease-content) both;
     animation-delay: calc(80ms + min(var(--i, 0), 6) * 28ms);
+  }
+
+  /* Between the levels: the new one's words slide 10 px from the side they came from, the day
+     boards' day-in, while the sheet holds its place and height. */
+  .route-level[data-entry="slide"],
+  .route-heading[data-entry="slide"] {
+    animation: day-in var(--dur-move) var(--ease-content) both;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -277,13 +539,17 @@
     }
 
     .city-option-chevron,
-    .city-option:hover .city-option-chevron {
+    .city-option:hover .city-option-chevron,
+    .route-day:hover .city-option-chevron {
       translate: none;
       transition: color var(--dur-color) ease;
     }
 
-    .form-sheet[open] .city-current,
-    .form-sheet[open] .city-list > li {
+    .form-sheet[open] .route-level[data-entry="open"] .city-list > li,
+    .form-sheet[open] .route-level[data-entry="open"] .route-days > li,
+    .route-level[data-entry="slide"],
+    .route-heading[data-entry="slide"],
+    .route-sheet .form-sheet-foot {
       animation: fade 120ms ease both;
       animation-delay: 0ms;
     }

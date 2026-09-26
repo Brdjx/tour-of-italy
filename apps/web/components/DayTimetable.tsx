@@ -8,8 +8,8 @@ import { photoForPlace } from "../lib/placePhotos";
 import { type DayView, dayTimes, movedStops, thumbnailRows } from "../lib/timetable";
 import { type StopDetailsControl, type StopRef, useStopDetails } from "../lib/useStopDetails";
 import { ClockText } from "./Clock";
-import { CITY_SHEET_ID } from "./DayCitySheet";
 import { ChevronIcon } from "./icons";
+import { ROUTE_SHEET_ID } from "./RouteSheet";
 import { SourceMark } from "./SourceBadge";
 import { StopDetailsSheet } from "./StopDetailsSheet";
 import { StopRow } from "./StopRow";
@@ -22,9 +22,11 @@ import { WarningChips } from "./WarningChip";
 // One details sheet serves the day: a stop's photo or Details button opens it on that stop. The
 // plan (PlanView) owns that sheet and shares it with the day's map; on its own the board keeps one.
 // Closed on a stop the traveler stepped to in it, focus comes to that stop's Details here.
-// The city in "Day 2 in Rome" is a quiet pill that opens Change city (DayCitySheet). While the day
-// is planned again, the line says so and the rows are a skeleton; a day planned again says how
-// under that line, in the source line's words.
+// The city in "Day 2 in Rome" is a quiet pill that opens the route sheet on that day's cities
+// (RouteSheet). While the day is planned again, or waits its turn in a route, the line says so
+// and the rows are a skeleton; while other days are planned, editing waits and one line says so;
+// a day planned again says how under its line, in the source line's words. A day that starts
+// with travel says on its transfer row what the travel leaves of it.
 
 /** Thumbnails on stops before this index load at once; the rest load as they scroll near. */
 const EAGER_PHOTOS = 3;
@@ -88,14 +90,15 @@ function hasOwnPhoto(place: Place): boolean {
 /** The city pill on the day's heading line. */
 export interface DayCityControl {
   onOpen: () => void;
-  open: boolean; // the Change city sheet is open on this day
-  disabled: boolean; // another day is being planned again
+  open: boolean; // the route sheet is open on this day
+  disabled: boolean; // days are being planned again
 }
 
-/** The day while it is planned again. */
+/** The day while it is planned again, or waits its turn in a route. */
 export interface DayPlanning {
-  text: string; // "Planning day 2 in Florence"
+  text: string; // "Planning day 2 in Florence (1 of 2)"
   slow: string | null; // the line that says it is still working, after a while
+  waiting: boolean; // a later day of the route, not yet asked for
 }
 
 export interface DayTimetableProps {
@@ -109,6 +112,7 @@ export interface DayTimetableProps {
   details?: StopDetailsControl; // the plan's details sheet, which the map opens too
   city?: DayCityControl; // without it the city is plain text
   planning?: DayPlanning | null; // the day is being planned again
+  locked?: string | null; // why editing waits, while other days are planned again
   made?: DayMade | null; // how the day was planned again, when it was
 }
 
@@ -138,6 +142,7 @@ export function DayTimetable(props: DayTimetableProps) {
   const list = useRef<HTMLOListElement>(null);
   const findDetails = useCallback((stop: StopRef) => detailsButtonFor(list.current, stop), []);
   const planning = props.planning ?? null;
+  const locked = props.locked ?? null;
   return (
     <section
       aria-labelledby={headingId}
@@ -158,7 +163,7 @@ export function DayTimetable(props: DayTimetableProps) {
               Day {view.index + 1} in{" "}
               {props.city ? (
                 <>
-                  <CityPill control={props.city} name={view.anchorName} />
+                  <CityPill control={props.city} name={view.anchorName} day={view.index} />
                   {/* Decision: no comma after the pill on screen, where its chevron already
                       ends the city; a screen reader still hears the sentence with one. */}
                   <span className="text-muted day-stops">
@@ -174,6 +179,11 @@ export function DayTimetable(props: DayTimetableProps) {
               )}
             </p>
             {props.made ? <DaySource made={props.made} /> : null}
+            {locked ? (
+              <p className="day-locked" data-testid="day-locked">
+                {locked}
+              </p>
+            ) : null}
             <WarningChips chips={view.dayChips} />
           </>
         )}
@@ -189,6 +199,7 @@ export function DayTimetable(props: DayTimetableProps) {
           details={details}
           list={list}
           findDetails={findDetails}
+          locked={locked !== null}
           onSwap={onSwap}
           onRemove={onRemove}
           onMove={onMove}
@@ -199,16 +210,18 @@ export function DayTimetable(props: DayTimetableProps) {
   );
 }
 
-/** "Rome" and an onward chevron: the city, which opens Change city for the day. */
-function CityPill({ control, name }: { control: DayCityControl; name: string }) {
+/** "Rome" and an onward chevron: the city, which opens the route sheet on the day's cities. */
+function CityPill(props: { control: DayCityControl; name: string; day: number }) {
+  const { control, name } = props;
   return (
     <button
       type="button"
+      id={`day-city-${props.day}`}
       className="city-pill"
       onClick={control.disabled ? undefined : control.onOpen}
       aria-haspopup="dialog"
       aria-expanded={control.open}
-      aria-controls={CITY_SHEET_ID}
+      aria-controls={ROUTE_SHEET_ID}
       aria-disabled={control.disabled || undefined}
       data-testid="city-button"
     >
@@ -225,8 +238,15 @@ function CityPill({ control, name }: { control: DayCityControl; name: string }) 
 function DayPlanningLine({ planning }: { planning: DayPlanning }) {
   return (
     <>
-      <p className="day-subtitle day-planning" data-testid="day-planning">
-        <span className="flap-spinner" aria-hidden="true" />
+      <p
+        className="day-subtitle day-planning"
+        data-testid="day-planning"
+        data-waiting={planning.waiting ? "true" : undefined}
+      >
+        <span
+          className={planning.waiting ? "flap-spinner flap-spinner--still" : "flap-spinner"}
+          aria-hidden="true"
+        />
         {planning.text}
       </p>
       {planning.slow ? (
@@ -257,6 +277,7 @@ interface DayRowsProps {
   details: StopDetailsControl;
   list: Ref<HTMLOListElement>;
   findDetails: (stop: StopRef) => HTMLElement | null;
+  locked: boolean;
   onSwap: (stop: number) => void;
   onRemove: (stop: number) => void;
   onMove: (stop: number, direction: "up" | "down") => void;
@@ -285,10 +306,17 @@ function DayRows(props: DayRowsProps) {
               <ClockText minutes={transfer.arrive} />
             </time>
           </p>
-          <p className="py-0.5 text-base text-fg">
-            <span className="sr-only">Transfer: </span>
-            {capitalize(transfer.text)}
-          </p>
+          <div className="py-0.5">
+            <p className="text-base text-fg">
+              <span className="sr-only">Transfer: </span>
+              {capitalize(transfer.text)}
+            </p>
+            {transfer.left ? (
+              <p className="transfer-left" data-testid="transfer-left">
+                {transfer.left}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <ol
@@ -313,6 +341,7 @@ function DayRows(props: DayRowsProps) {
               eagerPhoto={row.index < EAGER_PHOTOS}
               detailsId={details.id}
               detailsOpen={details.openIndex === row.index}
+              locked={props.locked}
               onDetails={(opener) =>
                 details.open({ index: row.index, placeId: row.stop.placeId }, opener, findDetails)
               }

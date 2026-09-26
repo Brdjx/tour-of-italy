@@ -2,6 +2,7 @@ import {
   type Anchor,
   coversMeal,
   type DayPlan,
+  dayTravel,
   dayWindow,
   type Itinerary,
   type Meal,
@@ -50,6 +51,7 @@ export interface TransferView {
   text: string; // "3 h 5 min by high-speed train from Rome"
   depart: number; // the pace's day start, minutes after midnight
   arrive: number; // when the day's plan can begin
+  left: string | null; // "Leaves about 7 h before dinner."
 }
 
 export interface DayView {
@@ -190,10 +192,15 @@ function transferFor(
   const to = ctx.anchorById.get(day.anchorId);
   if (!from || !to) return null;
   const pace = itinerary.request.pace;
+  // Decision: the planner's own words for what the travel leaves of the day (dayTravel, whose
+  // second fact it is), so the day says what the route sheet said before it was planned.
+  const bases = itinerary.days.map((other) => other.anchorId);
+  const facts = dayTravel(itinerary.request, bases, dayIndex, ctx).warnings;
   return {
     text: transferText(day.transferMin, travelMode(from.centroid, to.centroid), from.name),
     depart: PACE[pace].dayStart,
     arrive: dayWindow(pace, day.transferMin).start,
+    left: facts[1] ?? null,
   };
 }
 

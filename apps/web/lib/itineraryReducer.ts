@@ -7,29 +7,23 @@ import {
   rescheduleDay,
   type Violation,
   validationErrors,
-  withReplannedDay,
+  withReplannedDays,
 } from "@italy/planner";
-import {
-  type DayAsk,
-  type DayMade,
-  type DayReply,
-  dayMessage,
-  noDaysMade,
-  resolveDay,
-} from "./dayCity";
+import { type DayMade, noDaysMade, tripKey } from "./dayCity";
+import type { ReplanKind, ReplannedResult } from "./dayRoute";
 import type { FallbackCause } from "./planRequest";
 import type { SavedTrip } from "./savedTrip";
 
-// Plan state and every edit the traveler can make: a new plan, swap, remove, move up or down, a
-// day planned again in another city or with new ideas, and undo. Each stop edit rebuilds only the
-// affected day with the planner's rescheduleDay (which retimes it with scheduleDay and refreshes
-// the warnings); a day planned again goes in with withReplannedDay, which times the whole trip
-// again (the next day's transfer changes with the day's city) and keeps an AI why line only where
-// it still holds. Then the independent validator runs over the whole trip. An edit that breaks a
-// rule is kept and flagged, never hidden, and undo is always one tap away.
+// Plan state and every edit the traveler can make: a new plan, swap, remove, move up or down, the
+// days of a route or new ideas for a day planned again, and undo. Each stop edit rebuilds only
+// the affected day with the planner's rescheduleDay (which retimes it with scheduleDay and
+// refreshes the warnings); days planned again go in together with withReplannedDays, which times
+// the whole trip again (a day's transfer changes with the city before it) and keeps an AI why
+// line only where it still holds. Then the independent validator runs over the whole trip. An
+// edit that breaks a rule is kept and flagged, never hidden, and undo is always one tap away.
 
 export type PlanOrigin = "api" | "offline" | "shared" | "saved";
-export type EditKind = "swap" | "remove" | "move" | "city" | "ideas";
+export type EditKind = "swap" | "remove" | "move" | "city" | "route" | "ideas";
 
 export interface HistoryEntry {
   itinerary: Itinerary;
@@ -68,9 +62,15 @@ export type ItineraryAction =
   | { type: "swap"; day: number; stop: number; placeId: string }
   | { type: "remove"; day: number; stop: number }
   | { type: "move"; day: number; stop: number; direction: "up" | "down" }
-  // A day planned again: what was asked, how the call went, and tripKey of the trip it was sent
-  // with. The reducer takes the API's day or plans it here (resolveDay).
-  | { type: "day"; ask: DayAsk; reply: DayReply; basis: string }
+  // The days of a run planned again (lib/useDayRoute.ts), each already checked against the trip
+  // it was asked for (resolveJob), with tripKey of the trip on screen when the run began.
+  | {
+      type: "replan";
+      kind: ReplanKind;
+      basis: string;
+      days: ReplannedResult[];
+      message: string;
+    }
   | { type: "undo" }
   | { type: "check" }
   | { type: "clear" };
@@ -83,6 +83,7 @@ export const UNDO_LABELS: Record<EditKind, string> = {
   remove: "Undo remove",
   move: "Undo move",
   city: "Undo city change",
+  route: "Undo route change",
   ideas: "Undo new ideas",
 };
 
@@ -131,7 +132,7 @@ export function itineraryReducer(
       return check(state, ctx);
     case "clear":
       return { ...initialItineraryState(), planId: state.planId };
-    case "day":
+    case "replan":
       return replan(state, action, ctx);
     default:
       return edit(state, action, ctx);
@@ -229,40 +230,47 @@ function editedDay(made: readonly (DayMade | null)[], dayIndex: number): (DayMad
 }
 
 /**
- * A day planned again: the API's day when it still fits the trip on screen, or the rules' day
- * planned here (resolveDay), applied as one edit that undo takes back whole. The day's own record
- * of how it was made goes with it, so the page can say so under the day's heading.
+ * The days of a run planned again (a route, or new ideas for a day), applied as one edit that
+ * undo takes back whole. Each day's record of how it was made goes with it, so the page can say
+ * so under the day's heading. Refused, with nothing changed, when the trip on screen is not the
+ * one the run was planned for.
  */
+// Decision: the trip must be the one the run began from. Editing waits while a run plans, so this
+// only guards a run that finishes after something else replaced the trip; its days were checked
+// against the trip they were asked for, and against no other.
 function replan(
   state: ItineraryState,
-  action: Extract<ItineraryAction, { type: "day" }>,
+  action: Extract<ItineraryAction, { type: "replan" }>,
   ctx: PlannerContext | null,
 ): ItineraryState {
   const current = state.itinerary;
-  const before = current?.days[action.ask.day];
-  if (!current || !before) return { ...state, message: "That day is no longer here." };
+  const [first] = action.days;
+  if (!current || first === undefined) return { ...state, message: "That plan is no longer here." };
   if (!ctx) return { ...state, message: "Places are still loading. Try again in a moment." };
-  const resolved = resolveDay(current, action.ask, action.reply, action.basis, ctx);
-  if (resolved.kind === "refused") return { ...state, message: resolved.reason };
-  const { dayPlan, made } = resolved;
-  const rebuilt = withReplannedDay(current, action.ask.day, dayPlan, ctx);
-  const moved = before.anchorId !== dayPlan.anchorId;
+  if (tripKey(current) !== action.basis) {
+    return {
+      ...state,
+      message: "Your trip changed while it was planned, so it was left as it was.",
+    };
+  }
+  const days = action.days.map(({ day, dayPlan }) => ({ day, dayPlan }));
+  const rebuilt = withReplannedDays(current, days, ctx);
   const entry: HistoryEntry = {
     itinerary: current,
     errors: state.errors,
     dayMade: state.dayMade,
-    kind: moved ? "city" : "ideas",
-    at: { day: action.ask.day, stop: 0 },
+    kind: action.kind,
+    at: { day: first.day, stop: 0 },
   };
-  const name = ctx.anchorById.get(dayPlan.anchorId)?.name ?? dayPlan.anchorId;
+  const made = new Map(action.days.map((result) => [result.day, result.made]));
   return {
     ...state,
     itinerary: rebuilt,
     errors: validationErrors(rebuilt, ctx),
-    dayMade: state.dayMade.map((old, index) => (index === action.ask.day ? made : old)),
+    dayMade: state.dayMade.map((old, index) => made.get(index) ?? old),
     history: [...state.history, entry].slice(-HISTORY_LIMIT),
     changed: null,
-    message: dayMessage(action.ask.day, name, moved, made),
+    message: action.message,
   };
 }
 

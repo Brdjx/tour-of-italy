@@ -73,6 +73,14 @@ describe("buildDayView", () => {
     expect(transfer.arrive - transfer.depart).toBe(moved?.day.transferMin);
     expect(must(moved?.rows[0], "first row").stop.start).toBeGreaterThanOrEqual(transfer.arrive);
     expect(views[0]?.transfer).toBeNull();
+    // What the travel leaves of the day, in the route sheet's words (decision 16): the time from
+    // arrival to the dinner window at 19:00, rounded down to the half hour.
+    const left = Math.floor((19 * 60 - transfer.arrive) / 30) * 30;
+    const hours = Math.floor(left / 60);
+    const minutes = left % 60;
+    expect(transfer.left).toBe(
+      `Leaves about ${hours} h${minutes > 0 ? ` ${minutes} min` : ""} before dinner.`,
+    );
   });
 
   it("counts visits and meals the way the pace limit does", () => {

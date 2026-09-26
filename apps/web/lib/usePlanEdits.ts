@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EditIntent } from "./editFocus";
 import type { ItineraryAction, ItineraryState } from "./itineraryReducer";
 
-// Edits to the plan on screen (swap, remove, move, a day planned again, undo) as page actions:
+// Edits to the plan on screen (swap, remove, move, days planned again, undo) as page actions:
 // each one tells the focus keeper where focus should land, stops the draw-in animation, and marks
 // the next status message as coming from an edit, so it shows in the toast with Undo as well as
 // being announced.
@@ -66,12 +66,17 @@ export function usePlanEdits(options: PlanEditsOptions) {
     setSwapping(null);
   };
 
-  // A day planned again (lib/useDayCity.ts). Focus stays where the traveler is: on the day's
-  // heading, where choosing a city left it, or wherever they went while the day planned.
-  const applyDay = (action: Extract<ItineraryAction, { type: "day" }>) => edit(action);
+  // Days planned again (lib/useDayRoute.ts). Focus stays where the traveler is: on the heading
+  // of the first day planned, where the route sheet left it, or wherever they went meanwhile.
+  // Decision: the draw-in is left as the run set it, since each day's rows already arrived with
+  // the split-flap as the run planned it; stopping it here would slide the board in again.
+  const applyReplan = (action: Extract<ItineraryAction, { type: "replan" }>) => {
+    editPending.current = true;
+    dispatch(action);
+  };
 
   return {
-    applyDay,
+    applyReplan,
     swapping,
     startSwap: (day: number, stop: number) => setSwapping({ day, stop }),
     cancelSwap: () => setSwapping(null),

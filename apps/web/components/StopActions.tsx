@@ -10,7 +10,9 @@ import { DownIcon, RemoveIcon, SwapIcon, UpIcon } from "./icons";
 // stop) stay focusable with aria-disabled, so keyboard focus is never dropped to the page when a
 // stop moves to the top or bottom. Remove still reports why it did nothing (the reducer answers
 // with a status message); the moves simply do nothing. Each accessible name starts with the
-// action's word and adds the stop's name, so an icon-only pill still says what it does.
+// action's word and adds the stop's name, so an icon-only pill still says what it does. While days
+// of a route are planned (`locked`), every edit waits: the pills dim in place and do nothing, and
+// Details still opens.
 
 export interface StopActionHandlers {
   onSwap: () => void;
@@ -23,6 +25,7 @@ interface StopActionsProps extends StopActionHandlers {
   canRemove: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  locked?: boolean; // editing waits while days are planned again
   details?: ReactNode; // the stop's Details toggle, first in the line
 }
 
@@ -34,6 +37,7 @@ const ROUND = "stop-action stop-action--round";
 /** Details, Swap, Remove, Move up and Move down, on one line under the stop. */
 export function StopActions(props: StopActionsProps) {
   const { name, canRemove } = props;
+  const locked = props.locked === true;
   return (
     <div className="stop-controls">
       <fieldset className="stop-actions" data-testid="stop-actions">
@@ -43,7 +47,8 @@ export function StopActions(props: StopActionsProps) {
           type="button"
           className={COMPACT}
           aria-label={`Swap ${name}`}
-          onClick={props.onSwap}
+          aria-disabled={locked || undefined}
+          onClick={locked ? undefined : props.onSwap}
           data-testid="swap-button"
         >
           <SwapIcon size={17} />
@@ -53,8 +58,8 @@ export function StopActions(props: StopActionsProps) {
           type="button"
           className={COMPACT}
           aria-label={`Remove ${name}`}
-          aria-disabled={!canRemove}
-          onClick={props.onRemove}
+          aria-disabled={locked || !canRemove}
+          onClick={locked ? undefined : props.onRemove}
           data-testid="remove-button"
         >
           <RemoveIcon size={17} />
@@ -63,8 +68,8 @@ export function StopActions(props: StopActionsProps) {
       </fieldset>
       <StopMoves
         name={name}
-        canMoveUp={props.canMoveUp}
-        canMoveDown={props.canMoveDown}
+        canMoveUp={props.canMoveUp && !locked}
+        canMoveDown={props.canMoveDown && !locked}
         onMove={props.onMove}
       />
     </div>

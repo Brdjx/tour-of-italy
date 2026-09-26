@@ -12,7 +12,7 @@ import { restoredNote } from "../lib/lastPlan";
 import type { PlanDeps } from "../lib/planRequest";
 import { type FetchTrip, SAVED_NOTES } from "../lib/savedTrip";
 import { defaultFormValues, valuesFromRequest } from "../lib/tripForm";
-import { useDayCity } from "../lib/useDayCity";
+import { useDayRoute } from "../lib/useDayRoute";
 import { useFirstScreen } from "../lib/useFirstScreen";
 import { useItinerary } from "../lib/useItinerary";
 import { type RestoredPlan, useLastPlan } from "../lib/useLastPlan";
@@ -72,6 +72,8 @@ export function PlannerApp({
   const [formOpen, setFormOpen] = useState(false);
   const [activeDay, setActiveDay] = useState(0);
   const [animateDay, setAnimateDay] = useState(-1);
+  const shownDay = useRef(activeDay);
+  shownDay.current = activeDay;
   const [notice, setNotice] = useState<string | null>(null);
   const [status, setStatus] = useState({ text: null as string | null, serial: 0, edit: false });
   // A failed request that "Start a new trip" put away, so its message does not follow the
@@ -108,16 +110,24 @@ export function PlannerApp({
     onEdit: () => setAnimateDay(-1),
   });
 
-  // Change city and New ideas for this day: the answer goes in through the edits above, and the
-  // day's rows arrive the way a new plan's do when it is the day on screen.
-  const dayCity = useDayCity({
+  // The route sheet and New ideas for this day: the days go in through the edits above as one
+  // edit, and each day's rows arrive the way a new plan's do when it is the day on screen.
+  const route = useDayRoute({
     plan,
     ctx,
     post: postDay,
     announce,
-    apply: edits.applyDay,
-    onPlanned: setAnimateDay,
+    apply: edits.applyReplan,
+    // A day's new rows draw in when it is the day on screen; another day's board stays as it is.
+    onDayPlanned: (day) => {
+      if (day === shownDay.current) setAnimateDay(day);
+    },
+    showDay: setActiveDay,
   });
+  // Decision: editing waits while a run plans, Undo included. Its days are planned against the
+  // trip as it was when the traveler pressed the action, and they go in as one edit that one
+  // Undo takes back exactly; an edit in between would leave that Undo nothing exact to restore.
+  const replanning = route.pending !== null;
 
   const restore = (restored: RestoredPlan) => {
     const { itinerary, origin, cause, saved, edited, dayMade, flagged } = restored;
@@ -316,7 +326,7 @@ export function PlannerApp({
                     }
                   : null
               }
-              undoLabel={undoLabel(plan)}
+              undoLabel={replanning ? null : undoLabel(plan)}
               onUndo={edits.undo}
               onStatus={(text) => announce(text)}
               {...(saveTrip ? { saveTrip } : {})}
@@ -361,7 +371,7 @@ export function PlannerApp({
                   onSwap={edits.startSwap}
                   onRemove={edits.remove}
                   onMove={edits.move}
-                  dayCity={dayCity}
+                  route={route}
                 />
               ) : null}
             </PlanPane>
@@ -373,7 +383,7 @@ export function PlannerApp({
       <Toast
         message={status.edit && !formOpen ? status.text : null}
         serial={status.serial}
-        undoLabel={undoLabel(plan)}
+        undoLabel={replanning ? null : undoLabel(plan)}
         onUndo={edits.undo}
       />
       {edits.swapping && plan.itinerary && ctx ? (

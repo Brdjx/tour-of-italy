@@ -39,6 +39,7 @@ interface StopRowProps extends StopActionHandlers {
   eagerPhoto: boolean; // among the first photos on screen
   detailsId: string; // the details sheet, which the photo and Details open
   detailsOpen: boolean; // that sheet is open on this stop
+  locked?: boolean; // editing waits while days are planned again
   onDetails: (opener: HTMLElement) => void; // focus goes back to the opener when it closes
 }
 
@@ -151,6 +152,7 @@ export function StopRow(props: StopRowProps) {
             canRemove={dayStopCount > 1}
             canMoveUp={row.index > 0}
             canMoveDown={!isLast}
+            locked={props.locked === true}
             onSwap={props.onSwap}
             onRemove={props.onRemove}
             onMove={props.onMove}
