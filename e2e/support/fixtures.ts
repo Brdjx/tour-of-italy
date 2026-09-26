@@ -11,7 +11,7 @@ import { useEmptyTiles } from "./tiles";
 //   (the page is served with the production CSP) or unexpected console error, on every page the
 //   test opens
 // - `press`, which taps on touch devices and clicks elsewhere, so phone projects test taps
-// - `twoPane`, the layout the brief requires on this project's screen (see playwright.config.ts)
+// - `mapBeside`, where this project's screen puts the day's map (see playwright.config.ts)
 
 /** Records CSP violations into window.__cspViolations, from the first script on. */
 function recordCspViolations(): void {
@@ -76,7 +76,7 @@ interface Fixtures {
   press: (target: Locator, options?: { force?: boolean }) => Promise<void>;
   watchdog: Watchdog;
   touch: boolean;
-  twoPane: boolean;
+  mapBeside: boolean;
 }
 
 export const test = base.extend<Fixtures>({
@@ -96,10 +96,10 @@ export const test = base.extend<Fixtures>({
   },
 
   // Decision: the layout is pinned per project, never read back from the page. A test that
-  // accepted whichever layout the page showed would pass if the two panes were lost.
+  // accepted whichever layout the page showed would pass if the map lost its place.
   // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture deps from it.
-  twoPane: async ({}, use, testInfo) => {
-    await use(testInfo.project.metadata.layout === "two-pane");
+  mapBeside: async ({}, use, testInfo) => {
+    await use(testInfo.project.metadata.layout === "map-beside");
   },
 
   press: async ({ touch }, use) => {

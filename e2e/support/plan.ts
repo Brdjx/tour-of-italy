@@ -32,10 +32,14 @@ export interface StopData {
   end: string;
 }
 
-/** Opens the planner and waits until the places are loaded and the form can be used. */
+/**
+ * Opens the planner and waits until the places are loaded. Plan my trip shows from the first
+ * paint, before the places arrive; "About this data" at the foot comes with them.
+ */
 export async function openPlanner(page: Page, path = "/"): Promise<void> {
   await page.goto(path);
   await expect(page.getByTestId("plan-button")).toBeVisible();
+  await expect(page.getByTestId("data-notes-link")).toBeVisible();
 }
 
 /** Sends every plan request with the x-fixture-scenario header, as a route rewrite. */
@@ -141,13 +145,26 @@ export async function placeFromAnotherBase(page: Page, anchorId: string): Promis
   return found;
 }
 
-/**
- * Gets back to the form once there is a plan. Phones and portrait tablets fold it away behind
- * "Edit trip"; two-pane screens keep it beside the plan, with no such button.
- */
-export async function reopenForm(page: Page, press: Press, twoPane: boolean) {
-  const edit = page.getByTestId("edit-trip-button");
-  if (twoPane) await expect(edit).toBeHidden();
-  else await press(edit);
+/** Gets back to the form once there is a plan: Edit trip opens it in a sheet on every screen. */
+export async function reopenForm(page: Page, press: Press): Promise<void> {
+  await press(page.getByTestId("edit-trip-button"));
+  await expect(page.getByTestId("trip-sheet")).toBeVisible();
   await expect(page.getByTestId("plan-button")).toBeVisible();
+}
+
+/**
+ * Opens More options from the form on screen (on the page, or in the Edit trip sheet, where it
+ * stacks over it) and returns its sheet: interests, budget, bases, must see, avoid and notes.
+ */
+export async function openMoreOptions(page: Page, press: Press): Promise<Locator> {
+  await press(page.getByTestId("more-options-button"));
+  const sheet = page.getByTestId("more-options-sheet");
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/** Done in More options: back to the form, with what was set kept. */
+export async function closeMoreOptions(page: Page, press: Press): Promise<void> {
+  await press(page.getByTestId("more-options-done"));
+  await expect(page.getByTestId("more-options-sheet")).toBeHidden();
 }
