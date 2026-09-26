@@ -255,6 +255,23 @@ components:
   step-position:
     textColor: "{colors.muted}"
     typography: "{typography.label}"
+  city-pill:
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+    padding: "0 6px 0 8px"
+    height: "44px"
+  city-pill-hover:
+    backgroundColor: "{colors.hover}"
+  city-option:
+    textColor: "{colors.ink}"
+    typography: "{typography.tab}"
+    rounded: "{rounded.square}"
+    padding: "12px 10px"
+  city-option-disabled:
+    textColor: "{colors.muted}"
+  day-source:
+    textColor: "{colors.muted}"
+    typography: "{typography.body-sm}"
 ---
 
 # Design System: 3 Days in Italy
@@ -366,7 +383,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 - **Sheet** (`--shadow-sheet`): bottom sheets on phones, cast upward.
 - **Menu** (`--shadow-menu`): the place search listbox.
 - **Popup** (`--shadow-popup`): a map stop's popup and the full-screen map's day switcher, the two things that float over the map. Small and close, 0 6px 18px -6px.
-- **Scrim** (`--scrim`): the backdrop behind an open sheet, blurred behind every sheet (Edit trip, More options, a stop's or a place's details, About this data); a sheet over a sheet only dims.
+- **Scrim** (`--scrim`): the backdrop behind an open sheet, blurred behind every sheet (Edit trip, More options, a stop's or a place's details, Change city, About this data); a sheet over a sheet only dims.
 
 ### Named Rules
 **The Only Floating Things Cast Shadows Rule.** A row, a card, an input or a photo never has a shadow. If it does not float over the page, it is flat.
@@ -376,7 +393,7 @@ A sheet adds the one layered moment. Its backdrop is the scrim with a 10px blur 
 Two shapes, and one named exception. Containers, inputs, choice chips, note chips, the listbox, the toast, banners and photos are square (0). Anything pressed is a pill (999px): buttons, the segmented pace control and its thumb, removable place tokens, stop actions, the count badge, the sheet grabber. Sheets round their corners (sheet, 20px): the top two on a phone bottom sheet, all four on the centred panel from 768px. Small status marks are dots (7px to 8px circles); the caution marker is a square. Map stops are 28px ink discs with a 2px paper ring inside a 44px round target; an approximate location is a paper disc with a dashed ink ring. A stop's popup is square with a hairline, like a container; Expand map, Close map and the full-screen day switcher are pills.
 
 ### Named Rules
-**The Rounded Sheet Rule.** The sheets (Edit trip, More options, a stop's details, a place's details and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.
+**The Rounded Sheet Rule.** The sheets (Edit trip, More options, a stop's details, a place's details, Change city and About this data) are the one rounded surface, at 20px, by the owner's explicit request for Apple-style sheets. The top corners round where a bottom sheet meets the screen edge; a centred panel rounds all four. Fields, containers and photos inside a sheet stay square, and nothing on the page rounds.
 
 ## Components
 
@@ -413,6 +430,15 @@ Times alone in the fixed left column in the time role, the place name in the tit
 - **Arrival:** times flip from a top hinge (perspective 240px, from -88deg past flat to 6deg, then settle) over 320ms; the row body rises 8px; each row waits 42ms per row, capped at six rows.
 - **After an edit:** only moved times flip; the edited row flashes the gold wash over 1200ms.
 
+### Change city (a day planned again)
+The owner's request (2026-09-25): change a day's city and have its places planned on the fly, never repeating a place the trip already has, with the AI choosing only from what the trip has left. One day at a time moves to another city, or gets new ideas in its own; the other days keep their places.
+- **The city on the day's line:** in "Day 2 in Rome" the city is a quiet pill (`components/DayTimetable.tsx`): ink at 500, a strong-hairline underline that turns gold on hover, the hover wash, and a muted chevron that points onward and nudges 2px, as Details' and More options' do, since it opens a sheet. Its 44px target hangs evenly over the line's own height, so the heading keeps its rhythm, and the name sits one space after "in". The comma that would follow it is for screen readers only; on screen the chevron ends the city and the day's count follows 6px on. Its name is the city, then ", change city", so voice control finds it by what it shows. While another day is being planned it dims to 40% in place (aria-disabled).
+- **The sheet** (`components/DayCitySheet.tsx`): "Change city for day 2", the day's long date under it, and one muted line saying the other days keep their places and the day is planned again with places the trip does not have yet. Then the day's own city under an ink rule, marked "This day" after a gold check (gold marks the chosen thing), with its line and "New ideas for this day", an outline pill with a circling arrow; then every other city on hairline rows, each one button named by the city (the tab role) with one muted line: the travel into the day ("2 h 10 min by high-speed train from Rome"), the travel on to the next day's city when there is any, and how many places the city has. A city the planner does not allow stays in its place, its name muted and its reason in the line ("A trip can use at most 2 cities, and the other days use Rome and Florence.", "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit. Move day 3 to Florence first."): focusable with the reason as its description, and a press does nothing. The rows drop in 28ms apart as the sheet rises. Closing gives focus back to the city pill.
+- **While the day is planned:** choosing closes the sheet and gives focus to the day's heading. The day's line becomes the board's busy flap and "Planning day 2 in Florence" (or "Planning new ideas for day 2"), its rows become the skeleton (as many as the day had, three to seven), and its map dims to 40% and waits (inert). After 8s one line says it is still working and that the rules plan the day if the AI takes too long. The other days, their tabs and their edits stay in use.
+- **Once planned:** the day's rows arrive with the board's split-flap sweep when it is the day on screen, the toast says "Day 2 now in Florence." with "Undo city change" (or "New ideas for day 2." with "Undo new ideas"), and the trip's source line adds ", edited". Under the day's line one more line says how that day was made, in the source line's words with "again" and its mark at 18px, muted: "Planned again with AI" (gold check), "Planned again without AI: the AI planner timed out", "Planned again on this device, offline" (ink check). The AI's why lines keep their gold dots.
+
+**The Rest Stays Put Rule.** Planning one day never moves another day's places, and never blocks the rest of the page. Only the day being planned turns to a skeleton; its neighbours, the tabs, the header and the sheet's other cities stay where they were, and a city the day cannot take is shown in place with the reason, never hidden.
+
 ### Photos
 Square thumbnails (72px on the board at every width, 96px from 640px elsewhere) and 3:2 wide photos, never rounded. A city or topic photo sits inset on a 6px warm-paper mat with a square label chip, so it is never mistaken for the place itself. Images fade in over 180ms on load, over the tile colour; in a stop's details a step keeps the frame and fades the next photo in over the last (the Steady Sheet Rule). Every large photo carries its full credit in muted body small: "Photo: author, licence, Wikimedia Commons", the licence linked to its text and "Wikimedia Commons" to the photo's page, a city or general photo's note first in ink. Small photos carry no credit line: a highlight tile and a stop's thumbnail each open a sheet with the photo large and its full credit, and About this data lists every photo's credit. The photos are CC BY, CC BY-SA or public domain, whose attribution may be given "in any reasonable manner based on the medium"; one tap away, named on the tile ("photo, details and credit"), meets that.
 
@@ -437,7 +463,7 @@ A highlight tile opens its place in a sheet, the stop details sheet's sibling bu
 
 ### Toast, sheets and banners
 - **Toast:** square, ink, floating, centred, with a quiet Undo pill in gold text (toast-accent) and its own gold focus ring. It rises on the snappy spring.
-- **Sheets** (Edit trip, More options, a stop's details, a place's details, About this data): the native dialog, so focus is trapped, the page is inert and Escape closes. On phones a bottom sheet with a 36px grabber that rises on the smooth spring and can be dragged down to close; Edit trip and About this data reach to 12px under the status bar; More options and a place's details are as tall as their content, up to the same line, and so is a stop's details on a day of one stop. On a day of several stops a stop's details takes the full height (Edit trip's line on phones, min(100dvh - 64px, 880px) from 768px), so a step never resizes it; nearly every stop fills it anyway (measured 788 to 832px of 832 at 390 by 844, 784 to 836 of 836 at 1440 by 900). A footer, when a sheet has one, is pinned under the scrolling body and carries the home indicator's inset. From 768px a centred panel up to 560px wide (About this data up to 760px) that scales from 0.96 and fades in. The head holds the title in the title role and a quiet round close pill; the body scrolls, and in Edit trip Plan my trip is the sticky footer. Side padding is 16px on phones and 28px from 768px. More options' fields drop in 28ms apart once the sheet is most of the way up. Exits are shorter than entrances, and reduced motion leaves a fade.
+- **Sheets** (Edit trip, More options, a stop's details, a place's details, Change city, About this data): the native dialog, so focus is trapped, the page is inert and Escape closes. On phones a bottom sheet with a 36px grabber that rises on the smooth spring and can be dragged down to close; Edit trip and About this data reach to 12px under the status bar; More options, Change city and a place's details are as tall as their content, up to the same line, and so is a stop's details on a day of one stop. On a day of several stops a stop's details takes the full height (Edit trip's line on phones, min(100dvh - 64px, 880px) from 768px), so a step never resizes it; nearly every stop fills it anyway (measured 788 to 832px of 832 at 390 by 844, 784 to 836 of 836 at 1440 by 900). A footer, when a sheet has one, is pinned under the scrolling body and carries the home indicator's inset. From 768px a centred panel up to 560px wide (About this data up to 760px) that scales from 0.96 and fades in. The head holds the title in the title role and a quiet round close pill; the body scrolls, and in Edit trip Plan my trip is the sticky footer. Side padding is 16px on phones and 28px from 768px. More options' fields drop in 28ms apart once the sheet is most of the way up. Exits are shorter than entrances, and reduced motion leaves a fade.
 - **Swap sheet:** a bottom sheet on phones, a side sheet with a hairline edge from 768px, on the smooth spring over a scrim. Its alternatives rise in 28ms apart, capped at eight.
 - **Banners:** square with a hairline; errors carry a danger hairline and dot, notes sit on warm paper with a caution marker.
 
@@ -458,6 +484,7 @@ A highlight tile opens its place in a sheet, the stop details sheet's sibling bu
 - **Do** keep the flag's colours to the top band and the flag mark, at the government's values.
 - **Do** open a stop's details from the map and the board into the same sheet, and give focus back to what opened it, or to the same kind of control for the stop the traveler stepped to.
 - **Do** keep a sheet, its controls and its photo's frame still while its content changes; move only the content.
+- **Do** keep the rest of the trip in use while one day is planned again, and say under that day how it was planned.
 
 ### Don't:
 - **Don't** fill with gold anywhere except the count badge.
@@ -474,3 +501,4 @@ A highlight tile opens its place in a sheet, the stop details sheet's sibling bu
 - **Don't** hide a Previous or Next that has nowhere to go; dim it in place.
 - **Don't** put how a plan was made behind a tap or a disclosure; the source line says it in one line of fact, and About this data explains the words.
 - **Don't** stretch the map to animate it, or put a control where a stop can sit under it.
+- **Don't** hide a city a day cannot move to; show it dimmed in place with the planner's reason.

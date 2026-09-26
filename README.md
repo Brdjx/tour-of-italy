@@ -55,7 +55,7 @@ Open http://localhost:3000. The API runs at http://localhost:8787 (try `/api/hea
 - Plans three days from a start date, a pace, interests, a budget, bases to stay in, places to include and places to skip. Each stop gets a time, the travel from the previous stop, and a reason.
 - Checks every plan against opening hours on the actual dates, meal windows, travel time and the day's pace, and shows what the data could not confirm (estimated hours, approximate locations, seasonal closures).
 - Lets the traveler swap, remove, reorder and undo stops, and re-checks each edit in the browser. It installs as an app and still plans offline.
-- Moves one day to another city, or plans a new version of it, and fills it again: Claude chooses from the places of that city open on that date that the trip has not used, code times and checks the whole trip, and the other days stay as they are. A city the day cannot take (a third city, a next day that would no longer fit) is listed with the reason (`POST /api/plan/day`, [decision 15](docs/decisions.md#15-re-plan-one-day-of-a-trip)).
+- Moves one day to another city, or plans a new version of it ("New ideas for this day"), from the city on the day's line, and fills it again: Claude chooses from the places of that city open on that date that the trip has not used, code times and checks the whole trip, and the other days stay as they are. A city the day cannot take (a third city, a next day that would no longer fit) is listed with the reason (`POST /api/plan/day`, [decision 15](docs/decisions.md#15-re-plan-one-day-of-a-trip)).
 - Copy link saves the trip as shown, with the AI's why lines and summary, behind a short link, and the link opens it as saved.
 - Opens each stop and highlight in a sheet (photo and credit, the facts for the date, the listing's own words), the day's map full screen, and About this data as an overlay with every note, source and credit.
 
@@ -139,7 +139,7 @@ pnpm test:props      # planner property tests at 5,000 runs
 pnpm test:e2e        # Playwright on six device profiles plus the installed app
 ```
 
-`pnpm test` runs 3,268 tests in 198 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+`pnpm test` runs 3,309 tests in 201 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Deploy
 
