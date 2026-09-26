@@ -53,12 +53,12 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | Command | What it runs | Time |
 |---|---|---|
 | `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
-| `pnpm test` | 3,414 unit and integration tests in 208 files (Vitest) | under 1 min |
+| `pnpm test` | 3,417 unit and integration tests in 208 files (Vitest) | under 1 min |
 | `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
 | `pnpm test:props` | The planner's property tests at 5,000 runs each | about 1.5 min |
-| `pnpm test:e2e` | 330 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
+| `pnpm test:e2e` | 348 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
 | `pnpm test:e2e route --project chromium-desktop` | One spec on one project. Add `E2E_SKIP_BUILD=1` to reuse the last build | 1 to 2 min, including the build |
 | `E2E_BASE_URL=https://italy-planner.brdjx.com pnpm test:e2e:smoke` | The smoke tests against a deployed site | seconds |
 | `pnpm eval:replay` | Replays the recorded model answers through the current code, no network, and rewrites the results | seconds |
