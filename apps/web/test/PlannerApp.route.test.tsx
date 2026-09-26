@@ -667,7 +667,7 @@ describe("a meal a day cannot have", () => {
         .getAllByRole("listitem")
         .map((item) => item.textContent),
     ).toEqual([
-      "Osteria Francescana",
+      "Osteria Francescana, Modena",
       "Tagliatelle al Ragù at Trattoria Anna Maria",
       "Enoteca Italiana, Bologna",
     ]);
@@ -675,6 +675,38 @@ describe("a meal a day cannot have", () => {
     await user.click(within(panel).getByTestId("chip-city"));
     expect(sheet().hasAttribute("open")).toBe(true);
     expect(within(sheet()).getByRole("heading", { name: "City for day 3" })).toBeTruthy();
+  });
+
+  it("gives back a dinner taken off through the swap its chip names, and names Undo while it would", async () => {
+    // Review (2026-09-26): the chip said to swap a stop near dinner time for a place to eat, but a
+    // place to eat could only replace a meal, and it named Undo on a plan with nothing to undo.
+    const { user } = setup({ postDay: answering, post: async () => SATURDAY });
+    await planAndOpen(user, 1);
+    const rows = () => screen.getAllByTestId("stop-row");
+    const dinner = must(
+      rows().find((row) => row.textContent?.includes("Dinner")),
+      "the dinner row",
+    );
+    await user.click(within(dinner).getByTestId("remove-button"));
+    const planned = chip("No dinner planned");
+    await user.click(planned);
+    const panel = must(document.getElementById(planned.getAttribute("aria-controls") ?? ""));
+    expect(panel.textContent).toMatch(
+      /Swap a stop near dinner time for (it|one of them), or undo your last change\.$/,
+    );
+    const last = must(rows().at(-1));
+    expect(last.textContent).not.toMatch(/Lunch|Dinner/);
+    await user.click(within(last).getByTestId("swap-button"));
+    const [first] = await screen.findAllByTestId("alternative-option");
+    const name = must(first?.querySelector(".t-tab")?.textContent, "the first option's name");
+    // The first option is a place the chip named, as the day's dinner.
+    expect(panel.textContent).toContain(name);
+    await user.click(must(first));
+    await waitFor(() => expect(rows().at(-1)?.textContent).toContain(name));
+    expect(rows().at(-1)?.textContent).toContain("Dinner");
+    expect(screen.queryAllByTestId("warning-chip").map((one) => one.textContent)).not.toContain(
+      "No dinner planned",
+    );
   });
 
   it("says a day where code added a meal was fixed after a check, with the rules' why line on it", async () => {

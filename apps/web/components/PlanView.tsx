@@ -118,8 +118,11 @@ export function PlanView(props: PlanViewProps) {
     () => (itinerary ? shownWarnings(itinerary.warnings, shown.made) : []),
     [itinerary, shown.made],
   );
+  // The plan the Undo on screen brings back; none while a run plans, when Undo waits.
+  const before = pending ? null : (plan.history.at(-1)?.itinerary ?? null);
   const days = useMemo(() => {
-    const views = itinerary ? buildTripView({ ...itinerary, warnings }, ctx, shown.errors) : [];
+    const trip = itinerary ? { ...itinerary, warnings } : null;
+    const views = trip ? buildTripView(trip, ctx, shown.errors, before) : [];
     // A day still to be planned in a run is named by its new city, on its tab too.
     return views.map((view): DayView => {
       const step = pending?.run.jobs.findIndex((job) => job.day === view.index) ?? -1;
@@ -127,7 +130,7 @@ export function PlanView(props: PlanViewProps) {
       const waiting = statusOf(pending, view.index) !== "done";
       return name && waiting ? { ...view, anchorName: name } : view;
     });
-  }, [itinerary, warnings, ctx, shown.errors, pending]);
+  }, [itinerary, warnings, ctx, shown.errors, pending, before]);
   const summary = useMemo(
     () => (itinerary ? summaryForTrip(itinerary, ctx) : undefined),
     [itinerary, ctx],

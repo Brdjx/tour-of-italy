@@ -318,7 +318,7 @@ test.describe("setting a city for each day", () => {
     const panel = page.locator('[data-testid="chip-explanation"]:not([hidden])');
     await expect(panel).toContainText("Bologna's three dinner places are all closed on Mondays.");
     await expect(panel.getByRole("listitem")).toHaveText([
-      "Osteria Francescana",
+      "Osteria Francescana, Modena",
       "Tagliatelle al Ragù at Trattoria Anna Maria",
       "Enoteca Italiana, Bologna",
     ]);

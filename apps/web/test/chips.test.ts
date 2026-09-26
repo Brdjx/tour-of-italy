@@ -127,6 +127,7 @@ describe("a missing meal's chip", () => {
     return {
       placeId: "place_x",
       name: "A place",
+      town: null,
       block: null,
       why: "",
       overBudget: false,
@@ -155,10 +156,13 @@ describe("a missing meal's chip", () => {
     expect(missingMeal({ detail: "No lunch." })).toBeNull();
   });
 
-  it("says none is open, names the places, and offers another city, never a swap", () => {
-    const places = ["Trattoria Anna Maria", "Enoteca Italiana, Bologna"].map(closed);
-    const text = "Bologna's two dinner places are all closed on Mondays.";
-    const chip = mealChip(dinner, gap({ cause: "none_open", text, places }), 3);
+  it("says none is open, names the places with a town outside the city, and offers another city, never a swap", () => {
+    const places = [
+      { ...closed("Osteria Francescana"), town: "Modena" },
+      ...["Trattoria Anna Maria", "Enoteca Italiana, Bologna"].map(closed),
+    ];
+    const text = "Bologna's three dinner places are all closed on Mondays.";
+    const chip = mealChip(dinner, gap({ cause: "none_open", text, places }), 3, true);
     expect(chip).toEqual({
       key: "MEAL_MISSING--3",
       label: "No dinner open",
@@ -166,6 +170,7 @@ describe("a missing meal's chip", () => {
       explanation: text,
       // The sentence says why for them all, so each name stands alone.
       places: [
+        { name: "Osteria Francescana, Modena", why: null },
         { name: "Trattoria Anna Maria", why: null },
         { name: "Enoteca Italiana, Bologna", why: null },
       ],
@@ -202,8 +207,43 @@ describe("a missing meal's chip", () => {
       label: "No dinner planned",
       tone: "warning",
       explanation:
-        "Enoteca Italiana, Bologna could take dinner that day. Swap a stop near dinner time for a place to eat, or undo your last change.",
+        "Enoteca Italiana, Bologna could take dinner that day. Swap a stop near dinner time for it.",
     });
+  });
+
+  it("names Undo only when the Undo on screen gives the day its meal back", () => {
+    // A new plan has nothing to undo (design review, 2026-09-26: it told the traveler to undo a
+    // change they never made); after taking the dinner off, Undo brings it back.
+    const one = gap({
+      text: "Enoteca Italiana, Bologna could take dinner that day.",
+      places: [spot({})],
+    });
+    expect(mealChip(dinner, one, 0, true).explanation).toBe(
+      "Enoteca Italiana, Bologna could take dinner that day. Swap a stop near dinner time for it, or undo your last change.",
+    );
+    const two = gap({ places: [spot({ name: "A" }), spot({ name: "B" })] });
+    expect(mealChip(dinner, two).wayOut).toBe("Swap a stop near dinner time for one of them.");
+    expect(mealChip(dinner, two, 0, true).wayOut).toBe(
+      "Swap a stop near dinner time for one of them, or undo your last change.",
+    );
+    const held = gap({ places: [spot({ day: 0 })] });
+    expect(mealChip(dinner, held).wayOut).toBe("Choose another city for this day.");
+    expect(mealChip(dinner, held, 0, true).wayOut).toBe(
+      "Choose another city for this day, or undo your last change.",
+    );
+    for (const chip of [mealChip(dinner, one), mealChip(dinner, two), mealChip(dinner, held)]) {
+      expect(`${chip.explanation} ${chip.wayOut ?? ""}`).not.toMatch(/undo/i);
+    }
+    // The meals Undo gives back, from dayChips, per meal.
+    const both = dayChips(
+      [lunch, dinner],
+      [gap({ meal: "lunch", places: [spot({ day: 0 })] }), held],
+      (meal) => meal === "dinner",
+    );
+    expect(both.map((chip) => chip.wayOut)).toEqual([
+      "Choose another city for this day.",
+      "Choose another city for this day, or undo your last change.",
+    ]);
   });
 
   it("names the places a swap could bring in when the sentence only counts them", () => {
@@ -212,12 +252,16 @@ describe("a missing meal's chip", () => {
       spot({ name }),
     );
     const held = spot({ name: "Harry's Bar", day: 0 });
-    const chip = mealChip(dinner, gap({ text, places: [...places, held] }));
+    const away = spot({ name: "Da Romano", town: "Burano" });
+    const chip = mealChip(dinner, gap({ text, places: [...places, away, held] }));
     expect(chip).toMatchObject({
       label: "No dinner planned",
       explanation: text,
-      places: places.map((place) => ({ name: place.name, why: null })),
-      wayOut: "Swap a stop near dinner time for a place to eat, or undo your last change.",
+      places: [
+        ...places.map((place) => ({ name: place.name, why: null })),
+        { name: "Da Romano, Burano", why: null },
+      ],
+      wayOut: "Swap a stop near dinner time for one of them.",
     });
     expect(chip.action).toBeUndefined();
   });
@@ -237,7 +281,7 @@ describe("a missing meal's chip", () => {
         { name: "Da Vittorio", why: "on day 1" },
         { name: "Luini", why: "on day 2" },
       ],
-      wayOut: "Choose another city for this day, or undo your last change.",
+      wayOut: "Choose another city for this day.",
       action: "city",
     });
   });

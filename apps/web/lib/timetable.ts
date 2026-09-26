@@ -8,6 +8,7 @@ import {
   type Itinerary,
   type Meal,
   type MealGap,
+  mealsMissing,
   PACE,
   type Place,
   type PlannerContext,
@@ -69,11 +70,16 @@ export interface DayView {
   rows: RowView[];
 }
 
+/**
+ * The view of day `dayIndex`. `before` is the plan the Undo on screen brings back (null when
+ * there is none): a missing meal's chip names Undo only when that plan's day has the meal.
+ */
 export function buildDayView(
   itinerary: Itinerary,
   dayIndex: number,
   ctx: PlannerContext,
   errors: readonly Violation[],
+  before: Itinerary | null = null,
 ): DayView | null {
   const day = itinerary.days[dayIndex];
   if (!day) return null;
@@ -84,6 +90,9 @@ export function buildDayView(
   const gaps = own.some((violation) => violation.code === "MEAL_MISSING")
     ? dayMealGaps(itinerary, dayIndex, ctx)
     : [];
+  const earlier = before?.days[dayIndex];
+  const had = earlier && earlier.stops.length > 0 ? mealsMissing(earlier, ctx) : null;
+  const undoGives = (meal: Meal) => had !== null && !had.includes(meal);
   const seated = day.stops.map((stop) => stop.role).filter((role) => role !== "visit");
   const rows = day.stops.map((stop, index) => {
     const place = ctx.placesById.get(stop.placeId);
@@ -115,7 +124,7 @@ export function buildDayView(
     stopsText: stopsText(day),
     transfer: transferFor(itinerary, dayIndex, ctx, gaps),
     returnLeg: returnFor(day, ctx, anchor),
-    dayChips: dayChips(own, gaps),
+    dayChips: dayChips(own, gaps, undoGives),
     rows,
   };
 }
@@ -262,15 +271,19 @@ export function thumbnailRows(
   return new Set(ranked.slice(0, Math.max(0, max)).map((row) => row.index));
 }
 
-/** Every day's view, in order. Days whose view cannot be built are skipped. */
+/**
+ * Every day's view, in order, with `before` the plan the Undo on screen brings back (buildDayView).
+ * Days whose view cannot be built are skipped.
+ */
 export function buildTripView(
   itinerary: Itinerary,
   ctx: PlannerContext,
   errors: readonly Violation[],
+  before: Itinerary | null = null,
 ): DayView[] {
   const views: DayView[] = [];
   itinerary.days.forEach((_, index) => {
-    const view = buildDayView(itinerary, index, ctx, errors);
+    const view = buildDayView(itinerary, index, ctx, errors, before);
     if (view) views.push(view);
   });
   return views;

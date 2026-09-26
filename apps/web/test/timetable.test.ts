@@ -193,7 +193,7 @@ describe("a day with no lunch or dinner", () => {
       }),
     ]);
     expect(view.dayChips[0]?.places?.map((place) => place.name)).toEqual([
-      "Osteria Francescana",
+      "Osteria Francescana, Modena",
       "Tagliatelle al Ragù at Trattoria Anna Maria",
       "Enoteca Italiana, Bologna",
     ]);
@@ -212,16 +212,25 @@ describe("a day with no lunch or dinner", () => {
     const venice = must(trip.days[1]);
     const kept = venice.stops.filter((stop) => stop.role !== "dinner").map((stop) => stop.placeId);
     const edited = rescheduleDay(trip, 1, kept, ctx).itinerary;
-    const view = must(buildDayView(edited, 1, ctx, []));
+    // With the plan before the edit as the one Undo brings back, as the page passes it.
+    const view = must(buildDayView(edited, 1, ctx, [], trip));
     const chip = view.dayChips.find((one) => one.label === "No dinner planned");
     // A dinner the day could still have: the transfer keeps the hours left before it.
     expect(view.transfer?.left).toBe("Leaves about 6 h before dinner.");
     expect(chip?.explanation).toMatch(/^\w+ places in Venice could take dinner that day\.$/);
     expect(chip?.places?.length).toBeGreaterThan(1);
     expect(chip?.wayOut).toBe(
-      "Swap a stop near dinner time for a place to eat, or undo your last change.",
+      "Swap a stop near dinner time for one of them, or undo your last change.",
     );
     expect(chip?.action).toBeUndefined();
+    // With no Undo on screen, or one that would not bring a dinner back, it is not named.
+    const emptied = { ...trip, days: trip.days.map((d, i) => (i === 1 ? { ...d, stops: [] } : d)) };
+    for (const before of [null, edited, emptied]) {
+      const again = must(buildDayView(edited, 1, ctx, [], before));
+      expect(again.dayChips.find((one) => one.label === "No dinner planned")?.wayOut).toBe(
+        "Swap a stop near dinner time for one of them.",
+      );
+    }
   });
 });
 

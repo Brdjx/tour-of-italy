@@ -3,6 +3,7 @@ import {
   type Meal,
   type MealGap,
   type MealGapPlace,
+  mealPlaceName,
   OPEN_ACCESS_WINDOW,
   type Place,
   type PlaceNoteKind,
@@ -94,7 +95,7 @@ export function violationLabel(code: ViolationCode): string {
  * whose detail already says what to do (HOURS_UNKNOWN: "check before you go") have none.
  */
 export const WARNING_NEXT_STEP: Partial<Record<ViolationCode, string>> = {
-  MEAL_MISSING: "Swap a stop near that meal time for a place to eat, or undo your last change.",
+  MEAL_MISSING: "Swap a stop near that meal time for a place to eat.",
   LONG_TRANSFER: "Bases closer together, or one base, leave more time to visit.",
   OVER_BUDGET: "Swap it for a cheaper place, or raise your budget.",
   SAME_LOCATION: "Swap one of them to see somewhere new.",
@@ -128,13 +129,21 @@ export function missingMeal(violation: Pick<Violation, "detail">): Meal | null {
  * way out another city for the day; "No dinner planned" when one could, with the planner's
  * sentence for who could and a swap when a place not in the trip and within the budget could
  * (named under it when there are several), else another city, with the day that has each place.
+ * "Or undo your last change" only when `undo` (the Undo on screen gives the day the meal back).
  * Without its gap (a plan the planner cannot read), the validator's words.
  */
 // Decision: the way out follows the cause (the owner, 2026-09-26: "ai missed a meal for day 3",
 // a Monday in Bologna, where the chip said to swap a stop near that meal time and no swap could
-// give the day a dinner). A chip never offers a swap that cannot work: when every place that
-// could take the meal is on another day or over the budget, the swap sheet has none to offer.
-export function mealChip(violation: Violation, gap: MealGap | undefined, index = 0): Chip {
+// give the day a dinner). A chip never offers a way out that cannot work: when every place that
+// could take the meal is on another day or over the budget, the swap sheet has none to offer; and
+// Undo is named only when it is on screen and the change it takes back is what took the meal
+// (design review, 2026-09-26: a new plan told the traveler to undo a change they never made).
+export function mealChip(
+  violation: Violation,
+  gap: MealGap | undefined,
+  index = 0,
+  undo = false,
+): Chip {
   const base = violationChip(violation, index);
   if (!gap) return base;
   const { meal } = gap;
@@ -146,19 +155,27 @@ export function mealChip(violation: Violation, gap: MealGap | undefined, index =
       ...base,
       label: `No ${meal} open`,
       explanation: gap.text,
-      places: gap.places.map((place) => ({ name: place.name, why: shared ? null : place.why })),
+      places: gap.places.map((place) => ({
+        name: mealPlaceName(place),
+        why: shared ? null : place.why,
+      })),
       wayOut: `Choose another city for this day to have ${meal} in the plan.`,
       action: "city",
     };
   }
   const label = `No ${meal} planned`;
   const free = gap.places.filter(swappable);
-  const next = `Swap a stop near ${meal} time for a place to eat, or undo your last change.`;
-  // One place is named in the sentence; several are counted there and named under it.
-  if (free.length === 1) return { ...base, label, explanation: `${gap.text} ${next}` };
+  const orUndo = undo ? ", or undo your last change" : "";
+  // One place is named in the sentence; several are counted there and named under it. The swap
+  // sheet offers them first for a visit near the meal's time (alternativesFor).
+  if (free.length === 1) {
+    const next = `Swap a stop near ${meal} time for it${orUndo}.`;
+    return { ...base, label, explanation: `${gap.text} ${next}` };
+  }
   if (free.length > 1) {
-    const places = free.map((place) => ({ name: place.name, why: null }));
-    return { ...base, label, explanation: gap.text, places, wayOut: next };
+    const places = free.map((place) => ({ name: mealPlaceName(place), why: null }));
+    const wayOut = `Swap a stop near ${meal} time for one of them${orUndo}.`;
+    return { ...base, label, explanation: gap.text, places, wayOut };
   }
   // The places that could take it, each with the day it is on; "over your budget" only beside
   // places on a day, since the sentence says it when it is true of them all.
@@ -168,8 +185,8 @@ export function mealChip(violation: Violation, gap: MealGap | undefined, index =
     ...base,
     label,
     explanation: gap.text,
-    places: could.map((place) => ({ name: place.name, why: heldWhy(place, held) })),
-    wayOut: "Choose another city for this day, or undo your last change.",
+    places: could.map((place) => ({ name: mealPlaceName(place), why: heldWhy(place, held) })),
+    wayOut: `Choose another city for this day${orUndo}.`,
     action: "city",
   };
 }
@@ -187,14 +204,18 @@ function heldWhy(place: MealGapPlace, held: boolean): string | null {
 
 /**
  * Chips for a day's own violations (violationsForDay), a missing lunch or dinner by its cause
- * (`gaps`: the day's dayMealGaps).
+ * (`gaps`: the day's dayMealGaps), naming Undo for the meals `undoGives` says it gives back.
  */
-export function dayChips(violations: readonly Violation[], gaps: readonly MealGap[]): Chip[] {
+export function dayChips(
+  violations: readonly Violation[],
+  gaps: readonly MealGap[],
+  undoGives: (meal: Meal) => boolean = () => false,
+): Chip[] {
   return violations.map((violation, index) => {
     if (violation.code !== "MEAL_MISSING") return violationChip(violation, index);
     const meal = missingMeal(violation);
     const gap = gaps.find((one) => one.day === violation.day && one.meal === meal);
-    return mealChip(violation, gap, index);
+    return mealChip(violation, gap, index, meal !== null && undoGives(meal));
   });
 }
 
