@@ -113,7 +113,17 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       # Chromium only: the guard has no WebKit project.
-      - run: bash .github/scripts/run-e2e.sh test:e2e:ci chromium
+      # Decision: the guard's script must exist. run-e2e.sh passes with a notice when its script
+      # is missing, as it did before the suites existed (the smoke job keeps that), so a renamed
+      # or deleted test:e2e:ci would run no test and pass ci-ok (checked 26 September 2026). A
+      # misspelled project or a filter that matches no test already fails in Playwright itself.
+      - name: E2E guard
+        run: |
+          if ! jq -e '.scripts["test:e2e:ci"]' package.json >/dev/null; then
+            echo "::error::package.json has no test:e2e:ci script, so the E2E guard would run nothing"
+            exit 1
+          fi
+          bash .github/scripts/run-e2e.sh test:e2e:ci chromium
       - name: Upload Playwright report
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
