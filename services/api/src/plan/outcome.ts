@@ -64,7 +64,10 @@ export function newTrace(): PlanTrace {
 }
 
 /** Adds one model answer's usage, latency, and stop reason to the trace. */
-export function recordResult(trace: PlanTrace, result: LlmResult): void {
+export function recordResult(
+  trace: PlanTrace,
+  result: Pick<LlmResult, "usage" | "latencyMs" | "stopReason">,
+): void {
   trace.usage.inputTokens += result.usage.inputTokens;
   trace.usage.outputTokens += result.usage.outputTokens;
   trace.llmLatencyMs += result.latencyMs;
@@ -95,7 +98,7 @@ interface GuardDeps {
 }
 
 /** Meta with keys in a fixed order, so equal plans serialize identically. */
-function buildMeta(trace: PlanTrace, latencyMs: number, generatedAt: string): ItineraryMeta {
+export function buildMeta(trace: PlanTrace, latencyMs: number, generatedAt: string): ItineraryMeta {
   return {
     ...(trace.model === undefined ? {} : { model: trace.model }),
     ...(trace.promptVersion === undefined ? {} : { promptVersion: trace.promptVersion }),

@@ -110,9 +110,10 @@ export function rebuildTrip(
   // dropped by summaryForPlaces, the planner's function the page runs on the same summary after
   // an edit, so the sender and whoever opens the link see the same summary. The API's own checks
   // (sanitizeSummary) then run again, in case one was tightened since the plan was made.
-  // Decision: no summary at all when a day's base differs from the AI plan's. The page never
-  // changes a base without planning again, so only a crafted request does, and "two days in
-  // Florence" names no place the check could catch.
+  // Decision: no summary at all when a day's base differs from the AI plan's. The page changes a
+  // base only by planning again or by re-planning that day in another city (POST /api/plan/day),
+  // and "two days in Florence" names no place the check could catch. The page drops the summary
+  // then too (withReplannedDay in the planner).
   const planIds = tripPlaceIds({ days });
   const sameBases = ai?.days.every((day, index) => day.anchorId === input.days[index]?.anchorId);
   const forPlaces = sameBases ? summaryForPlaces(ai?.summary, planIds, ctx) : undefined;

@@ -98,6 +98,18 @@ export function buildRepairMessage(
   violations: readonly RepairViolation[],
   notes: RepairNotes = NO_REPAIR_NOTES,
 ): string {
+  return repairText(violations, notes, REPAIR_INSTRUCTION);
+}
+
+/**
+ * A repair turn's text: the violations, what the tidy step removed or moved, the empty days, and
+ * `instruction` last. The one-day repair (dayPrompt.ts) closes with its own instruction.
+ */
+export function repairText(
+  violations: readonly RepairViolation[],
+  notes: RepairNotes,
+  instruction: string,
+): string {
   const lines = violations.slice(0, 30).map((violation) => {
     const day = violation.day === undefined ? "trip" : `day ${violation.day + 1}`;
     const place = violation.placeId === undefined ? "-" : violation.placeId;
@@ -117,7 +129,7 @@ export function buildRepairMessage(
     ]);
   }
   if (notes.emptyDays.length > 0) sections.push(bullets(notes.emptyDays));
-  sections.push([REPAIR_INSTRUCTION]);
+  sections.push([instruction]);
   return sections.map((section) => section.join("\n")).join("\n\n");
 }
 

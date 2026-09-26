@@ -8,7 +8,6 @@ import {
 } from "@italy/planner";
 import type { LlmOffReason } from "../config";
 import type { LlmClient, LlmResult, RepairViolation } from "../llm/client";
-import { errorKindOf, fallbackReasonFor, type RetryPolicy, retryPauseMs } from "../llm/errors";
 import {
   buildRepairMessage,
   NO_REPAIR_NOTES,
@@ -20,6 +19,7 @@ import { buildUserMessage } from "../llm/promptUser";
 import { callWithin } from "./callWithin";
 import { buildShortlist, type Shortlist } from "./candidates";
 import { materializeSelection } from "./materialize";
+import { DEFAULT_TIMING, giveUpReason, type PlanTiming, runTurn } from "./modelTurn";
 import {
   finishPlan,
   newTrace,
@@ -33,28 +33,13 @@ import {
 import { repairNotes } from "./repairNotes";
 import { tidySelection } from "./tidy";
 
+export { DEFAULT_TIMING, type PlanTiming } from "./modelTurn";
+
 // The plan pipeline (POST /api/plan): shortlist, ask the model, tidy its answer (tidy.ts), time
 // and validate it, one repair turn with the exact violations and what tidying removed
 // (repairNotes.ts) if time allows, and the rules-only planner for every other outcome. A brief
 // failure (dropped connection, 5xx) gets one retry when time allows. Whatever happens, the
 // result has zero validator errors (see outcome.ts).
-
-export interface PlanTiming {
-  reserveMs: number; // time kept back for the fallback plan and the response
-  minCallMs: number; // a first call is not started with less time than this
-  minRepairMs: number; // a repair is not started with less time than this
-  retry: RetryPolicy; // the pause before retrying a brief failure, and the longest wait allowed
-}
-
-// Decision: 1.5 s reserve (the fallback plans in about 10 ms, the rest is margin for a slow cold
-// instance), no call under 2 s, and no repair under 4 s: a repair that cannot finish only burns
-// tokens and delays the fallback. A retry waits 0.4 s, or the API's retry-after up to 1 s.
-export const DEFAULT_TIMING: PlanTiming = {
-  reserveMs: 1500,
-  minCallMs: 2000,
-  minRepairMs: 4000,
-  retry: { defaultPauseMs: 400, maxPauseMs: 1000 },
-};
 
 export interface PlanDeps {
   llm: LlmClient | null; // null when the AI layer is off
@@ -131,10 +116,8 @@ export async function planTrip(
   }
 }
 
-const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 /** One model call (first answer or repair), bounded by `timeoutMs`. */
-function ask(run: Run, previous: Problem | null, timeoutMs: number): Promise<LlmResult> {
+function askModel(run: Run, previous: Problem | null, timeoutMs: number): Promise<LlmResult> {
   return callWithin((signal) => {
     const input = {
       request: run.request,
@@ -153,53 +136,6 @@ function ask(run: Run, previous: Problem | null, timeoutMs: number): Promise<Llm
   }, timeoutMs);
 }
 
-/** Why the model path gave up with a problem still in hand. */
-// Decision: an answer that was repaired and still failed is invalid_after_repair; an off-schema
-// answer that never got a repair is schema_invalid; a bad plan that had no time left for its
-// repair is timeout, because time, not the model, is what stopped the fix.
-function giveUpReason(problem: Problem, repaired: boolean, outOfTime: boolean): FallbackReason {
-  if (repaired) return "invalid_after_repair";
-  if (problem.kind === "schema") return "schema_invalid";
-  return outOfTime ? "timeout" : "invalid_after_repair";
-}
-
-/**
- * One model turn (first answer or repair), with one retry of a brief failure when time allows.
- * Returns the result, or the fallback reason when the turn failed or there was no time for it.
- */
-// Decision: each call gets the configured timeout (15 s) or what is left of the deadline after
-// the reserve, whichever is less. The first call starts with 22.5 s left, so it gets the full
-// 15 s; a repair gets what remains, which stays over its 4 s minimum even after a first answer
-// at 15 s (24 - 15 - 1.5 = 7.5 s). Live repairs on 2026-09-25 took 2.6 to 8.0 s, and one ran
-// past its 12 s limit, so a slow repair after one of the slowest first answers can still run out
-// and fall back.
-async function runTurn(
-  run: Run,
-  problem: Problem | null,
-  floorMs: number,
-  state: { retried: boolean },
-): Promise<LlmResult | { giveUp: FallbackReason | "no_time" }> {
-  const { deps, trace } = run;
-  const timing = deps.timing ?? DEFAULT_TIMING;
-  const timeLeft = () => run.startedAt + deps.config.deadlineMs - deps.now() - timing.reserveMs;
-  for (;;) {
-    const timeoutMs = Math.min(deps.config.timeoutMs, timeLeft());
-    if (timeoutMs < floorMs) return { giveUp: "no_time" };
-    trace.attempts++;
-    try {
-      return await ask(run, problem, timeoutMs);
-    } catch (error) {
-      recordFailure(trace, error);
-      const wait = state.retried ? null : retryPauseMs(error, timing.retry);
-      if (wait === null || timeLeft() - wait < floorMs) {
-        return { giveUp: fallbackReasonFor(errorKindOf(error)) };
-      }
-      state.retried = true;
-      await pause(wait);
-    }
-  }
-}
-
 async function runModel(run: Run): Promise<PlanOutcome> {
   const { request, deps, trace, startedAt } = run;
   const timing = deps.timing ?? DEFAULT_TIMING;
@@ -211,11 +147,13 @@ async function runModel(run: Run): Promise<PlanOutcome> {
   for (let turn = 1; turn <= deps.config.maxAttempts; turn++) {
     // Decision: the minimums never exceed the configured per-call timeout, so a short
     // LLM_TIMEOUT_MS (E2E runs use one) still makes the call instead of silently skipping it.
-    const floor = problem === null ? timing.minCallMs : timing.minRepairMs;
-    const result = await runTurn(run, problem, Math.min(floor, deps.config.timeoutMs), state);
+    const floor: number = problem === null ? timing.minCallMs : timing.minRepairMs;
+    const previous: Problem | null = problem;
+    const ask = (timeoutMs: number): Promise<LlmResult> => askModel(run, previous, timeoutMs);
+    const result = await runTurn(run, Math.min(floor, deps.config.timeoutMs), state, ask);
     if ("giveUp" in result) {
       if (result.giveUp !== "no_time") return fallback(result.giveUp);
-      return fallback(problem === null ? "timeout" : giveUpReason(problem, turn > 2, true));
+      return fallback(problem === null ? "timeout" : giveUpReason(problem.kind, turn > 2, true));
     }
     recordResult(trace, result);
     // Decision: no repair after a refusal (asking again is pointless) or a cut-off answer (a
@@ -259,5 +197,5 @@ async function runModel(run: Run): Promise<PlanOutcome> {
   }
   // Every turn ran and the last answer still had a problem (maxAttempts is at least 1).
   const repaired = deps.config.maxAttempts > 1;
-  return fallback(problem === null ? "llm_error" : giveUpReason(problem, repaired, false));
+  return fallback(problem === null ? "llm_error" : giveUpReason(problem.kind, repaired, false));
 }

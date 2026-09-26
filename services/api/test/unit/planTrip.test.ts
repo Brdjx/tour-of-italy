@@ -54,6 +54,7 @@ const EXPECTED: Record<FixtureScenario, { source: string; reason?: string; attem
   "unknown-id-then-valid": { source: "ai_repaired", attempts: 2 },
   // Tidied before the check, so no repair turn; a changed answer is never labelled "ai".
   "closed-day-tidied": { source: "ai_repaired", attempts: 1 },
+  "repeat-tidied": { source: "ai_repaired", attempts: 1 },
   "messy-tidied": { source: "ai_repaired", attempts: 1 },
   "always-invalid": { source: "deterministic", reason: "invalid_after_repair", attempts: 2 },
   "schema-invalid": { source: "ai_repaired", attempts: 2 },

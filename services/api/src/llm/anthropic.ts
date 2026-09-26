@@ -1,8 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { LlmClient, LlmResult, RepairInput, SelectInput } from "./client";
+import type { LlmClient, LlmDayResult, LlmResult, RepairInput, SelectInput } from "./client";
 import { API_MESSAGE_CHARS, LlmError, type LlmErrorDetail } from "./errors";
 import { type Effort, settingsFor } from "./models";
-import { parseSelectionText, SELECTION_JSON_SCHEMA } from "./schema";
+import {
+  DAY_ANSWER_JSON_SCHEMA,
+  parseDayAnswerText,
+  parseSelectionText,
+  SELECTION_JSON_SCHEMA,
+} from "./schema";
 
 // The real Claude API client. One messages.create call per attempt, with structured outputs
 // (output_config.format json_schema) so the answer is JSON in the text block. Every failure
@@ -45,17 +50,19 @@ export function createAnthropicClient(options: AnthropicClientOptions): LlmClien
   const now = options.now ?? Date.now;
   const settings = settingsFor(options.model, options.effort);
 
+  // One API call with the answer schema `schema` (a whole trip, or one day).
   const call = async (
     input: SelectInput,
     messages: Anthropic.MessageParam[],
-  ): Promise<LlmResult> => {
+    schema: Record<string, unknown>,
+  ): Promise<{ message: Anthropic.Message; latencyMs: number }> => {
     const params: Anthropic.MessageCreateParamsNonStreaming = {
       model: options.model,
       max_tokens: settings.maxTokens,
       system: input.system,
       messages,
       output_config: {
-        format: { type: "json_schema", schema: SELECTION_JSON_SCHEMA as Record<string, unknown> },
+        format: { type: "json_schema", schema },
         ...(settings.effort === undefined ? {} : { effort: settings.effort }),
       },
       ...(settings.temperature === undefined ? {} : { temperature: settings.temperature }),
@@ -72,22 +79,43 @@ export function createAnthropicClient(options: AnthropicClientOptions): LlmClien
     } catch (error) {
       throw toLlmError(error);
     }
-    return toResult(message, now() - started);
+    return { message, latencyMs: now() - started };
   };
+  const trip = SELECTION_JSON_SCHEMA as Record<string, unknown>;
+  const day = DAY_ANSWER_JSON_SCHEMA as Record<string, unknown>;
 
   return {
     model: options.model,
-    select: (input) => call(input, [{ role: "user", content: input.user }]),
-    repair: (input: RepairInput) =>
-      call(input, [
-        { role: "user", content: input.user },
-        // Decision: the previous answer goes back as plain assistant text. The API rejects an
-        // empty text block, so an empty answer is sent as "{}".
-        { role: "assistant", content: input.previousText.slice(0, 20_000) || "{}" },
-        { role: "user", content: input.repairMessage },
-      ]),
+    select: async (input) => {
+      const { message, latencyMs } = await call(input, firstTurn(input), trip);
+      return toResult(message, latencyMs);
+    },
+    repair: async (input) => {
+      const { message, latencyMs } = await call(input, repairTurns(input), trip);
+      return toResult(message, latencyMs);
+    },
+    selectDay: async (input) => {
+      const { message, latencyMs } = await call(input, firstTurn(input), day);
+      return toDayResult(message, latencyMs);
+    },
+    repairDay: async (input) => {
+      const { message, latencyMs } = await call(input, repairTurns(input), day);
+      return toDayResult(message, latencyMs);
+    },
   };
 }
+
+const firstTurn = (input: SelectInput): Anthropic.MessageParam[] => [
+  { role: "user", content: input.user },
+];
+
+const repairTurns = (input: RepairInput): Anthropic.MessageParam[] => [
+  { role: "user", content: input.user },
+  // Decision: the previous answer goes back as plain assistant text. The API rejects an empty
+  // text block, so an empty answer is sent as "{}".
+  { role: "assistant", content: input.previousText.slice(0, 20_000) || "{}" },
+  { role: "user", content: input.repairMessage },
+];
 
 /** The text of the first text block, or "" when there is none. */
 export function textOf(message: Anthropic.Message): string {
@@ -97,20 +125,36 @@ export function textOf(message: Anthropic.Message): string {
   return "";
 }
 
-/** An API response as an LlmResult. Refusals and cut-off answers never reach the parser. */
-export function toResult(message: Anthropic.Message, latencyMs: number): LlmResult {
-  const rawText = textOf(message);
+/** The parts of an API response every result has: text, usage, latency, model, stop reason. */
+function resultBase(message: Anthropic.Message, latencyMs: number) {
   const usage = {
     inputTokens: message.usage?.input_tokens ?? 0,
     outputTokens: message.usage?.output_tokens ?? 0,
   };
-  const base = { rawText, usage, latencyMs, model: message.model, stopReason: message.stop_reason };
-  if (message.stop_reason === "refusal" || message.stop_reason === "max_tokens") {
-    return { ...base, selection: null, schemaIssues: [] };
-  }
-  const parsed = parseSelectionText(rawText);
+  const rawText = textOf(message);
+  return { rawText, usage, latencyMs, model: message.model, stopReason: message.stop_reason };
+}
+
+/** True when the answer never reaches the parser: a refusal or a cut-off answer. */
+const unparsed = (message: Anthropic.Message) =>
+  message.stop_reason === "refusal" || message.stop_reason === "max_tokens";
+
+/** An API response as an LlmResult. Refusals and cut-off answers never reach the parser. */
+export function toResult(message: Anthropic.Message, latencyMs: number): LlmResult {
+  const base = resultBase(message, latencyMs);
+  if (unparsed(message)) return { ...base, selection: null, schemaIssues: [] };
+  const parsed = parseSelectionText(base.rawText);
   if (parsed.ok) return { ...base, selection: parsed.selection, schemaIssues: [] };
   return { ...base, selection: null, schemaIssues: parsed.issues };
+}
+
+/** A one-day API response as an LlmDayResult, like toResult. */
+export function toDayResult(message: Anthropic.Message, latencyMs: number): LlmDayResult {
+  const base = resultBase(message, latencyMs);
+  if (unparsed(message)) return { ...base, answer: null, schemaIssues: [] };
+  const parsed = parseDayAnswerText(base.rawText);
+  if (parsed.ok) return { ...base, answer: parsed.answer, schemaIssues: [] };
+  return { ...base, answer: null, schemaIssues: parsed.issues };
 }
 
 /** The wait the API asked for, from retry-after-ms or retry-after (seconds or an HTTP date). */

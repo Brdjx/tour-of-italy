@@ -17,6 +17,7 @@ export type ErrorCode =
   | "forbidden"
   | "unknown_fixture_scenario"
   | "no_feasible_plan"
+  | "day_not_allowed"
   | "plan_unavailable"
   | "trip_not_valid"
   | "trips_unavailable"

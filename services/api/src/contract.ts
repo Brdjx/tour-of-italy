@@ -1,15 +1,19 @@
 import {
   DataIssueSchema,
   DataSummarySchema,
+  DayPlanSchema,
   ExcludedRecordSchema,
   IdSchema,
   ISSUE_KINDS,
+  ItineraryMetaSchema,
   ItinerarySchema,
   PACES,
   PLACE_TYPES,
+  PLAN_SOURCES,
   PlaceSchema,
   PriceLevelSchema,
   RecordIdSchema,
+  TRIP_DAYS,
 } from "@italy/planner";
 import { z } from "zod";
 
@@ -98,6 +102,25 @@ export const DataIssuesResponseSchema = z.strictObject({
 /** POST /api/plan answers with the itinerary itself. */
 export const PlanResponseSchema = ItinerarySchema;
 
+/**
+ * POST /api/plan/day answers with the one day it planned: the day timed in its trip (date, base,
+ * transfer from the day before, stops with times, roles and why lines, each marked "ai" or
+ * "rule"), who chose its places, and the plan's meta (the model and the day prompt's version when
+ * the AI layer ran, attempts, latency, and the fallback reason for a rules-only day). The other
+ * days never change; the page applies the day with the planner's withReplannedDay, which also
+ * times the next day again after its new transfer.
+ */
+export const PlanDayResponseSchema = z.strictObject({
+  day: z
+    .number()
+    .int()
+    .min(0)
+    .max(TRIP_DAYS - 1),
+  dayPlan: DayPlanSchema,
+  source: z.enum(PLAN_SOURCES),
+  meta: ItineraryMetaSchema,
+});
+
 /** Who chose a saved trip's places, as far as the API's own records show. */
 export const PLANNED_BY = ["ai", "ai_repaired", "rules"] as const;
 
@@ -138,4 +161,5 @@ export type PlacesResponse = z.infer<typeof PlacesResponseSchema>;
 export type DataIssuesResponse = z.infer<typeof DataIssuesResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 export type TripSnapshot = z.infer<typeof TripSnapshotSchema>;
+export type PlanDayResponse = z.infer<typeof PlanDayResponseSchema>;
 export type PlannedBy = (typeof PLANNED_BY)[number];

@@ -14,6 +14,12 @@ export interface LlmSelection {
   summary: string; // one or two sentences about the trip
 }
 
+/** What the model returns for one day of a trip (POST /api/plan/day). Code keeps the day's base. */
+export interface LlmDayAnswer {
+  placeIds: string[]; // stops in visiting order, meals included
+  reasons: { placeId: string; reason: string }[]; // one short reason per stop
+}
+
 export interface LlmUsage {
   inputTokens: number;
   outputTokens: number;
@@ -27,6 +33,11 @@ export interface LlmResult {
   latencyMs: number;
   model: string; // model id that answered (or "fixture")
   stopReason: string | null; // the API's stop_reason: end_turn, max_tokens, refusal, ...
+}
+
+/** A one-day answer: as LlmResult, with the parsed day in place of a whole selection. */
+export interface LlmDayResult extends Omit<LlmResult, "selection"> {
+  answer: LlmDayAnswer | null; // null when the output was cut off, refused, or off-schema
 }
 
 /** One problem with the previous answer, as the repair turn lists it to the model. */
@@ -55,4 +66,9 @@ export interface LlmClient {
   readonly model: string; // for logs, meta, and the cache key
   select(input: SelectInput): Promise<LlmResult>;
   repair(input: RepairInput): Promise<LlmResult>;
+  // One day of a trip, with the one-day answer schema. Optional, because the eval harness wraps
+  // clients that only ever plan whole trips (packages/evals); the day pipeline treats a client
+  // without them as the AI layer switched off for that route.
+  selectDay?(input: SelectInput): Promise<LlmDayResult>;
+  repairDay?(input: RepairInput): Promise<LlmDayResult>;
 }

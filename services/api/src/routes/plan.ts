@@ -41,15 +41,15 @@ export interface PlanRouteDeps {
   random?: RandomSource;
 }
 
-type Mode = "auto" | "deterministic";
+export type Mode = "auto" | "deterministic";
 
-function parseMode(value: string | undefined): Mode | null {
+export function parseMode(value: string | undefined): Mode | null {
   if (value === undefined || value === "auto") return "auto";
   return value === "deterministic" ? "deterministic" : null;
 }
 
 /** The plan's fields for the request log line: never the key, never full notes. */
-function traceFields(fields: LogFields, trace: PlanTrace): void {
+export function traceFields(fields: LogFields, trace: PlanTrace): void {
   Object.assign(fields, {
     source: trace.source,
     fallbackReason: trace.fallbackReason,
@@ -69,7 +69,8 @@ function traceFields(fields: LogFields, trace: PlanTrace): void {
   });
 }
 
-async function sessionFor(c: Context<AppEnv>, deps: PlanRouteDeps, mode: Mode) {
+/** The model session for this request: none for ?mode=deterministic. */
+export async function sessionFor(c: Context<AppEnv>, deps: Pick<PlanRouteDeps, "llm">, mode: Mode) {
   if (mode === "deterministic") {
     return { ok: true as const, session: { client: null } satisfies LlmSession };
   }

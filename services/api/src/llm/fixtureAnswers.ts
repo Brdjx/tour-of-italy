@@ -93,6 +93,16 @@ export function withUnknownId(selection: LlmSelection, id = "place_999"): LlmSel
   return copy;
 }
 
+/** The valid answer with the trip's first stop repeated at the end of its last day. */
+export function withRepeat(selection: LlmSelection): LlmSelection {
+  const copy = structuredClone(selection);
+  const first = copy.days[0]?.placeIds[0];
+  const last = copy.days.at(-1);
+  if (first !== undefined && last)
+    last.placeIds = [...last.placeIds, first].slice(0, MAX_STOPS_PER_DAY);
+  return copy;
+}
+
 /**
  * The valid answer with a candidate moved onto a day the prompt marks it closed (taken off any
  * other day, so the only problem is the closure). Falls back to an unknown id when no offered

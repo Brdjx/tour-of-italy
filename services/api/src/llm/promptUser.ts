@@ -44,7 +44,7 @@ function idList(ids: readonly string[]): string {
 }
 
 /** What the Budget line adds when some meal places are offered one price level over it. */
-const OVER_BUDGET_NOTE =
+export const OVER_BUDGET_NOTE =
   " (meal places marked over budget are one level over: use one only for a meal no meal place within budget can take)";
 
 /** The must-include ids, each with the offered base it is listed under: "place_026 (florence)". */
@@ -109,8 +109,9 @@ function statusText(status: DayStatus, index: number): string {
 /**
  * One candidate row:
  * id | name | type | area | tags | rating | price | visit minutes | meal | days | notes
+ * `days` is the status on each trip day, or `status` when given (one day's hours, dayPrompt.ts).
  */
-export function candidateLine(candidate: Candidate, ctx: PlannerContext): string {
+export function candidateLine(candidate: Candidate, ctx: PlannerContext, status?: string): string {
   const { place } = candidate;
   const area = place.neighborhood ?? place.city;
   const meal = candidate.meal ? `meal: ${place.meals.join(" and ")}` : "not a meal place";
@@ -129,13 +130,13 @@ export function candidateLine(candidate: Candidate, ctx: PlannerContext): string
     place.priceLevel === null ? "price unknown" : "€".repeat(place.priceLevel),
     `${place.durationMin} min`,
     meal,
-    candidate.statuses.map(statusText).join("; "),
+    status ?? candidate.statuses.map(statusText).join("; "),
     notes.join("; ") || "-",
   ].join(" | ");
 }
 
 /** The meal places of a base that can take this meal on this date, by their hours. */
-function mealsOpen(option: AnchorOption, date: string, meal: Meal): string[] {
+export function mealsOpen(option: AnchorOption, date: string, meal: Meal): string[] {
   return option.candidates
     .filter(
       (c) =>

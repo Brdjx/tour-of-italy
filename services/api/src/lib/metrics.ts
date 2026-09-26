@@ -23,6 +23,8 @@ export const METRIC_NAMES = {
 // Decision: "requested" (?mode=deterministic) and "disabled" (kill switch) are choices, not
 // failures, so they are not AI plans at all. llm_error and no_key are what a revoked key, a
 // wrong model parameter, or a missing SSM parameter look like: every plan degrades quietly.
+// A day re-plan (POST /api/plan/day) logs the same source and fallbackReason fields, so it is
+// counted the same way: a day the model was expected to help plan.
 const NOT_AI = new Set(["requested", "disabled"]);
 const MODEL_FAILURE = new Set(["llm_error", "no_key"]);
 

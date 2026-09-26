@@ -65,7 +65,9 @@ export async function readCachedPlan(
     return inMemory.itinerary;
   }
   if (inMemory) deps.memory.delete(key);
-  const fromStore = sharedFor(request) ? await readStore(key, deps, fields) : undefined;
+  const fromStore = sharedFor(request)
+    ? await readStore(key, deps.store, fields, parseRecord)
+    : undefined;
   if (fromStore) {
     deps.memory.set(key, fromStore);
     fields.cache = "hit-store" satisfies CacheLookup;
@@ -75,12 +77,17 @@ export async function readCachedPlan(
   return undefined;
 }
 
-async function readStore(
+/**
+ * The record under cache key `key` in the shared table, read for at most
+ * STORE_TIMEOUT_MS.cacheRead and checked by `parse`, or undefined. Never throws. The day cache
+ * (dayCache.ts) reads its records the same way.
+ */
+export async function readStore<T extends { expiresAt: number }>(
   key: string,
-  deps: PlanCacheDeps,
+  store: TripStore | null,
   fields: LogFields,
-): Promise<CachedPlan | undefined> {
-  const { store } = deps;
+  parse: (text: string) => T | null,
+): Promise<T | undefined> {
   if (!store) return undefined;
   let text: string | null;
   try {
@@ -97,21 +104,25 @@ async function readStore(
     return undefined;
   }
   if (text === null) return undefined;
-  const record = parseRecord(text);
-  if (!record) return undefined;
-  // Decision: the memory copy ends when the table item does, never later, so a plan is never
-  // served longer than KEEP_SECONDS.cache after it was made, and its planId always resolves.
-  return { itinerary: record.itinerary, expiresAt: record.expiresAt };
+  return parse(text) ?? undefined;
 }
 
-function parseRecord(text: string): z.output<typeof CacheRecordSchema> | null {
+// Decision: the memory copy ends when the table item does, never later, so a plan is never
+// served longer than KEEP_SECONDS.cache after it was made, and its planId always resolves.
+function parseRecord(text: string): CachedPlan | null {
+  const record = parseJson(text, CacheRecordSchema);
+  return record && { itinerary: record.itinerary, expiresAt: record.expiresAt };
+}
+
+/** The text parsed as JSON and checked by `schema`, or null. */
+export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
   let json: unknown;
   try {
     json = JSON.parse(text);
   } catch {
     return null;
   }
-  const parsed = CacheRecordSchema.safeParse(json);
+  const parsed = schema.safeParse(json);
   return parsed.success ? parsed.data : null;
 }
 
@@ -128,11 +139,25 @@ export async function cachePlan(
 ): Promise<void> {
   const expiresAt = expiresAtFrom(deps.now(), KEEP_SECONDS.cache);
   deps.memory.set(key, { itinerary, expiresAt });
-  const { store } = deps;
-  if (!store || itinerary.planId === undefined || !sharedFor(itinerary.request)) return;
+  if (itinerary.planId === undefined || !sharedFor(itinerary.request)) return;
   const text = JSON.stringify({ v: 1, kind: "cache", expiresAt, itinerary });
+  await writeStore(key, text, expiresAt, deps.store, fields);
+}
+
+/**
+ * Writes a record under cache key `key` in the shared table, waiting at most
+ * STORE_TIMEOUT_MS.cacheWrite, and records the outcome on the log line. Never throws.
+ */
+export async function writeStore(
+  key: string,
+  text: string,
+  expiresAt: number,
+  store: TripStore | null,
+  fields: LogFields,
+): Promise<void> {
+  if (!store) return;
   try {
-    // A false answer means another instance cached these options first; its plan is as good.
+    // A false answer means another instance cached these options first; its answer is as good.
     await withinTime(
       (signal) => store.putNew(cacheKey(key), text, expiresAt, signal),
       STORE_TIMEOUT_MS.cacheWrite,

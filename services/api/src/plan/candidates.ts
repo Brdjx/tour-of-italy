@@ -79,7 +79,8 @@ export interface Shortlist {
   unplaceable: string[]; // must-include ids that cannot be offered (closed, or base not offered)
 }
 
-function dayStatus(place: Place, date: string): DayStatus {
+/** The place's hours on one date, as the candidate rows show them. */
+export function dayStatus(place: Place, date: string): DayStatus {
   const status = openStatusOn(place, date);
   if (status.state === "unknown") return { kind: "unknown" };
   if (status.state === "closed") return { kind: "closed" };
@@ -90,7 +91,8 @@ function dayStatus(place: Place, date: string): DayStatus {
 /**
  * Every place of a base that could be suggested (or is a meal place one price level over the
  * budget) and is not closed on all trip dates, and, unless the traveler asked for it, that the
- * scheduler can time as a day's only stop on some trip date.
+ * scheduler can time as a day's only stop on some trip date, after `transferMin` of travel (a
+ * re-planned day that follows a change of base; 0 for a whole trip, as each base could hold day 1).
  */
 // Decision: a place that fails even alone, at its own base with no transfer, fails on every day
 // of every answer, so offering it could only cost a repair. After the shortlist was sized, 4 of 4
@@ -108,7 +110,13 @@ function dayStatus(place: Place, date: string): DayStatus {
 // on 2026-09-25 (prompt v2), every day lacked a lunch or a dinner, at 0.38 meals a day against
 // 1.42 in the rules-only plans. Offered these places, 10 live plans of the same requests (v3) had
 // 1.33 meals a day, and every meal place over the budget was a lunch or a dinner.
-function candidatesFor(anchor: Anchor, request: TripRequest, ctx: PlannerContext, dates: string[]) {
+export function candidatesFor(
+  anchor: Anchor,
+  request: TripRequest,
+  ctx: PlannerContext,
+  dates: readonly string[],
+  transferMin = 0,
+): Candidate[] {
   const out: Candidate[] = [];
   for (const id of anchor.placeIds) {
     const place = ctx.placesById.get(id);
@@ -120,7 +128,7 @@ function candidatesFor(anchor: Anchor, request: TripRequest, ctx: PlannerContext
     if (statuses.every((status) => status.kind === "closed")) continue;
     const mustInclude = request.mustInclude.includes(id);
     const alone = (date: string) =>
-      scheduleDay([id], date, anchor, request, ctx, 0).violations.every(
+      scheduleDay([id], date, anchor, request, ctx, transferMin).violations.every(
         (violation) => violation.severity !== "error",
       );
     if (!mustInclude && !dates.some(alone)) continue;

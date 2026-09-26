@@ -21,9 +21,11 @@ import {
 import { REQUEST_ID_HEADER, resolveRequestId, safeRequestId } from "./lib/requestId";
 import { type SecretSource, staticSecret } from "./lib/secrets";
 import { createLlmProvider, type LlmProvider } from "./llm/provider";
+import type { CachedDay } from "./plan/dayCache";
 import type { CachedPlan } from "./plan/planCache";
 import type { PlanTiming } from "./plan/planTrip";
 import { registerPlanRoute } from "./routes/plan";
+import { registerPlanDayRoute } from "./routes/planDay";
 import {
   buildDataIssuesPayload,
   buildMeta,
@@ -47,6 +49,7 @@ export interface AppDeps {
   originSecret?: SecretSource | null; // production: the CloudFront origin secret
   rateLimiter?: RateLimiter;
   planCache?: LruCache<CachedPlan>; // the plan cache's memory layer
+  dayCache?: LruCache<CachedDay>; // the day cache's memory layer (POST /api/plan/day)
   timing?: PlanTiming; // plan deadline tuning, for tests
   emitMetrics?: boolean; // CloudWatch metrics on the request log line; on in production
   tripStore?: TripStore | null; // saved trips, AI plan records, cached plans; from TRIPS_TABLE
@@ -63,6 +66,7 @@ const ROUTE_METHODS: Record<string, string> = {
   "/places": "GET, HEAD",
   "/data-issues": "GET, HEAD",
   "/plan": "POST",
+  "/plan/day": "POST",
   "/trips": "POST",
   "/trips/:id": "GET, HEAD",
 };
@@ -171,17 +175,26 @@ export function createApp(deps: AppDeps) {
   app.get("/data-issues", (c) => sendPreparedJson(c, dataIssues));
   const tripStore = deps.tripStore === undefined ? defaultTripStore(config, now) : deps.tripStore;
   const dataVersion = dataVersionOf(data);
-  registerPlanRoute(app, {
+  // Decision: one rate limit bucket for plans and day re-plans. Both spend model calls, so a
+  // client cannot double its budget by switching routes.
+  const planRoutes = {
     config,
     data,
     llm,
     now,
     rateLimiter: deps.rateLimiter ?? createTokenBucket({ ...PLAN_RATE_LIMIT, now }),
-    cache: deps.planCache ?? new LruCache<CachedPlan>(PLAN_CACHE_ENTRIES),
     dataVersion,
     ...(deps.timing === undefined ? {} : { timing: deps.timing }),
     store: tripStore,
     random: deps.random,
+  };
+  registerPlanRoute(app, {
+    ...planRoutes,
+    cache: deps.planCache ?? new LruCache<CachedPlan>(PLAN_CACHE_ENTRIES),
+  });
+  registerPlanDayRoute(app, {
+    ...planRoutes,
+    dayCache: deps.dayCache ?? new LruCache<CachedDay>(PLAN_CACHE_ENTRIES),
   });
   registerTripRoutes(app, {
     data,

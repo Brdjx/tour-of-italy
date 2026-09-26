@@ -60,7 +60,7 @@ export function shortlistViolations(
 }
 
 /** Violations with the same code, day, and place reported once. */
-function dedupe(violations: readonly Violation[]): Violation[] {
+export function dedupe(violations: readonly Violation[]): Violation[] {
   const seen = new Set<string>();
   const out: Violation[] = [];
   for (const v of violations) {
