@@ -66,10 +66,10 @@ POST /api/plan
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
        no errors                  -> add each lunch or dinner a day lacks where the rules'
-                                     meal fill seats a place the model was offered without
-                                     moving a stop (mealAdd.ts); a day's meals stay only if
-                                     the plan, timed and checked again, has no new error or
-                                     warning but the added place's own
+                                     meal fill seats a place the model was offered, every
+                                     stop in its order and role (mealAdd.ts); a day's meals
+                                     stay only if the plan, timed and checked again, has no
+                                     new error or warning but the added place's own
        no errors, nothing tidied
        or added                   -> reasons and summary sanitized -> source "ai"
        no errors, tidied or a
@@ -120,12 +120,13 @@ POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid?, 
        trip; any error on this day, or one the trip did not have, fails it, and so does
        leaving out a must-include the rules-only day holds
   -> no errors: the lunch or dinner the day lacks added where a meal place it was offered fits
-       without moving a stop (mealAdd.ts), kept only if the day still passes; "ai_repaired"
+       with every stop in its order and role (mealAdd.ts), kept only if the day still passes;
+       "ai_repaired"
   -> one repair turn with the violations and what tidying removed, else the rules-only day
   -> response: { day, dayPlan (timed, why lines marked ai or rule), source, meta }
 ```
 
-The page applies the days with the planner's `withReplannedDays`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its verdict, the transfers in and out, the facts (the travel, and each meal no place of the city can take that date: "No dinner in Bologna on Mondays.") and the other days it would plan again. `dayMealGaps` gives each lunch or dinner a planned day lacks its cause, none open or not planned, with the places of the base and why each cannot take it (`packages/planner/src/mealSupply.ts`, decision 17); the page names it on the day's chip ("No dinner open" or "No dinner planned") with the places and a way out that works, another city for the day or a swap (`apps/web/lib/chips.ts`, `components/WarningChip.tsx`). Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`, `dayRoute.ts`, `dayChecks.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
+The page applies the days with the planner's `withReplannedDays`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its verdict, the transfers in and out, the facts (the travel, and each meal no place of the city can take that date: "No dinner in Bologna on Mondays.") and the other days it would plan again. `dayMealGaps` gives each lunch or dinner a planned day lacks its cause, none open or not planned, with the places of the base and why each cannot take it (`packages/planner/src/mealSupply.ts`, decision 17); the page names it on the day's chip ("No dinner open" or "No dinner planned") with the places (their town when outside the city) and a way out that works, another city for the day or a swap, which the swap sheet offers first for a visit near the meal (`alternativesFor`), and Undo only when the Undo on screen gives the meal back (`apps/web/lib/chips.ts`, `components/WarningChip.tsx`). Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`, `dayRoute.ts`, `dayChecks.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
 
 A route (decision 16) is a city for every day, set by hand, in any order and back again. The planner judges it before anything is planned, fast enough for every tap:
 
