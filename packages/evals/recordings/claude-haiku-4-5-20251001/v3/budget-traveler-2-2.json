@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "budget-traveler",
+  "run": 2,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:05:34.257Z",
+  "candidateHash": "sha256:eba74c12e1313ba7e4f1b709be531d909cf5bdc3af5840d555a3da190d68e45c",
+  "request": {
+    "startDate": "2026-11-07",
+    "pace": "balanced",
+    "interests": ["food", "historic"],
+    "maxPriceLevel": 1,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 5420,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_036\",\"place_101\",\"place_033\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Iconic cathedral exterior in the heart of Florence's historic center.\"},{\"placeId\":\"place_036\",\"reason\":\"Gothic basilica housing masterpieces of Renaissance art and culture.\"},{\"placeId\":\"place_101\",\"reason\":\"World-class sculpture museum with works by Michelangelo and Donatello.\"},{\"placeId\":\"place_033\",\"reason\":\"Hidden-gem trattoria serving traditional Florentine cuisine.\"},{\"placeId\":\"place_037\",\"reason\":\"Local favorite café for evening aperitivo and wine.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_084\",\"place_040\",\"place_027\",\"place_031\"],\"reasons\":[{\"placeId\":\"place_084\",\"reason\":\"Historic bridge lined with shops spanning the Arno River.\"},{\"placeId\":\"place_040\",\"reason\":\"Hilltop church with panoramic views of Florence and surrounding hills.\"},{\"placeId\":\"place_027\",\"reason\":\"Scenic viewpoint offering iconic vistas of the city skyline.\"},{\"placeId\":\"place_031\",\"reason\":\"Central market with food stalls and local dining options.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_008\",\"place_018\",\"place_020\",\"place_002\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Ancient Roman temple with stunning architecture and history.\"},{\"placeId\":\"place_008\",\"reason\":\"Baroque piazza with fountains and historic monuments.\"},{\"placeId\":\"place_018\",\"reason\":\"Iconic fountain and must-see Roman landmark.\"},{\"placeId\":\"place_020\",\"reason\":\"Contemporary restaurant with local favorites and relaxed atmosphere.\"},{\"placeId\":\"place_002\",\"reason\":\"Charming neighborhood with cobblestone streets and local food culture.\"}]}],\"summary\":\"A two-base itinerary balancing Florence's Renaissance treasures and Rome's ancient monuments with local food experiences. Days one and two explore Florence's art, architecture, and markets before moving to Rome's iconic sites and vibrant neighborhoods.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 6974,
+      "outputTokens": 514
+    },
+    "latencyMs": 3737,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

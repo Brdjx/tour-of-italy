@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "budget-traveler",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:58:48.258Z",
+  "candidateHash": "sha256:eba74c12e1313ba7e4f1b709be531d909cf5bdc3af5840d555a3da190d68e45c",
+  "request": {
+    "startDate": "2026-11-07",
+    "pace": "balanced",
+    "interests": ["food", "historic"],
+    "maxPriceLevel": 1,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 7,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_008\",\"place_018\",\"place_015\",\"place_020\",\"place_002\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Iconic ancient temple and cultural landmark in the heart of Rome.\"},{\"placeId\":\"place_008\",\"reason\":\"Historic baroque square known for photogenic fountains and lively atmosphere.\"},{\"placeId\":\"place_018\",\"reason\":\"Famous iconic fountain, a must-see photogenic landmark.\"},{\"placeId\":\"place_015\",\"reason\":\"Local-favorite market offering fresh food in a lively morning setting.\"},{\"placeId\":\"place_020\",\"reason\":\"Local favorite restaurant serving relaxing evening meals.\"},{\"placeId\":\"place_002\",\"reason\":\"Charming, scenic neighborhood loved for its local food and romantic evenings.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_097\",\"place_014\",\"place_012\",\"place_099\",\"place_080\"],\"reasons\":[{\"placeId\":\"place_097\",\"reason\":\"Quiet scenic viewpoint offering a peaceful morning stroll.\"},{\"placeId\":\"place_014\",\"reason\":\"Hidden-gem viewpoint with a unique photogenic perspective.\"},{\"placeId\":\"place_012\",\"reason\":\"Historic photogenic site tied to ancient Roman legend.\"},{\"placeId\":\"place_099\",\"reason\":\"Food market offering a wide variety of Italian specialties for lunch and dinner.\"},{\"placeId\":\"place_080\",\"reason\":\"Large relaxing park ideal for a scenic outdoor break.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_006\",\"place_024\",\"place_019\",\"place_003\",\"place_011\"],\"reasons\":[{\"placeId\":\"place_006\",\"reason\":\"Vibrant morning market known for fresh produce and local color.\"},{\"placeId\":\"place_024\",\"reason\":\"Charming book market loved by locals for its cultural finds.\"},{\"placeId\":\"place_019\",\"reason\":\"Iconic historic steps, a classic Roman photo stop.\"},{\"placeId\":\"place_003\",\"reason\":\"Hidden-gem trattoria celebrated for authentic Roman cuisine.\"},{\"placeId\":\"place_011\",\"reason\":\"Famous gelato spot beloved by locals and visitors alike.\"}]}],\"summary\":\"A Rome-based trip blending iconic historic landmarks with authentic local food experiences across three balanced days. Each day stays geographically tight while spotlighting Rome's culture and cuisine.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 7538,
+      "outputTokens": 835
+    },
+    "latencyMs": 9168,
+    "model": "claude-sonnet-5"
+  }
+}

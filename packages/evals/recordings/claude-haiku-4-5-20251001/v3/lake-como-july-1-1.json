@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "lake-como-july",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:06:26.253Z",
+  "candidateHash": "sha256:9472b60543fc33bf105ea38abf949701dee790b6ffc06f9a79c27e8f750cca9c",
+  "request": {
+    "startDate": "2027-07-13",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 2,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"milan\",\"placeIds\":[\"place_056\",\"place_094\",\"place_061\"],\"reasons\":[{\"placeId\":\"place_056\",\"reason\":\"Leonardo da Vinci's masterpiece in an intimate historic setting.\"},{\"placeId\":\"place_094\",\"reason\":\"Panoramic views of Milan's iconic Duomo from a hidden rooftop garden.\"},{\"placeId\":\"place_061\",\"reason\":\"Authentic Milanese risotto in a beloved local trattoria.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_085\",\"place_063\",\"place_064\",\"place_082\"],\"reasons\":[{\"placeId\":\"place_085\",\"reason\":\"Serene lakefront views and relaxing morning atmosphere by Lake Como.\"},{\"placeId\":\"place_063\",\"reason\":\"Picturesque lakeside village with romantic scenery and mountain views.\"},{\"placeId\":\"place_064\",\"reason\":\"Historic villa with stunning gardens overlooking Lake Como's scenic landscape.\"},{\"placeId\":\"place_082\",\"reason\":\"Casual family-friendly spot for dinner after a day exploring the lakes.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_055\",\"place_060\",\"place_100\"],\"reasons\":[{\"placeId\":\"place_055\",\"reason\":\"Iconic Gothic cathedral with breathtaking architecture and interior views.\"},{\"placeId\":\"place_060\",\"reason\":\"Historic 19th-century gallery with elegant arcades and scenic passages.\"},{\"placeId\":\"place_100\",\"reason\":\"Evening cultural experience featuring local wine and aperitivo traditions.\"}]}],\"summary\":\"Explore Milan's artistic treasures and rooftop views, then escape to the scenic lakes of Como with romantic villas and lakefront beauty. Return to Milan's iconic landmarks and vibrant evening culture.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 3176,
+      "outputTokens": 413
+    },
+    "latencyMs": 5667,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

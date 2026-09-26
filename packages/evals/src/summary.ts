@@ -15,6 +15,7 @@ export interface Summary {
   finalValidRate: number | null; // must be 1: the only blocking number
   answeredPlans: number; // plans where the model returned at least one answer
   firstPassValidRate: number | null; // of answered plans
+  validAfterTidyRate: number | null; // of answered plans, the first answer (tidied or not) was kept
   repairRate: number | null; // of answered plans, share that needed a repair turn
   repairSuccessRate: number | null; // of repairs, share that produced the plan
   fallbackRate: number | null; // share of plans the rules-only planner produced instead
@@ -25,8 +26,10 @@ export interface Summary {
   paceFill: number | null; // visits per day over the pace's cap, mean over plans
   travelMinPerDay: number | null;
   transferMinPerTrip: number | null;
+  mealGapRate: number | null; // days missing a lunch or a dinner over all days, all plans together
   latencyP50Ms: number | null;
   latencyP95Ms: number | null;
+  latencyMaxMs: number | null;
   avgInputTokens: number | null;
   avgOutputTokens: number | null;
   avgCostUsd: number | null;
@@ -83,12 +86,19 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
   const placeable = must.reduce((sum, c) => sum + c.placeable, 0);
   const latencies = present(measures.map((m) => m.latencyMs));
   const cases = caseTotals(measures);
+  const firstAnswerKept = answered.filter(
+    (m) =>
+      !m.repairTried &&
+      m.fallbackReason === null &&
+      (m.source === "ai" || m.source === "ai_repaired"),
+  );
   const passedCases = cases.filter((c) => c.passedRuns === c.runs);
   return {
     plans: measures.length,
     finalValidRate: rate(measures.filter((m) => m.shape?.finalValid).length, measures.length),
     answeredPlans: answered.length,
     firstPassValidRate: rate(answered.filter((m) => m.firstPassValid).length, answered.length),
+    validAfterTidyRate: rate(firstAnswerKept.length, answered.length),
     repairRate: rate(repairs.length, answered.length),
     repairSuccessRate: rate(
       repairs.filter((m) => m.source === "ai_repaired").length,
@@ -102,8 +112,13 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
     paceFill: mean(shapes.map((s) => s.visitsPerDay / s.paceCap)),
     travelMinPerDay: mean(shapes.map((s) => s.travelMinPerDay)),
     transferMinPerTrip: mean(shapes.map((s) => s.transferMinPerTrip)),
+    mealGapRate: rate(
+      shapes.reduce((sum, s) => sum + s.daysMissingMeal, 0),
+      shapes.reduce((sum, s) => sum + s.days, 0),
+    ),
     latencyP50Ms: percentile(latencies, 50),
     latencyP95Ms: percentile(latencies, 95),
+    latencyMaxMs: percentile(latencies, 100),
     avgInputTokens: mean(present(measures.map((m) => m.inputTokens))),
     avgOutputTokens: mean(present(measures.map((m) => m.outputTokens))),
     avgCostUsd: mean(present(measures.map((m) => m.costUsd))),

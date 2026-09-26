@@ -49,7 +49,7 @@ function device(name: string, descriptor: (typeof devices)[string], layout: Layo
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } };
 
 const localProjects: Project[] = [
-  // Brief section 7: the phones, tablets and desktop the app is designed for.
+  // The phones, tablets and desktop the app is designed for (docs/testing.md).
   device("webkit-iphone-se", devices["iPhone SE (3rd gen)"], "map-below"),
   device("webkit-iphone-15-pro", devices["iPhone 15 Pro"], "map-below"),
   device("webkit-ipad-pro-11", devices["iPad Pro 11"], "map-below"),

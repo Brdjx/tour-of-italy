@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "lake-como-july",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:00:42.198Z",
+  "candidateHash": "sha256:9472b60543fc33bf105ea38abf949701dee790b6ffc06f9a79c27e8f750cca9c",
+  "request": {
+    "startDate": "2027-07-13",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 3,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"milan\",\"placeIds\":[\"place_085\",\"place_063\",\"place_061\"],\"reasons\":[{\"placeId\":\"place_085\",\"reason\":\"Scenic lakefront viewpoint perfect for a relaxing outdoor morning.\"},{\"placeId\":\"place_063\",\"reason\":\"Stunning lakeside village with scenic, romantic outdoor views.\"},{\"placeId\":\"place_061\",\"reason\":\"Local trattoria serving an iconic Milanese dish for dinner.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_055\",\"place_060\",\"place_094\",\"place_082\",\"place_100\"],\"reasons\":[{\"placeId\":\"place_055\",\"reason\":\"Iconic cathedral with sweeping historic views over the city.\"},{\"placeId\":\"place_060\",\"reason\":\"Elegant historic gallery with photogenic architecture and scenic charm.\"},{\"placeId\":\"place_094\",\"reason\":\"Rooftop viewpoint offering scenic, photogenic panoramas of Milan.\"},{\"placeId\":\"place_082\",\"reason\":\"Casual restaurant convenient for a midday lunch break.\"},{\"placeId\":\"place_100\",\"reason\":\"Evening walk through local bars for an authentic aperitivo experience.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_064\",\"place_098\",\"place_057\"],\"reasons\":[{\"placeId\":\"place_064\",\"reason\":\"Scenic lakeside villa with outdoor gardens and romantic historic views.\"},{\"placeId\":\"place_098\",\"reason\":\"Quiet historic basilica offering cultural and artistic interest.\"},{\"placeId\":\"place_057\",\"reason\":\"Scenic canal-side neighborhood ideal for an evening stroll and dinner.\"}]}],\"summary\":\"A mix of Milan's iconic sights and nearby Lake Como's scenic outdoor beauty, balanced across three days. Meals and views are spread evenly to keep each day relaxed yet varied.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 3820,
+      "outputTokens": 641
+    },
+    "latencyMs": 6931,
+    "model": "claude-sonnet-5"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "family-quiet",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:59:41.841Z",
+  "candidateHash": "sha256:645d63a1ada520bb0f24a1645f8c3caf2344f3a69df097a072aabefb660c30fd",
+  "request": {
+    "startDate": "2027-06-06",
+    "pace": "relaxed",
+    "interests": ["family-friendly", "outdoors", "quiet"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 19,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_080\",\"place_097\",\"place_020\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_080\",\"reason\":\"A relaxing park ideal for a quiet, family-friendly outdoor morning.\"},{\"placeId\":\"place_097\",\"reason\":\"A quiet scenic viewpoint perfect for an easy stroll.\"},{\"placeId\":\"place_020\",\"reason\":\"A local-favorite restaurant offering a relaxing lunch.\"},{\"placeId\":\"place_009\",\"reason\":\"A romantic, local-favorite restaurant for a quiet evening dinner.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_014\",\"place_002\",\"place_022\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_014\",\"reason\":\"A hidden-gem viewpoint offering a quiet scenic outlook.\"},{\"placeId\":\"place_002\",\"reason\":\"A charming neighborhood great for a relaxed outdoor walk.\"},{\"placeId\":\"place_022\",\"reason\":\"A local-favorite spot for a leisurely lunch.\"},{\"placeId\":\"place_003\",\"reason\":\"A hidden-gem restaurant perfect for a quiet dinner.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_007\",\"place_015\",\"place_042\"],\"reasons\":[{\"placeId\":\"place_007\",\"reason\":\"A splurge-worthy museum with iconic art, good for a calm morning.\"},{\"placeId\":\"place_015\",\"reason\":\"A local market offering a relaxed, food-focused lunch stop.\"},{\"placeId\":\"place_042\",\"reason\":\"A hidden-gem restaurant for a quiet, local dinner.\"}]}],\"summary\":\"A relaxed Rome-based trip focused on quiet outdoor spots, local neighborhoods, and family-friendly parks, with meals kept authentic and unhurried.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 10763,
+      "outputTokens": 618
+    },
+    "latencyMs": 6216,
+    "model": "claude-sonnet-5"
+  }
+}

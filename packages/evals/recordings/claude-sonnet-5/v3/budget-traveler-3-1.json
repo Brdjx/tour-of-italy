@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "budget-traveler",
+  "run": 3,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:59:04.347Z",
+  "candidateHash": "sha256:eba74c12e1313ba7e4f1b709be531d909cf5bdc3af5840d555a3da190d68e45c",
+  "request": {
+    "startDate": "2026-11-07",
+    "pace": "balanced",
+    "interests": ["food", "historic"],
+    "maxPriceLevel": 1,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 6,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_040\",\"place_027\",\"place_101\",\"place_030\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Iconic and photogenic cathedral exterior in the historic center.\"},{\"placeId\":\"place_040\",\"reason\":\"Hidden-gem historic church with scenic morning views.\"},{\"placeId\":\"place_027\",\"reason\":\"Iconic viewpoint with scenic photogenic views over the city.\"},{\"placeId\":\"place_101\",\"reason\":\"Quiet, rainy-day museum full of historic art.\"},{\"placeId\":\"place_030\",\"reason\":\"Local-favorite morning market great for food lovers.\"},{\"placeId\":\"place_037\",\"reason\":\"Local-favorite evening spot for an easy dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_036\",\"place_084\",\"place_089\"],\"reasons\":[{\"placeId\":\"place_036\",\"reason\":\"Historic, art-filled basilica important to Florence's cultural core.\"},{\"placeId\":\"place_084\",\"reason\":\"Iconic photogenic bridge steeped in history.\"},{\"placeId\":\"place_089\",\"reason\":\"Scenic historic day trip for a romantic countryside escape.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_031\"],\"reasons\":[{\"placeId\":\"place_031\",\"reason\":\"Lively food market experience for a relaxed final day.\"}]}],\"summary\":\"A Florence-based balanced trip blending iconic sights, hidden historic gems, and local food experiences. Some traveler notes outside the candidate list could not be honored.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 7538,
+      "outputTokens": 534
+    },
+    "latencyMs": 6913,
+    "model": "claude-sonnet-5"
+  }
+}

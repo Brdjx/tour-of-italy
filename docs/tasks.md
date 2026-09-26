@@ -12,6 +12,7 @@ Statuses:
 - `done`: merged, with the evidence listed
 - `blocked`: waiting on something outside the task (the note says what)
 - `cut`: deliberately not done, with the reason (scope judgment is part of the record)
+- `deferred`: not done for this submission and kept for later, with the reason
 
 ## Phase 0: scaffold
 
@@ -50,7 +51,7 @@ Statuses:
 | Id | Task | Status | Evidence |
 |---|---|---|---|
 | T18 | Hono routes: health, meta, places, data issues, plan | done | 3e49bf2 |
-| T19 | Claude client: structured outputs, per-model settings, fixture client | done | 3e49bf2; live call blocked by key scope, see T58 |
+| T19 | Claude client: structured outputs, per-model settings, fixture client | done | 3e49bf2; the first live call waited on a workspace-scoped key (T58, done) |
 | T20 | Plan orchestration: shortlist, select, validate, repair, fallback | done | 3e49bf2 |
 | T21 | Reason sanitizing and rule-based reasons | done | 3e49bf2 |
 | T22 | Logging, request ids, cache, rate limit, origin check, error handling | done | 3e49bf2 |
@@ -84,9 +85,9 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T38 | CI: verify, infrastructure checks, secret scan, Terraform plan on pull requests | done | ci.yml green on GitHub (9 jobs incl. WebKit E2E and gitleaks) |
+| T38 | CI: verify, infrastructure checks, secret scan, Terraform plan on pull requests | done | ci.yml green on GitHub (9 jobs incl. WebKit E2E and gitleaks); E2E moved to its own workflow in 6038aa2 |
 | T39 | Deploy workflow with post-deploy smoke checks | done | deploy run 36003028360: gate, build, OIDC deploy, prod smoke all green |
-| T40 | Eval workflow | review | actionlint clean; not yet run on GitHub |
+| T40 | Eval workflow | review | actionlint clean; started by hand only since 22f798e (T81); not yet run on GitHub, the live runs so far are local (T49) |
 | T41 | Dependabot, code owners, pull request template, actions pinned to commit hashes | review | every action pinned to a verified commit hash |
 
 ## Deploy
@@ -103,15 +104,15 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T47 | Fifteen eval cases using real place ids | done | 504ec03; 15 cases on real places |
-| T48 | Live eval runner with recordings, replayed in CI without network | done | 504ec03; replay 100% final valid, 11/11 guardrail recordings |
-| T49 | Compare Sonnet 5, Haiku 4.5, and the rules-only baseline | todo | |
+| T47 | Sixteen eval cases using real place ids | done | 504ec03 with 15 cases; 6ccaa8c added rome-sunday-balanced, the owner's failed request |
+| T48 | Live eval runner with recordings, replayed in CI without network | done | 504ec03; replay 100% final valid; 12/12 guardrail recordings end as named (the 12th from 6ccaa8c) |
+| T49 | Compare Sonnet 5, Haiku 4.5, and the rules-only baseline | done | 0219a78, a03235d: 48 Sonnet 5 and 32 Haiku 4.5 live plans on 16 cases, all final valid; valid after tidying 100% and 72%, fallbacks 0 and 2, days missing a meal 26% and 72% (rules-only 19%); about $1.60 |
 
 ## Phase 8: docs
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | in progress | README, architecture, decisions, testing done (ac3e79f); write-up waits for live eval numbers |
+| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | review | architecture, decisions, testing from ac3e79f; README results table and quickstart from 329246f; AI usage log in `docs/ai-usage-log.md` |
 
 ## Phase 9: final pass
 
@@ -137,17 +138,19 @@ Statuses:
 | T68 | Live AI path: Sonnet 5 exceeds the 24 s limit on the real request; Haiku 4.5 fails validation twice | done | 418afb3 turns Sonnet 5's thinking off for the plan request; cd1c501, 7c56ecb and ee1d258 tidy what the model cannot see. On the 90 recorded first answers of 2026-09-25, 85 pass the check after tidying (7 as written); a live plan on 2026-09-25 answered in 11.8 s as ai_repaired |
 | T69 | Next design phase: no top navbar; the trip summary, Edit trip, Copy link and the planned with or without AI line share one compact row | done | d710fa4 and 09e53b9: the trip header replaces the bar; on phones Edit trip and Copy link are labelled pills in one row |
 | T70 | Edit trip opens a full-screen overlay over a softly blurred page, with its own entrance and exit motion | done | d710fa4: Edit trip and More options are native dialog sheets over a blurred page (bottom sheets on phones, the page receding), with Start a new trip |
-| T71 | About this data opens a full-screen overlay with far more detailed data | todo | owner feedback 2026-09-24 |
-| T72 | Richer colourways within the design language | todo | owner feedback 2026-09-24 |
-| T73 | A detailed per-day skeleton for the itinerary on desktop, tablet and phone | todo | owner feedback 2026-09-24 |
+| T71 | About this data opens a full-screen overlay with far more detailed data | done | 26fc9e6: a tall sheet on phones and a 760px panel from 768px, with places by base and type, every kind of note, hours by source, summaries and all credits |
 | T74 | Why lines that add information: rule lines say what the stop's date means for it; AI lines that contradict the stop as timed give way to the rule line, on the server and after every edit on the page | done | ea288f1, f97d2ca, de29c77; sweeps found no false or unprovable rule line and no false AI line after about 15,300 random edits |
 | T75 | The default rules-only plan's first day can end without dinner (Rome, Fri 9 Oct 2026, balanced: a fifth visit takes the time) | done | 800d94c: a day still missing a meal gives up its least valuable visit for it; days missing a meal -1.5 points (mixed), -4.6 (must-includes) over three seeds |
 | T76 | Live AI plans fell back when the model repeated places and emptied day 3 (owner's request, 2026-09-25 12:32 UTC) | done | 6ccaa8c: shortlist sized per trip, prompt v2, repair notes, tidy moves; live fallbacks 0 of 112 (8% before), slowest request 12 s |
-| T77 | Copy link saves the exact trip (edits, AI why lines, summary, source) behind a short link, stored in DynamoDB | in progress | owner's call 2026-09-25: saved trip, short link |
-| T78 | Tricolour band and animated flag; Edit trip disabled while planning; stop details and photos in a sheet | in progress | owner's request 2026-09-25 |
-| T79 | Cache AI plans by options across instances (DynamoDB) and in the tab | todo | owner's request 2026-09-25; after T77 |
+| T77 | Copy link saves the exact trip (edits, AI why lines, summary, source) behind a short link, stored in DynamoDB | done | b2e6d65: `POST /api/trips` takes ids only and rebuilds the trip, one table with time to live, a `?t=` link (decision 12) |
+| T78 | Tricolour band and animated flag; Edit trip disabled while planning; stop details and photos in a sheet | done | 78d6a2a; c4997c7 keeps the flag waving under a mouse |
+| T79 | Cache AI plans by options across instances (DynamoDB) and in the tab | done | b2e6d65: the tab (20 plans), the instance (100) and the table (7 days), keyed on `planRequestKey` (decision 14) |
+| T80 | Code comments cite committed docs, never the private brief | done | 4d8d5c5: 13 comments reworded, no behaviour change |
+| T81 | The live eval workflow runs only when started by hand | done | 22f798e: the weekly schedule removed, `workflow_dispatch` kept |
 
 ## Cut or deferred
 
 | Id | Task | Status | Reason |
 |---|---|---|---|
+| T72 | Richer colourways within the design language | cut | The page keeps ink and gold, with the flag's colours only on the tricolour band and mark (78d6a2a); more colourways did not fit before submission. |
+| T73 | A detailed per-day skeleton for the itinerary on desktop, tablet and phone | deferred | The plan skeleton (`PlanSkeleton.tsx`, from T61, reshaped in cb38379 and d710fa4) already draws day tabs, the day heading, stop rows with times and the map in the plan's own layout on every screen; a separate design per device was not built. |

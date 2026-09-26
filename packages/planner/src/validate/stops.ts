@@ -113,8 +113,8 @@ function travelOrigin(
  * Every stop must fit the pace's day window after the transfer, meals included, and the first
  * stop cannot start before the traveler could get there from the base.
  */
-// Decision: meals are inside the window too (brief section 3: one window, meals inside it), so
-// the rule is the same for every role and matches withinDayWindow in constraints.ts.
+// Decision: meals are inside the window too (docs/decisions.md: one day window, meals inside
+// it), so the rule is the same for every role and matches withinDayWindow in constraints.ts.
 function checkWindow(
   current: TimedStop,
   stopIndex: number,

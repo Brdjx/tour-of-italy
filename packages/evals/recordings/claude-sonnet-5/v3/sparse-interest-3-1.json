@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "sparse-interest",
+  "run": 3,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:03:03.614Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 14,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_016\",\"place_004\",\"place_022\",\"place_002\",\"place_008\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"Iconic ancient amphitheater and a lively must-see landmark.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic historic hill with great views near the Forum.\"},{\"placeId\":\"place_004\",\"reason\":\"Iconic ruins showing the heart of ancient Rome.\"},{\"placeId\":\"place_022\",\"reason\":\"Local-favorite spot for a lively lunch with great food and wine.\"},{\"placeId\":\"place_002\",\"reason\":\"Lively, scenic neighborhood full of local energy.\"},{\"placeId\":\"place_008\",\"reason\":\"Photogenic historic square lively with evening crowds.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_010\",\"place_017\",\"place_019\",\"place_018\",\"place_003\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_010\",\"reason\":\"World-class art collection, a rainy-day and cultural icon.\"},{\"placeId\":\"place_017\",\"reason\":\"Historic riverside fortress with scenic views.\"},{\"placeId\":\"place_019\",\"reason\":\"Iconic photogenic steps in the heart of the city.\"},{\"placeId\":\"place_018\",\"reason\":\"Iconic fountain, lively with tourists and photo spots.\"},{\"placeId\":\"place_003\",\"reason\":\"Local-favorite Trastevere trattoria for a lively lunch.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic evening restaurant in lively Trastevere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_006\",\"place_007\",\"place_080\",\"place_042\",\"place_020\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Iconic ancient temple full of lively tourist energy.\"},{\"placeId\":\"place_006\",\"reason\":\"Lively morning market for local food and atmosphere.\"},{\"placeId\":\"place_007\",\"reason\":\"Splurge-worthy museum with a stunning art collection.\"},{\"placeId\":\"place_080\",\"reason\":\"Relaxing park great for a lively outdoor break.\"},{\"placeId\":\"place_042\",\"reason\":\"Hidden-gem trattoria loved by locals for authentic food.\"},{\"placeId\":\"place_020\",\"reason\":\"Lively local restaurant known for great evening dining.\"}]}],\"summary\":\"A Rome-based trip mixing iconic ruins, world-class museums, and lively neighborhoods with local dining each day.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 10637,
+      "outputTokens": 832
+    },
+    "latencyMs": 8874,
+    "model": "claude-sonnet-5"
+  }
+}

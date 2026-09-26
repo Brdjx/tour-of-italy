@@ -126,7 +126,7 @@ function nearestBase(place: AnchorSource, bases: Draft[]): Draft | null {
  * place, because the placeholder says nothing about where it is.
  */
 // Decision: orphan cities do not absorb each other as day trips. That would need a second pass
-// with its own tie rules for a case the data does not have; the brief asks for "its own base".
+// with its own tie rules for a case the data does not have, so each keeps its own base.
 function orphanBases(orphans: AnchorSource[]): Draft[] {
   const drafts: Draft[] = [];
   for (const [city, members] of groupByCity(orphans)) {

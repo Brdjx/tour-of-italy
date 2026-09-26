@@ -5,17 +5,40 @@ A trip planner that turns a list of 103 places in Italy into a three-day itinera
 - Web app: https://italy-planner.brdjx.com
 - Public API: https://api.italy-planner.brdjx.com (for example `/health`, `/places`, `POST /plan`, `POST /trips`, `GET /trips/<id>`; see [docs/deploy.md](docs/deploy.md#why-two-hostnames))
 
+## Results
+
+Live evals on 16 cases, replayed through the current code. Full report: [packages/evals/results/latest.md](packages/evals/results/latest.md).
+
+| Planner | Plans | Valid as written | Valid after tidying | Fell back | Model time, median / slowest | Cost per plan | Days missing a lunch or dinner |
+|---|---|---|---|---|---|---|---|
+| Claude Sonnet 5 (default) | 48 | 4% (2/48) | 100% (48/48) | 0% (0/48) | 8.1 s / 10.5 s | $0.024 | 26% |
+| Claude Haiku 4.5 | 32 | 22% (7/32) | 72% (23/32) | 6% (2/32) | 5.8 s / 14.4 s | $0.013 | 72% |
+| Rules-only | 16 | n/a | n/a | n/a | no model call | $0 | 19% |
+
+- Recorded on the evening of 2026-09-25 (the report shows the UTC date, 2026-09-26), prompt v3, production settings: 15 s per call, a 24 s deadline, at most one repair. Sonnet 5 ran each case 3 times, Haiku 4.5 twice.
+- Every plan a traveler gets passes the validator: final valid is 100% in every row, and CI replays these recordings on every push and fails otherwise.
+- Valid as written is low because code, not the model, times each stop. The model sees each place's opening hours but not the time its order gives each stop, so a place often lands at an hour it is closed (`CLOSED_AT_TIME`) or outside the day's window (`OUTSIDE_DAY_WINDOW`). The tidy step reorders or drops it before the check. The evals still count that as the model's mistake.
+- Valid after tidying: the first answer became the plan, with no repair turn and no fallback. Haiku 4.5 needed a repair on 9 plans, and 2 still fell back to the rules-only plan.
+- Cases meeting every expectation, in the full report: Sonnet 5 0 of 16, Haiku 4.5 4, rules-only 10. Most cases forbid a stop at a closed hour and judge the answer as written, so a stop the tidy step fixed still fails its case. Two cases want the summary to say a request was not possible. Every answer said so, but the summary guard dropped that sentence each time: it drops any sentence with a capitalized word the place data never uses, such as Eiffel or Amalfi.
+- AI plans skip more meals than the rules-only planner: 26% of Sonnet 5's days lack a lunch or a dinner, against 19%. Haiku 4.5 is faster at the median but misses a meal on most days, so Sonnet 5 stays the default.
+- Costs are estimates from list prices checked on 2026-09-24 ($2 and $10 per million input and output tokens for Sonnet 5, $1 and $5 for Haiku 4.5). The whole run cost about $1.60.
+
 ## Quickstart
 
-Requires Node 24 and pnpm 12 (`corepack enable` sets it up).
+Requires Node 24 and pnpm 12.6 (`corepack enable` picks up the version pinned in `package.json`).
 
 ```sh
-pnpm install && pnpm dev
+pnpm install
+LLM_MODE=fixture pnpm dev
 ```
 
-Open http://localhost:3000. The API runs at http://localhost:8787 (try `/api/health`).
+Open http://localhost:3000. The API runs at http://localhost:8787 (try `/api/health`). Both ports are fixed: the web dev server uses 3000, and the local API accepts the page only from there.
 
-No API key is needed. Without one, every trip comes from the rules-only planner and the page says so. To turn on the AI planner locally, copy `.env.example` to `.env` at the repository root and set `ANTHROPIC_API_KEY`. The local API listens on 127.0.0.1 only.
+- `LLM_MODE=fixture` runs the AI path with no key and no network. The API answers with scripted model answers, so the page says "Planned with AI", but no model chose those places.
+- Add `?mode=deterministic` to the page's address (http://localhost:3000/?mode=deterministic) to plan with the rules-only planner.
+- With no `LLM_MODE` and no key, every trip comes from the rules-only planner and the page says so. To plan with Claude, copy `.env.example` to `.env` at the repository root and set `ANTHROPIC_API_KEY`. The local API listens on 127.0.0.1 only.
+- The map's basemap tiles are not in the repository (one 140 MB file, served from the site's bucket in production). A local run draws the stops and routes on a blank background.
+- `pnpm check` runs lint, typecheck, and the unit and integration tests.
 
 | Command | What it does |
 |---|---|
@@ -29,7 +52,9 @@ No API key is needed. Without one, every trip comes from the rules-only planner 
 
 - Plans three days from a start date, a pace, interests, a budget, bases to stay in, places to include and places to skip. Each stop gets a time, the travel from the previous stop, and a reason.
 - Checks every plan against opening hours on the actual dates, meal windows, travel time and the day's pace, and shows what the data could not confirm (estimated hours, approximate locations, seasonal closures).
-- Lets the traveler swap, remove, reorder and undo stops, re-checks each edit in the browser, and shares a plan as a link. It installs as an app and still plans offline.
+- Lets the traveler swap, remove, reorder and undo stops, and re-checks each edit in the browser. It installs as an app and still plans offline.
+- Copy link saves the trip as shown, with the AI's why lines and summary, behind a short link, and the link opens it as saved.
+- Opens each stop and highlight in a sheet (photo and credit, the facts for the date, the listing's own words), the day's map full screen, and About this data as an overlay with every note, source and credit.
 
 ## How planning works
 
@@ -86,7 +111,7 @@ The default model is `claude-sonnet-5`, with `claude-haiku-4-5-20251001` as the 
 
 ## Evals
 
-Eval results: see packages/evals/results/latest.md
+Sixteen cases on real places, each with what a good plan must show: interests matched, nothing on a closed day, must-includes placed, and a summary that says what was not possible. `pnpm eval --model <id> --runs <n>` records live answers (it needs `ANTHROPIC_API_KEY` and spends money). `pnpm eval:replay` replays every recording through the current code with no network and rewrites [latest.md](packages/evals/results/latest.md). CI runs the replay on every push, with 12 hand-written bad answers (a refusal, a timeout, injected notes, places outside the data) that must each end in a valid plan by the path they name. The live eval workflow runs only when started by hand. Results are at the top of this page.
 
 ## Project layout
 
@@ -110,7 +135,7 @@ pnpm test:props      # planner property tests at 5,000 runs
 pnpm test:e2e        # Playwright on six device profiles plus the installed app
 ```
 
-Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+`pnpm test` runs 3,121 tests in 189 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Deploy
 

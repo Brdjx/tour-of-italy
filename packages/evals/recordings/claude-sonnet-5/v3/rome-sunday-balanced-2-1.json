@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "rome-sunday-balanced",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:02:27.570Z",
+  "candidateHash": "sha256:8e80640b4352bdc2229dccea76b8752be5d7e03420e70e07859c8999c8509aaf",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": [],
+    "maxPriceLevel": null,
+    "anchors": ["rome"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 3,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_004\",\"place_001\",\"place_016\",\"place_003\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_004\",\"reason\":\"Iconic ancient ruins with rich historic and cultural significance.\"},{\"placeId\":\"place_001\",\"reason\":\"The Colosseum is an iconic, tourist-heavy historic landmark.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic hill offering views over the Roman Forum area.\"},{\"placeId\":\"place_003\",\"reason\":\"Local-favorite restaurant for a relaxing lunch in Trastevere.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic evening dinner spot beloved by locals.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_010\",\"place_017\",\"place_015\",\"place_042\",\"place_020\"],\"reasons\":[{\"placeId\":\"place_010\",\"reason\":\"World-class art and cultural museum, great for a rainy day.\"},{\"placeId\":\"place_017\",\"reason\":\"Historic fortress with scenic views along the river.\"},{\"placeId\":\"place_015\",\"reason\":\"Local food market perfect for a morning lunch stop.\"},{\"placeId\":\"place_042\",\"reason\":\"Hidden-gem trattoria loved by locals for authentic food.\"},{\"placeId\":\"place_020\",\"reason\":\"Relaxing evening restaurant with a local following.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_018\",\"place_008\",\"place_002\",\"place_099\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Iconic ancient temple admired for its cultural history.\"},{\"placeId\":\"place_018\",\"reason\":\"Photogenic fountain that's a must-see icon of Rome.\"},{\"placeId\":\"place_008\",\"reason\":\"Scenic historic square popular in the evenings.\"},{\"placeId\":\"place_002\",\"reason\":\"Charming romantic neighborhood great for strolling.\"},{\"placeId\":\"place_099\",\"reason\":\"Food market ideal for a relaxed lunch and dinner option.\"}]}],\"summary\":\"A balanced three-day Rome itinerary blending ancient history, art, and local neighborhoods with one central base.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 4819,
+      "outputTokens": 718
+    },
+    "latencyMs": 7151,
+    "model": "claude-sonnet-5"
+  }
+}

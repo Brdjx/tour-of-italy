@@ -247,7 +247,7 @@ Revisit if: the model's answers should vary between asks (a "plan again" that sk
 - **`samconfig.toml` is the single source of deploy parameters**; CI appends `GitSha` last.
 - **Pull requests cancel superseded runs; every push to `main` gets its own run.**
 - **Accepted scanner findings are suppressed inline** with a reason, never in a central ignore file.
-- **Live evals never run on pull requests** and never gate a merge or a deploy; CI runs the offline replay, which enforces plan validity only; model quality numbers are reported, not enforced.
+- **Live evals never run on pull requests or on a schedule** and never gate a merge or a deploy; the eval workflow is started by hand, so nothing spends on the key unattended; CI runs the offline replay, which enforces plan validity only; model quality numbers are reported, not enforced.
 
 ### Testing
 

@@ -2,7 +2,7 @@
 
 The tests exist to prove that the ways this product can fail badly cannot happen. Each starts from a failure vector (what would break the product), names the guard in code, and asserts the guard holds. Test names state the failure they prevent, for example `never schedules a stop outside one open range on its date`. Coverage floors apply too, but only as a backstop: a test earns its place by asserting a guard, not by running code.
 
-On 2026-09-24 `pnpm test` ran about 2,200 tests in about 140 files, in under a minute on a laptop. The E2E and infra suites run on top of that. On 2026-09-25 `pnpm test:e2e` ran 312 tests on eight projects in 4 to 5 minutes on a laptop; each test takes 2.3 to 4.5 times as long on the CI runner, so the `e2e` job should take 14 to 18 minutes. It blocks `ci-ok`, so a commit that breaks a user flow does not deploy.
+On 2026-09-25 `pnpm test` ran 3,123 tests in 189 files. The E2E and infra suites run on top of that. On 2026-09-25 `pnpm test:e2e` ran 312 tests on eight projects in 4 to 5 minutes on a laptop; each test takes 2.3 to 4.5 times as long on the CI runner, so the `e2e` job should take 14 to 18 minutes. It blocks `ci-ok`, so a commit that breaks a user flow does not deploy.
 
 ## Failure vectors
 
@@ -72,7 +72,7 @@ The planner runs in browsers in every time zone, and a single `getDay()` instead
 
 ## What is deliberately not tested, and why
 
-- **The live Claude API in CI.** It costs money and its answers vary, so CI uses the scripted client and a fake Messages API over real HTTP (`integration/anthropicHttp.test.ts`). Live behavior is checked on demand with `pnpm --filter @italy/api live-smoke` (it spends real tokens) and measured by the eval workflow (`.github/workflows/eval.yml`, weekly and on demand, outside CI, so it never gates a merge or a deploy).
+- **The live Claude API in CI.** It costs money and its answers vary, so CI uses the scripted client and a fake Messages API over real HTTP (`integration/anthropicHttp.test.ts`). Live behavior is checked on demand with `pnpm --filter @italy/api live-smoke` (it spends real tokens) and measured by the eval workflow (`.github/workflows/eval.yml`, started by hand only, outside CI, so it never gates a merge or a deploy).
 - **Real AWS during tests.** `terraform test` uses mocked providers, so it checks what the code asks for, not what AWS accepts. The real account is checked by the plan job on pull requests and by the post-deploy smoke test.
 - **Real travel times.** The travel model is straight-line distance in four bands. Tests check the model is applied consistently, not that it matches train timetables.
 - **Automated mutation testing of the test suite.** Stryker is not set up. The validator has its own mutation suite (above), which fails if any error code lacks a corruption.

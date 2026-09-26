@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "family-quiet",
+  "run": 1,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:05:54.508Z",
+  "candidateHash": "sha256:645d63a1ada520bb0f24a1645f8c3caf2344f3a69df097a072aabefb660c30fd",
+  "request": {
+    "startDate": "2027-06-06",
+    "pace": "relaxed",
+    "interests": ["family-friendly", "outdoors", "quiet"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 4606,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_097\",\"place_080\",\"place_020\"],\"reasons\":[{\"placeId\":\"place_097\",\"reason\":\"Scenic hilltop viewpoint with panoramic views of Rome and quiet morning atmosphere.\"},{\"placeId\":\"place_080\",\"reason\":\"Large family-friendly park perfect for relaxing walks and outdoor exploration.\"},{\"placeId\":\"place_020\",\"reason\":\"Local favorite restaurant with relaxing evening atmosphere for dinner.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_014\",\"place_002\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_014\",\"reason\":\"Hidden-gem viewpoint with scenic views and photogenic local favorite spot.\"},{\"placeId\":\"place_002\",\"reason\":\"Romantic neighborhood with scenic evening atmosphere and local food culture.\"},{\"placeId\":\"place_009\",\"reason\":\"Local favorite restaurant in Trastevere for romantic evening dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_034\",\"place_029\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Iconic cathedral exterior with stunning architecture and free outdoor viewing.\"},{\"placeId\":\"place_034\",\"reason\":\"Scenic gardens with relaxing walks, views, and family-friendly outdoor spaces.\"},{\"placeId\":\"place_029\",\"reason\":\"Iconic Florentine restaurant for lunch featuring traditional local cuisine.\"}]}],\"summary\":\"A relaxed three-day tour across Rome and Florence emphasizing outdoor spaces, scenic viewpoints, and family-friendly parks. Each day features quiet neighborhoods and local dining experiences with minimal crowds.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 9513,
+      "outputTokens": 375
+    },
+    "latencyMs": 3864,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

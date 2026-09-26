@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "sparse-interest",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:07:40.053Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 46,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_004\",\"place_016\",\"place_022\",\"place_077\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"Iconic ancient amphitheater showcasing Roman engineering and history.\"},{\"placeId\":\"place_004\",\"reason\":\"Historic ruins at the heart of ancient Rome with cultural significance.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic hilltop with views over the Roman Forum and surrounding city.\"},{\"placeId\":\"place_022\",\"reason\":\"Celebrated wine bar and delicatessen with local specialties and atmosphere.\"},{\"placeId\":\"place_077\",\"reason\":\"Illuminated fountain at night creates a romantic and photogenic evening scene.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_032\",\"place_093\",\"place_084\",\"place_029\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_032\",\"reason\":\"Museum housing Michelangelo's David, one of the world's most iconic sculptures.\"},{\"placeId\":\"place_093\",\"reason\":\"Historic cathedral exterior with stunning architecture and free public access.\"},{\"placeId\":\"place_084\",\"reason\":\"Medieval bridge lined with shops, iconic and photogenic historic landmark.\"},{\"placeId\":\"place_029\",\"reason\":\"Upscale traditional restaurant offering Tuscan cuisine and wine in cultural setting.\"},{\"placeId\":\"place_041\",\"reason\":\"Fine dining establishment specializing in wine pairings and romantic atmosphere.\"}]},{\"anchorId\":\"venice\",\"placeIds\":[\"place_074\",\"place_066\",\"place_088\",\"place_096\",\"place_068\"],\"reasons\":[{\"placeId\":\"place_074\",\"reason\":\"Magnificent basilica with Byzantine mosaics and historic art in San Marco.\"},{\"placeId\":\"place_066\",\"reason\":\"Iconic arched bridge spanning the Grand Canal with morning light and views.\"},{\"placeId\":\"place_088\",\"reason\":\"Bell tower offering panoramic views of Venice and surrounding lagoon islands.\"},{\"placeId\":\"place_096\",\"reason\":\"Historic restaurant on San Marco Square with iconic Venetian dining experience.\"},{\"placeId\":\"place_068\",\"reason\":\"Evening cicchetti bar crawl through Cannaregio with wine and local food culture.\"}]}],\"summary\":\"This itinerary showcases Italy's three most vibrant cities: Rome's ancient monuments and evening fountains, Florence's Renaissance art and culinary excellence, and Venice's historic basilicas and lively evening culture. Each day balances iconic sightseeing with lively dining experiences.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 8963,
+      "outputTokens": 588
+    },
+    "latencyMs": 6336,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

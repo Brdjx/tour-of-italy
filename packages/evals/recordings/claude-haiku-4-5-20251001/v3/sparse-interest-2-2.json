@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "sparse-interest",
+  "run": 2,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:07:40.053Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 6385,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_004\",\"place_016\",\"place_022\",\"place_077\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"Iconic ancient amphitheater showcasing Roman engineering and history.\"},{\"placeId\":\"place_004\",\"reason\":\"Historic ruins at the heart of ancient Rome with cultural significance.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic hilltop with views over the Roman Forum and surrounding city.\"},{\"placeId\":\"place_022\",\"reason\":\"Celebrated wine bar and delicatessen with local specialties and atmosphere.\"},{\"placeId\":\"place_077\",\"reason\":\"Illuminated fountain at night creates a romantic and photogenic evening scene.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_032\",\"place_093\",\"place_084\",\"place_029\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_032\",\"reason\":\"Museum housing Michelangelo's David, one of the world's most iconic sculptures.\"},{\"placeId\":\"place_093\",\"reason\":\"Historic cathedral exterior with stunning architecture and free public access.\"},{\"placeId\":\"place_084\",\"reason\":\"Medieval bridge lined with shops, iconic and photogenic historic landmark.\"},{\"placeId\":\"place_029\",\"reason\":\"Upscale traditional restaurant offering Tuscan cuisine and wine in cultural setting.\"},{\"placeId\":\"place_041\",\"reason\":\"Fine dining establishment specializing in wine pairings and romantic atmosphere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_008\",\"place_002\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Perfectly preserved ancient temple with iconic dome and cultural significance.\"},{\"placeId\":\"place_008\",\"reason\":\"Historic piazza with fountains, churches, and lively evening atmosphere.\"},{\"placeId\":\"place_002\",\"reason\":\"Charming neighborhood with cobblestone streets, local restaurants, and romantic ambiance.\"},{\"placeId\":\"place_003\",\"reason\":\"Hidden gem trattoria in Trastevere serving authentic local cuisine and wine.\"}]}],\"summary\":\"This itinerary balances Rome's ancient monuments and lively neighborhoods with Florence's Renaissance masterpieces and culinary excellence. Two bases minimize travel time while maximizing cultural immersion in Italy's most vibrant cities.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 9660,
+      "outputTokens": 543
+    },
+    "latencyMs": 3949,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

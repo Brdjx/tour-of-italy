@@ -60,8 +60,9 @@ jobs:
         run: pnpm build
 
   planner-tz:
-    # Brief F7: any accidental local-time Date use in the planner fails in at least one zone.
-    # Kiritimati is UTC+14 and Los Angeles has DST, so each shifts a date across midnight.
+    # Failure vector F7 (docs/testing.md): any accidental local-time Date use in the planner fails
+    # in at least one zone. Kiritimati is UTC+14 and Los Angeles has DST, so each shifts a date
+    # across midnight.
     name: planner-tz (${{ matrix.tz }})
     runs-on: ubuntu-24.04
     timeout-minutes: 10

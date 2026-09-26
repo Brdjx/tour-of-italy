@@ -6,7 +6,7 @@ import { ReplayClient, ReplayExhaustedError, resultFromRecording } from "../src/
 import { buildLatest, type LatestBuild } from "../src/latest";
 import { LATEST_REPORT, PATHS } from "../src/paths";
 import { groupRuns, type Recording } from "../src/recording";
-import { readRecordings, writeRecording } from "../src/recordingStore";
+import { readRecordings, recordingPath, writeRecording } from "../src/recordingStore";
 import { ReplayClock } from "../src/replayClock";
 import { chooseRecordings, replayRecordings } from "../src/replayRun";
 import { Scrubber } from "../src/scrub";
@@ -17,6 +17,7 @@ import { CASES, caseById, ctx, filesUnder, tempDir } from "./helpers";
 // notice recordings that no longer match today's candidates instead of silently trusting them.
 
 const committed = readRecordings(PATHS.recordings);
+const offline = committed.filter((r) => r.kind !== "live");
 
 function recordingsFor(kind: Recording["kind"], caseId: string): Recording[] {
   return committed.filter((r) => r.kind === kind && r.caseId === caseId);
@@ -32,10 +33,12 @@ describe("replay of the committed recordings", () => {
   let first: LatestBuild;
   beforeAll(async () => {
     first = await buildLatest({ cases: CASES, ctx, recordingsDir: PATHS.recordings });
-  });
+  }, 60_000); // a full replay of every recording: seconds alone, longer under load
 
   it("ends every replayed plan valid, bad answers included (the one blocking check)", () => {
-    expect(first.plans).toBe(28); // 16 simulated cases and 12 guardrail recordings
+    // 16 cases, 3 Sonnet 5 runs and 2 Haiku 4.5 runs each, and 12 guardrail recordings. The
+    // simulated set is not replayed once live recordings exist.
+    expect(first.plans).toBe(16 * 3 + 16 * 2 + 12);
     expect(first.invalidPlans).toBe(0);
   });
 
@@ -63,11 +66,16 @@ describe("replay of the committed recordings", () => {
     expect(JSON.stringify(second.groups)).toBe(JSON.stringify(first.groups));
   }, 60_000); // a second full replay of every recording: seconds alone, longer under load
 
-  it("marks every offline recording as such in its file name", () => {
+  it("marks every offline recording as such in its file name, and no live one", () => {
+    const offlinePath =
+      /\/(simulated|adversarial)\/v\d+\/[a-z0-9-]+-\d+-\d+\.(simulated|adversarial)\.json$/;
+    const livePath = /\/claude-[a-z0-9.-]+\/v\d+\/[a-z0-9-]+-\d+-\d+\.json$/;
     for (const { path } of filesUnder(PATHS.recordings)) {
-      expect(path).toMatch(
-        /\/(simulated|adversarial)\/v\d+\/[a-z0-9-]+-\d+-\d+\.(simulated|adversarial)\.json$/,
-      );
+      expect(path).toMatch(/\/(simulated|adversarial)\//.test(path) ? offlinePath : livePath);
+    }
+    for (const r of committed) {
+      const folder = r.kind === "live" ? r.model : r.kind;
+      expect(recordingPath(PATHS.recordings, r)).toContain(`/${folder}/`);
     }
   });
 });
@@ -146,7 +154,7 @@ describe("stale and partial recordings", () => {
   it("replays live recordings instead of the simulated set once any exist", () => {
     const simulated = recordingsFor("simulated", "splurge");
     const live = simulated.map((r) => ({ ...r, kind: "live" as const, model: "claude-sonnet-5" }));
-    const chosen = chooseRecordings([...committed, ...live]);
+    const chosen = chooseRecordings([...offline, ...live]);
     expect(chosen.some((r) => r.kind === "simulated")).toBe(false);
     expect(chosen.filter((r) => r.kind === "live")).toHaveLength(live.length);
     expect(chosen.filter((r) => r.kind === "adversarial")).toHaveLength(20);

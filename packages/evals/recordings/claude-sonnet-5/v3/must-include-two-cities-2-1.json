@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "must-include-two-cities",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:01:38.056Z",
+  "candidateHash": "sha256:5c3ee0ccf25b7e9b621af54da2b8309f18e8fe20e803d4c80ee93eebf62b52ac",
+  "request": {
+    "startDate": "2026-10-15",
+    "pace": "balanced",
+    "interests": ["art", "historic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_007", "place_026"],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 10,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_007\",\"place_005\",\"place_004\",\"place_001\",\"place_022\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_007\",\"reason\":\"World-class art collection and a must-include highlight of Rome.\"},{\"placeId\":\"place_005\",\"reason\":\"Iconic ancient temple with striking historic architecture.\"},{\"placeId\":\"place_004\",\"reason\":\"Historic heart of ancient Rome with cultural significance.\"},{\"placeId\":\"place_001\",\"reason\":\"Legendary amphitheater and iconic symbol of Rome's history.\"},{\"placeId\":\"place_022\",\"reason\":\"Local favorite offering quality Roman food for lunch.\"},{\"placeId\":\"place_003\",\"reason\":\"Well-loved trattoria for a cultural dinner in Trastevere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_010\",\"place_017\",\"place_008\",\"place_020\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_010\",\"reason\":\"Rich collection of art and history from the Vatican.\"},{\"placeId\":\"place_017\",\"reason\":\"Historic fortress with scenic views along the Tiber.\"},{\"placeId\":\"place_008\",\"reason\":\"Photogenic historic piazza in the heart of Rome.\"},{\"placeId\":\"place_020\",\"reason\":\"Local favorite for a relaxing lunch stop.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic local-favorite restaurant for dinner in Trastevere.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_026\",\"place_036\",\"place_101\",\"place_093\",\"place_033\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_026\",\"reason\":\"World-famous art museum and a must-include highlight of Florence.\"},{\"placeId\":\"place_036\",\"reason\":\"Historic basilica rich with art and cultural heritage.\"},{\"placeId\":\"place_101\",\"reason\":\"Quiet museum showcasing important historic sculpture.\"},{\"placeId\":\"place_093\",\"reason\":\"Iconic photogenic square at the center of Florence.\"},{\"placeId\":\"place_033\",\"reason\":\"Local-favorite restaurant for a cultural lunch experience.\"},{\"placeId\":\"place_041\",\"reason\":\"Romantic splurge dinner with local wine and food.\"}]}],\"summary\":\"A Rome-Florence itinerary balancing iconic art and ancient history across two art-rich cities. Meals highlight local favorites in each base city.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 11159,
+      "outputTokens": 805
+    },
+    "latencyMs": 8371,
+    "model": "claude-sonnet-5"
+  }
+}
