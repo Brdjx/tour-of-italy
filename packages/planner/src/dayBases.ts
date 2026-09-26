@@ -1,6 +1,6 @@
 import type { PlannerContext } from "./context";
 import { newTripErrors, tripErrors } from "./dayChecks";
-import { type DayRefusal, dayTravel, planRoute, type RoutePlan } from "./dayRoute";
+import { type DayRefusal, dayTravel, planRoute, type ReplanWhy, type RoutePlan } from "./dayRoute";
 import { dayMustIncludes, planDay, type ReplanOptions } from "./planDay";
 import { requireIndex } from "./stopEdits";
 import { formatDuration } from "./travel";
@@ -21,6 +21,13 @@ import { dayText, dayTitle } from "./validate/text";
 // owner asked for a city a day even when it costs travel, so those are warnings now, with the
 // travel as facts, and the next day is planned again instead.
 
+/** What choosing a city does to another day of the route, as routeOptions says it. */
+export interface OtherDayNote {
+  day: number; // 0-based
+  replan: ReplanWhy | null; // planned again, and why; null when it keeps its places at a new start
+  note: string; // the day's note ("Day 3 will be planned again: it now starts after 2 h 10 min of travel.")
+}
+
 /** One city a day can take, or the reason it cannot. */
 export interface DayBaseOption {
   anchorId: string;
@@ -35,6 +42,7 @@ export interface DayBaseOption {
   transferOutMin: number; // travel from this base to the next day's base, 0 when none
   warnings: string[]; // the facts: this day's travel, then what happens to the other days
   replans: number[]; // the other days (0-based) this choice plans again, in order
+  others: OtherDayNote[]; // the other days this choice touches, in order; their notes end `warnings`
 }
 
 /** The verdict for one base, with the rules-only day planned there when it is allowed. */
@@ -111,8 +119,10 @@ export function routeOptions(
 /** One route's verdict as an option for one of its days. */
 function routeOption(plan: RoutePlan, dayIndex: number, current: boolean): DayBaseOption {
   const day = plan.days[dayIndex] as RoutePlan["days"][number];
-  const others = plan.days.flatMap((other) =>
-    other.day !== dayIndex && other.note !== null ? [other.note] : [],
+  const others = plan.days.flatMap((other): OtherDayNote[] =>
+    other.day !== dayIndex && other.note !== null
+      ? [{ day: other.day, replan: other.replan, note: other.note }]
+      : [],
   );
   const option: DayBaseOption = {
     anchorId: day.anchorId,
@@ -121,8 +131,9 @@ function routeOption(plan: RoutePlan, dayIndex: number, current: boolean): DayBa
     allowed: plan.allowed,
     transferInMin: day.travelIn?.minutes ?? 0,
     transferOutMin: day.travelOut?.minutes ?? 0,
-    warnings: [...day.warnings, ...others],
+    warnings: [...day.warnings, ...others.map((other) => other.note)],
     replans: plan.replan.filter((index) => index !== dayIndex),
+    others,
   };
   const refusal = plan.refusal;
   if (refusal === null) return option;
@@ -160,6 +171,7 @@ function checkWith(
     transferOutMin: travel.travelOut?.minutes ?? 0,
     warnings: travel.warnings,
     replans: [],
+    others: [],
   };
   const refuse = (refusal: DayRefusal, reason: string, fix: string): DayBaseCheck => ({
     option: { ...option, allowed: false, reason, fix, refusal },

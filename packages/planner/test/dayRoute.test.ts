@@ -464,6 +464,9 @@ describe("routeOptions", () => {
         "Leaves about 7 h 30 min before dinner.",
         "Day 2 will be planned in Florence.",
       ],
+      // The other days' notes end the warnings, each with its day and why, so a list can say
+      // each fact once.
+      others: [{ day: 1, replan: "city", note: "Day 2 will be planned in Florence." }],
     });
   });
 

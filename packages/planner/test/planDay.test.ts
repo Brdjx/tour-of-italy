@@ -158,6 +158,7 @@ describe("dayBaseOptions", () => {
       transferOutMin: 0,
       warnings: [],
       replans: [],
+      others: [],
     });
     // The last day of a trip can always move: no later day has to fit after it.
     expect(options.every((o) => o.allowed && o.replans.length === 0)).toBe(true);
@@ -204,6 +205,13 @@ describe("dayBaseOptions", () => {
         "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
       ],
       replans: [2],
+      others: [
+        {
+          day: 2,
+          replan: "travel",
+          note: "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
+        },
+      ],
     });
     // Planned alone, the day cannot move: day 3 is not planned again, so it would not fit.
     const alone = checkDayBase(req, days, 1, "florence", ctx);
