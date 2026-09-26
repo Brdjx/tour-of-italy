@@ -80,6 +80,7 @@ describe("latest.md", () => {
     );
     expect(md).not.toContain("own choices");
     expect(rowOf(md, "Model time p50 / p95")).toBe("| Model time p50 / p95 | n/a | n/a |");
+    expect(rowOf(md, "Slowest model time")).toBe("| Slowest model time | n/a | n/a |");
     expect(rowOf(md, "Estimated cost per plan")).toBe("| Estimated cost per plan | n/a | $0 |");
   });
 
@@ -93,6 +94,13 @@ describe("latest.md", () => {
     expect(rowOf(md, "Fell back to rules-only")).toContain("50% (1/2)");
     expect(rowOf(md, "Fallback reasons")).toContain("timeout 1");
     expect(rowOf(md, "First-pass valid")).toBe("| First-pass valid | 50% (1/2) | n/a |");
+    expect(rowOf(md, "Valid after tidying, no repair")).toBe(
+      "| Valid after tidying, no repair | 50% (1/2) | n/a |",
+    );
+    expect(rowOf(md, "Slowest model time")).toBe("| Slowest model time | 12.0 s | n/a |");
+    expect(rowOf(md, "Days missing a lunch or dinner")).toBe(
+      "| Days missing a lunch or dinner | 0% | 0% |",
+    );
   });
 
   it("warns when a model ran only some of the cases, so its totals are not compared blindly", () => {

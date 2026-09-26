@@ -56,6 +56,10 @@ function casesPassedText(s: Summary): string {
 const ROWS: Row[] = [
   ["Plans", (s) => String(s.plans)],
   ["First-pass valid", (s, r) => modelOnly(r, () => count(s.firstPassValidRate, s.answeredPlans))],
+  [
+    "Valid after tidying, no repair",
+    (s, r) => modelOnly(r, () => count(s.validAfterTidyRate, s.answeredPlans)),
+  ],
   ["Final valid (must be 100%)", (s) => count(s.finalValidRate, s.plans)],
   ["Needed a repair", (s, r) => modelOnly(r, () => count(s.repairRate, s.answeredPlans))],
   ["Repairs that worked", (s, r) => modelOnly(r, () => percent(s.repairSuccessRate))],
@@ -66,10 +70,12 @@ const ROWS: Row[] = [
   ["Visits per day", (s) => `${decimal(s.visitsPerDay)} (${percent(s.paceFill)} of pace cap)`],
   ["Travel per day", (s) => minutes(s.travelMinPerDay)],
   ["Transfer time per trip", (s) => minutes(s.transferMinPerTrip)],
+  ["Days missing a lunch or dinner", (s) => percent(s.mealGapRate)],
   [
     "Model time p50 / p95",
     (s, r) => liveOnly(r, () => `${seconds(s.latencyP50Ms)} / ${seconds(s.latencyP95Ms)}`),
   ],
+  ["Slowest model time", (s, r) => liveOnly(r, () => seconds(s.latencyMaxMs))],
   [
     "Tokens in / out per plan",
     (s, r) => liveOnly(r, () => `${tokens(s.avgInputTokens)} / ${tokens(s.avgOutputTokens)}`),
@@ -187,11 +193,12 @@ function banner(columns: readonly Column[], caseCount: number): string[] {
 const NOTES = [
   "## How to read this",
   "",
-  "- First-pass valid: the model's first answer became the plan exactly as written, with nothing tidied and no repair. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.",
+  "- First-pass valid: the model's first answer became the plan exactly as written, with nothing tidied and no repair. Valid after tidying: the first answer became the plan, tidied or not, with no repair turn and no fallback. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.",
   "- Preference match: share of non-meal stops with at least one requested interest. Must-includes placed: in the model's first answer (in the plan, for the baseline), since the final plan always has them.",
   "- A check that cannot apply is not run, and a case passed without it says so: the rules-only planner writes no summary, so its summary checks are never run, while a model column must pass them.",
   "- Travel per day: legs between stops and back to the base. Transfer time: moving between bases.",
-  "- Model time: the recorded call times of a plan, failed and timed-out calls included, summed. The end-to-end latency of a live run is in its results file.",
+  "- Days missing a lunch or dinner: days the validator warns have no lunch or no dinner stop (MEAL_MISSING), over all days of all plans. An outing that runs through a meal counts as that meal.",
+  "- Model time: the recorded call times of a plan, failed and timed-out calls included, summed. p50 is the median plan, p95 the nearest-rank 95th percentile, slowest the one slowest plan. The end-to-end latency of a live run is in its results file.",
   `- Costs are estimates from prices checked on ${PRICING_CHECKED_ON}. Check ${PRICING_SOURCE} before quoting them.`,
   "- Regenerate with `pnpm eval:replay` (offline). Record live answers with `pnpm eval --model <id>`.",
 ];

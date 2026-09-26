@@ -72,6 +72,8 @@ export function measure(overrides: Partial<PlanMeasure> = {}): PlanMeasure {
       travelMinPerDay: 60,
       transferMinPerTrip: 0,
       anchors: 1,
+      days: 3,
+      daysMissingMeal: 0,
     },
     mustInclude: { placed: 0, placeable: 0 },
     latencyMs: null,

@@ -6,6 +6,7 @@ import {
   PACE,
   type PlannerContext,
   type PlanSource,
+  validateItinerary,
   validationErrors,
 } from "@italy/planner";
 import type { CheckResult } from "./expectations";
@@ -23,6 +24,8 @@ export interface PlanShape {
   travelMinPerDay: number; // legs between stops plus the way back to the base, per day
   transferMinPerTrip: number; // time moving between bases, whole trip
   anchors: number; // distinct bases
+  days: number;
+  daysMissingMeal: number; // days with no lunch or no dinner, as the validator's MEAL_MISSING says
 }
 
 export interface MustIncludeCount {
@@ -74,6 +77,20 @@ export function preferenceMatch(itinerary: Itinerary, ctx: PlannerContext): numb
   return visits === 0 ? null : matched / visits;
 }
 
+/**
+ * Days with no lunch or no dinner stop. An outing under way through a meal's whole window counts
+ * as that meal, as it does for the traveler.
+ */
+// Decision: counted from the validator's MEAL_MISSING warnings on the plan as it stands, not from
+// the warnings the plan carries, so the number cannot depend on what a pipeline chose to report.
+export function daysMissingMeal(itinerary: Itinerary, ctx: PlannerContext): number {
+  const days = new Set<number>();
+  for (const violation of validateItinerary(itinerary, ctx)) {
+    if (violation.code === "MEAL_MISSING" && violation.day !== undefined) days.add(violation.day);
+  }
+  return days.size;
+}
+
 export function planShape(itinerary: Itinerary, ctx: PlannerContext): PlanShape {
   const days = itinerary.days.length || 1;
   let visits = 0;
@@ -97,6 +114,8 @@ export function planShape(itinerary: Itinerary, ctx: PlannerContext): PlanShape 
     travelMinPerDay: travel / days,
     transferMinPerTrip: transfer,
     anchors: new Set(itinerary.days.map((day) => day.anchorId)).size,
+    days: itinerary.days.length,
+    daysMissingMeal: daysMissingMeal(itinerary, ctx),
   };
 }
 

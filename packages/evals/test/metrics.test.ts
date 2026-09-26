@@ -2,6 +2,7 @@ import type { Shortlist } from "@italy/api/plan/candidates";
 import { type Itinerary, TripRequestSchema } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import {
+  daysMissingMeal,
   firstAnswerMustInclude,
   isFinalValid,
   mean,
@@ -83,6 +84,20 @@ describe("plan shape", () => {
     expect(shape.visitsPerDay).toBeCloseTo(4 / 3, 10);
     expect(shape.paceCap).toBe(5);
     expect(shape.anchors).toBe(2);
+    expect(shape.days).toBe(3);
+  });
+
+  it("counts a day missing a meal once, whether it lacks the lunch, the dinner, or both", () => {
+    // Day 1 has a lunch and no dinner; days 2 and 3 have neither.
+    expect(daysMissingMeal(handBuilt(), ctx)).toBe(3);
+    const fed = plan({ interests: ["food"] });
+    const gaps = daysMissingMeal(fed, ctx);
+    const warned = new Set(fed.warnings.filter((w) => w.code === "MEAL_MISSING").map((w) => w.day));
+    expect(gaps).toBe(warned.size);
+    const noDinner = structuredClone(fed);
+    const day = noDinner.days[0];
+    if (day) day.stops = day.stops.filter((s) => s.role !== "dinner");
+    expect(daysMissingMeal(noDinner, ctx)).toBe(warned.has(0) ? gaps : gaps + 1);
   });
 
   it("calls a real rules-only plan valid and a broken one invalid", () => {
@@ -208,6 +223,31 @@ describe("summary", () => {
     expect(s.finalValidRate).toBe(1);
   });
 
+  it("keeps a first answer only when no repair turn and no fallback followed it", () => {
+    // Of the 3 answered plans only run a1 became the plan without a repair; b1 fell back.
+    expect(s.validAfterTidyRate).toBeCloseTo(1 / 3, 10);
+    const tidied = measure({ source: "ai_repaired", firstPassValid: false });
+    const cutShort = measure({
+      source: "deterministic",
+      fallbackReason: "timeout",
+      firstPassValid: false,
+    });
+    const kept = summarize([tidied, cutShort, measure()]);
+    expect(kept.validAfterTidyRate).toBeCloseTo(2 / 3, 10);
+    expect(kept.firstPassValidRate).toBeCloseTo(1 / 3, 10);
+  });
+
+  it("pools days missing a meal over every day of every plan, not a mean of plan rates", () => {
+    const shape = (days: number, daysMissingMeal: number): PlanShape => ({
+      ...(measure().shape as PlanShape),
+      days,
+      daysMissingMeal,
+    });
+    const pooled = summarize([measure({ shape: shape(3, 3) }), measure({ shape: shape(4, 0) })]);
+    expect(pooled.mealGapRate).toBeCloseTo(3 / 7, 10);
+    expect(summarize([measure({ shape: null })]).mealGapRate).toBeNull();
+  });
+
   it("pools must-includes across plans and ignores plans without an answer", () => {
     expect(s.mustIncludeRate).toBe(0.5);
   });
@@ -217,6 +257,8 @@ describe("summary", () => {
     expect(s.avgCostUsd).toBeCloseTo(0.003, 10);
     expect(s.latencyP50Ms).toBe(1000);
     expect(s.latencyP95Ms).toBe(5000);
+    expect(s.latencyMaxMs).toBe(5000);
+    expect(summarize([measure()]).latencyMaxMs).toBeNull();
   });
 
   it("passes a case only when every run met every expectation", () => {
