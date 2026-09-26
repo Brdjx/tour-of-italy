@@ -32,10 +32,11 @@ export interface DayTidied {
 }
 
 /**
- * The answer tidied. It never adds a place, never changes the day's base, and never changes
- * another day: a place of another day (or at its spot) is dropped from this one ("duplicate",
- * "same_spot"), then tidySelection drops closed places, fixes the order, and trims what the
- * day's hours and pace cannot hold, keeping must-includes.
+ * The answer tidied. It never adds a place (a meal the day lacks may be added once the day passes
+ * the check, mealAdd.ts), never changes the day's base, and never changes another day: a place of
+ * another day (or at its spot) is dropped from this one ("duplicate", "same_spot"), then
+ * tidySelection drops closed places, fixes the order, and trims what the day's hours and pace
+ * cannot hold, keeping must-includes.
  */
 // Decision: repeats of other days are dropped here, before tidySelection. Its own rule keeps a
 // repeat on a day it would otherwise empty and takes the place off the day that had it first,
@@ -119,7 +120,8 @@ export interface MaterializedDay {
  * transfer), with the AI reasons that pass the checks and rule reasons for the rest, and its
  * errors: an id or base the day's shortlist did not offer, every error the trip did not already
  * have (any on this day counts), and a must-include the rules' day (`witness`) holds that this
- * day leaves out (mustIncludesLeftOut).
+ * day leaves out (mustIncludesLeftOut). `added` holds the meals code added after the check
+ * (mealAdd.ts): they keep their rule reasons.
  */
 export function materializeDay(
   tidied: Pick<DayTidied, "ids" | "reasons">,
@@ -127,12 +129,13 @@ export function materializeDay(
   shortlist: Shortlist,
   ctx: PlannerContext,
   witness: DaySelection,
+  added: ReadonlySet<string> = new Set(),
 ): MaterializedDay {
   const { request, day } = input;
   const selection = tripSelection(input, tidied.ids, tidied.reasons);
   const newDay = { anchorId: input.anchorId, placeIds: tidied.ids };
   const scheduled = scheduleTrip(request, withDay(input.days, day, newDay), ctx);
-  const reasoned = applyAiReasons(scheduled.days, selection, ctx, day);
+  const reasoned = applyAiReasons(scheduled.days, selection, ctx, day, added);
   const timed = scheduled.days[day] as DayPlan;
   const dayPlan: DayPlan = { ...timed, stops: reasoned.days[day] ?? timed.stops };
   const errors = dedupe([

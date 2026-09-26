@@ -9,7 +9,7 @@ Live model answers, replayed through the current code. Model time, tokens, and c
 | Metric | claude-haiku-4-5-20251001 (v3, recorded 2026-09-26) | claude-sonnet-5 (v3, recorded 2026-09-26) | Rules-only baseline |
 | --- | --- | --- | --- |
 | Plans | 32 | 48 | 16 |
-| First-pass valid | 22% (7/32) | 4% (2/48) | n/a |
+| First-pass valid | 6% (2/32) | 2% (1/48) | n/a |
 | Valid after tidying, no repair | 72% (23/32) | 100% (48/48) | n/a |
 | Final valid (must be 100%) | 100% (32/32) | 100% (48/48) | 100% (16/16) |
 | Needed a repair | 28% (9/32) | 0% (0/48) | n/a |
@@ -19,9 +19,9 @@ Live model answers, replayed through the current code. Model time, tokens, and c
 | Preference match | 70% | 66% | 61% |
 | Must-includes placed | 100% | 100% | 100% |
 | Visits per day | 2.7 (57% of pace cap) | 3.3 (67% of pace cap) | 4.0 (84% of pace cap) |
-| Travel per day | 71 min | 91 min | 104 min |
+| Travel per day | 81 min | 92 min | 104 min |
 | Transfer time per trip | 56 min | 8 min | 23 min |
-| Days missing a lunch or dinner | 72% | 26% | 19% |
+| Days missing a lunch or dinner | 24% | 20% | 19% |
 | Model time p50 / p95 | 5.8 s / 13.1 s | 8.1 s / 9.9 s | n/a |
 | Slowest model time | 14.4 s | 10.5 s | n/a |
 | Tokens in / out per plan | 9,562 / 610 | 8,208 / 771 | n/a |

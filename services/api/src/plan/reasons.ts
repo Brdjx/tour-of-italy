@@ -87,20 +87,23 @@ export interface ReasonStats {
  * Stops with AI reasons applied where they pass checkAiReason and make no claim the timed stop
  * contradicts (contradictedClaim). Stops without a usable AI reason keep the rule reason already
  * on them. With `only`, just that day's stops are checked and counted; the others are copied as
- * they are (a re-planned day, whose other days the model did not write). Returns new stop
- * arrays; the input is not changed.
+ * they are (a re-planned day, whose other days the model did not write). A place in `added` (a
+ * meal code added, mealAdd.ts) keeps its rule reason and is not counted: the model never chose
+ * it. Returns new stop arrays; the input is not changed.
  */
 export function applyAiReasons(
   days: readonly ClaimDay[],
   selection: LlmSelection,
   ctx: PlannerContext,
   only?: number,
+  added: ReadonlySet<string> = new Set(),
 ): { days: Stop[][]; stats: ReasonStats } {
   const byDay = reasonsByStop(selection);
   const stats: ReasonStats = { kept: 0, replaced: 0, rejections: [] };
   const out = days.map((day, dayIndex) =>
     day.stops.map((stop, index) => {
       if (only !== undefined && dayIndex !== only) return { ...stop };
+      if (added.has(stop.placeId)) return { ...stop };
       const raw = byDay[dayIndex]?.get(stop.placeId);
       if (raw === undefined) {
         stats.replaced++;

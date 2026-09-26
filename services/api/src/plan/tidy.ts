@@ -54,7 +54,9 @@ import type { Shortlist } from "./candidates";
 // It never changes a base, never adds a place the answer does not have, never drops a meal the
 // day needs, and keeps every must-include in the answer on one of its days. A day holding
 // anything it cannot judge (an id not offered, a place of another base, an unknown base) is not
-// reordered, trimmed, or given a place: the check reports it and the repair turn fixes it.
+// reordered, trimmed, or given a place: the check reports it and the repair turn fixes it. Once
+// the answer passes the check, one step may add a place: a lunch or dinner the day lacks, when an
+// unused meal place fits (mealAdd.ts, recorded as "meal_added").
 
 export type TidyRule =
   | "closed"
@@ -64,7 +66,8 @@ export type TidyRule =
   | "does_not_fit"
   | "over_budget_visit"
   | "reordered"
-  | "moved_day";
+  | "moved_day"
+  | "meal_added"; // after the check, not by this step: mealAdd.ts
 
 /** The rules whose drops may move to another day (step 8). */
 export type MovableRule = "closed" | "over_visit_limit" | "does_not_fit" | "over_budget_visit";
@@ -72,7 +75,7 @@ export type MovableRule = "closed" | "over_visit_limit" | "does_not_fit" | "over
 export interface TidyChange {
   rule: TidyRule;
   day: number; // 0-based day index
-  placeId?: string; // the place taken out; absent when the day was reordered
+  placeId?: string; // the place taken out, or added (meal_added); absent for a reorder
   toDay?: number; // moved_day only: the day the place was moved to
   cause?: MovableRule; // moved_day only: the rule that took the place off `day`
 }

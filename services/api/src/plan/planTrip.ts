@@ -1,13 +1,14 @@
 import {
   type FallbackReason,
   type Itinerary,
+  type ItineraryMeta,
   NoFeasiblePlanError,
   type PlannerContext,
   planDeterministic,
   type TripRequest,
 } from "@italy/planner";
 import type { LlmOffReason } from "../config";
-import type { LlmClient, LlmResult, RepairViolation } from "../llm/client";
+import type { LlmClient, LlmResult, LlmSelection, RepairViolation } from "../llm/client";
 import {
   buildRepairMessage,
   NO_REPAIR_NOTES,
@@ -18,7 +19,8 @@ import {
 import { buildUserMessage } from "../llm/promptUser";
 import { callWithin } from "./callWithin";
 import { buildShortlist, type Shortlist } from "./candidates";
-import { materializeSelection } from "./materialize";
+import { type Materialized, materializeSelection } from "./materialize";
+import { keptPlan, type MealsAdded, withMealsAdded } from "./mealAdd";
 import { DEFAULT_TIMING, giveUpReason, type PlanTiming, runTurn } from "./modelTurn";
 import {
   finishPlan,
@@ -36,10 +38,11 @@ import { tidySelection } from "./tidy";
 export { DEFAULT_TIMING, type PlanTiming } from "./modelTurn";
 
 // The plan pipeline (POST /api/plan): shortlist, ask the model, tidy its answer (tidy.ts), time
-// and validate it, one repair turn with the exact violations and what tidying removed
-// (repairNotes.ts) if time allows, and the rules-only planner for every other outcome. A brief
-// failure (dropped connection, 5xx) gets one retry when time allows. Whatever happens, the
-// result has zero validator errors (see outcome.ts).
+// and validate it, add a lunch or dinner a day lacks where one fits (mealAdd.ts), one repair turn
+// with the exact violations and what tidying removed (repairNotes.ts) if time allows, and the
+// rules-only planner for every other outcome. A brief failure (dropped connection, 5xx) gets one
+// retry when time allows. Whatever happens, the result has zero validator errors (see
+// outcome.ts).
 
 export interface PlanDeps {
   llm: LlmClient | null; // null when the AI layer is off
@@ -116,6 +119,24 @@ export async function planTrip(
   }
 }
 
+/**
+ * The checked answer with the lunches and dinners its days lack added where a meal place fits
+ * (mealAdd.ts), each day's kept only when the plan then has no error and no new warning but the
+ * added place's own.
+ */
+function withMeals(
+  run: Run,
+  selection: LlmSelection,
+  made: Materialized,
+  meta: ItineraryMeta,
+): MealsAdded<Materialized> {
+  const { request, shortlist, deps } = run;
+  const days = selection.days.map((_, index) => index);
+  return withMealsAdded(selection, request, shortlist, deps.ctx, days, (next, added) =>
+    keptPlan(made, materializeSelection(next, request, shortlist, deps.ctx, meta, added), added),
+  );
+}
+
 /** One model call (first answer or repair), bounded by `timeoutMs`. */
 function askModel(run: Run, previous: Problem | null, timeoutMs: number): Promise<LlmResult> {
   return callWithin((signal) => {
@@ -178,12 +199,14 @@ async function runModel(run: Run): Promise<PlanOutcome> {
     for (const change of tidied.changes) trace.tidied.push({ ...change, answer: turn });
     const made = materializeSelection(tidied.selection, request, run.shortlist, deps.ctx, meta);
     if (made.errors.length === 0) {
+      const fed = withMeals(run, tidied.selection, made, meta);
+      for (const change of fed.changes) trace.tidied.push({ ...change, answer: turn });
       // Decision: a plan code had to tidy is not a first-try AI plan. Only an answer that passed
-      // the check exactly as the model wrote it is "ai"; any other is "ai_repaired" (fixed after
-      // a check), and the trace says what was tidied.
-      const untouched = turn === 1 && tidied.changes.length === 0;
+      // the check exactly as the model wrote it, with no meal added, is "ai"; any other is
+      // "ai_repaired" (fixed after a check), and the trace says what was tidied or added.
+      const untouched = turn === 1 && tidied.changes.length === 0 && fed.changes.length === 0;
       const source = untouched ? "ai" : "ai_repaired";
-      return finishPlan(made, source, request, deps, startedAt, trace, run.witness);
+      return finishPlan(fed.made ?? made, source, request, deps, startedAt, trace, run.witness);
     }
     for (const violation of made.errors) trace.violationCodes.push(violation.code);
     const violations = made.errors.map((v) => ({

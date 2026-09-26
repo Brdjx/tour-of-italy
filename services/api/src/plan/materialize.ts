@@ -73,16 +73,21 @@ export function dedupe(violations: readonly Violation[]): Violation[] {
   return out;
 }
 
+/**
+ * The selection timed, with its reasons and summary, and its errors. `added` holds the meals code
+ * added after the check (mealAdd.ts): they keep their rule reasons.
+ */
 export function materializeSelection(
   selection: LlmSelection,
   request: TripRequest,
   shortlist: Shortlist,
   ctx: PlannerContext,
   meta: ItineraryMeta,
+  added: ReadonlySet<string> = new Set(),
 ): Materialized {
   const picks = selection.days.map((day) => ({ anchorId: day.anchorId, placeIds: day.placeIds }));
   const scheduled = scheduleTrip(request, picks, ctx);
-  const reasoned = applyAiReasons(scheduled.days, selection, ctx);
+  const reasoned = applyAiReasons(scheduled.days, selection, ctx, undefined, added);
   const days: DayPlan[] = scheduled.days.map((day, index) => ({
     ...day,
     stops: reasoned.days[index] ?? day.stops,

@@ -7,7 +7,7 @@ import {
   withDay,
 } from "@italy/planner";
 import { type PlanDayResponse, PlanDayResponseSchema } from "../contract";
-import type { LlmClient, LlmDayResult, RepairViolation } from "../llm/client";
+import type { LlmClient, LlmDayResult, LlmSelection, RepairViolation } from "../llm/client";
 import {
   buildDayRepairMessage,
   buildDayUserMessage,
@@ -19,7 +19,8 @@ import { callWithin } from "./callWithin";
 import type { Shortlist } from "./candidates";
 import type { DayInput } from "./dayInput";
 import { buildDayShortlist } from "./dayShortlist";
-import { materializeDay, tidyDay } from "./dayTidy";
+import { type DayTidied, type MaterializedDay, materializeDay, tidyDay } from "./dayTidy";
+import { type MealsAdded, withMealsAdded, withoutErrors } from "./mealAdd";
 import { DEFAULT_TIMING, giveUpReason, type ProblemKind, runTurn } from "./modelTurn";
 import {
   buildMeta,
@@ -34,9 +35,10 @@ import { repairNotes } from "./repairNotes";
 
 // The one-day pipeline (POST /api/plan/day), the whole-trip pipeline (planTrip.ts) for one day:
 // the day's shortlist (dayShortlist.ts), the model's day answer, tidied (dayTidy.ts), timed in
-// its trip and checked, one repair turn with the exact violations and what tidying removed, and
-// the rules-only day (planDay, which the route has already checked) for every other outcome.
-// Whatever happens, the day it returns adds no error to the trip.
+// its trip and checked, a lunch or dinner it lacks added where one fits (mealAdd.ts), one repair
+// turn with the exact violations and what tidying removed, and the rules-only day (planDay, which
+// the route has already checked) for every other outcome. Whatever happens, the day it returns
+// adds no error to the trip.
 
 /** The day answer and the trace for the log line. */
 export interface DayOutcome {
@@ -153,10 +155,15 @@ async function runModel(run: Run): Promise<DayOutcome> {
     }
     const tidied = tidyDay(result.answer, input, run.shortlist, deps.ctx);
     for (const change of tidied.changes) trace.tidied.push({ ...change, answer: turn });
-    const made = materializeDay(tidied, input, run.shortlist, deps.ctx, run.witness);
-    if (made.errors.length === 0) {
-      // As for a whole trip: only an answer that passed exactly as the model wrote it is "ai".
-      const source = turn === 1 && tidied.changes.length === 0 ? "ai" : "ai_repaired";
+    const checked = materializeDay(tidied, input, run.shortlist, deps.ctx, run.witness);
+    if (checked.errors.length === 0) {
+      const fed = withMeals(run, tidied);
+      for (const change of fed.changes) trace.tidied.push({ ...change, answer: turn });
+      const made = fed.made ?? checked;
+      // As for a whole trip: only an answer that passed exactly as the model wrote it, with no
+      // meal added, is "ai".
+      const untouched = turn === 1 && tidied.changes.length === 0 && fed.changes.length === 0;
+      const source = untouched ? "ai" : "ai_repaired";
       trace.reasonsKept = made.reasonStats.kept;
       trace.reasonRejections = made.reasonStats.rejections;
       const result = answer(input, made.dayPlan, source, deps, startedAt, trace);
@@ -166,8 +173,8 @@ async function runModel(run: Run): Promise<DayOutcome> {
       trace.guardFailed = true;
       return fallback("llm_error");
     }
-    for (const violation of made.errors) trace.violationCodes.push(violation.code);
-    const violations = made.errors.map((v) => ({
+    for (const violation of checked.errors) trace.violationCodes.push(violation.code);
+    const violations = checked.errors.map((v) => ({
       code: v.code,
       day: v.day,
       placeId: v.placeId,
@@ -178,6 +185,21 @@ async function runModel(run: Run): Promise<DayOutcome> {
   }
   const repaired = deps.config.maxAttempts > 1;
   return fallback(problem === null ? "llm_error" : giveUpReason(problem.kind, repaired, false));
+}
+
+/**
+ * The checked day with the lunch and dinner it lacks added where a meal place fits (mealAdd.ts),
+ * kept only when the day then adds no error to the trip (materializeDay's check).
+ */
+function withMeals(run: Run, tidied: DayTidied): MealsAdded<MaterializedDay> {
+  const { input, shortlist, deps, witness } = run;
+  const { day } = input;
+  const selection = tidied.trip.selection;
+  return withMealsAdded(selection, input.request, shortlist, deps.ctx, [day], (next, added) => {
+    const ids = (next.days[day] as LlmSelection["days"][number]).placeIds;
+    const answer = { ids, reasons: tidied.reasons };
+    return withoutErrors(materializeDay(answer, input, shortlist, deps.ctx, witness, added));
+  });
 }
 
 /** The response for a day, with the trace's meta. */

@@ -257,12 +257,17 @@ describe("planTrip with every fixture scenario", () => {
     expect(itinerary.meta.attempts).toBe(1);
     expect(outcome.trace.violationCodes).toEqual([]);
     // Day 0, with the Spanish Steps alone, holds the museums, so they move there, and the record
-    // keeps the rule that took them off day 1.
-    expect(outcome.trace.tidied).toEqual([
+    // keeps the rule that took them off day 1. The meals the days lack are added after the check.
+    const added = outcome.trace.tidied.filter((change) => change.rule === "meal_added");
+    expect(outcome.trace.tidied.filter((change) => change.rule !== "meal_added")).toEqual([
       { rule: "moved_day", day: 1, placeId: vatican, toDay: 0, cause: "does_not_fit", answer: 1 },
     ]);
-    expect(itinerary.days[1]?.stops.map((stop) => stop.placeId)).toEqual(overHours.slice(0, -1));
-    expect(itinerary.days[0]?.stops.map((stop) => stop.placeId)).toEqual(["place_019", vatican]);
+    const chosen = (day: number) =>
+      itinerary.days[day]?.stops
+        .map((stop) => stop.placeId)
+        .filter((id) => !added.some((change) => change.placeId === id));
+    expect(chosen(1)).toEqual(overHours.slice(0, -1));
+    expect(chosen(0)).toEqual(["place_019", vatican]);
   });
 
   it("never shows a restaurant over the budget as a visit: it moves to a day that lacks the meal", async () => {
