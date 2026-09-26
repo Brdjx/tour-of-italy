@@ -17,9 +17,9 @@ import {
 import { shippedData } from "../../src/data";
 import type { LlmClient, LlmDayResult, RepairInput, SelectInput } from "../../src/llm/client";
 import { FIXTURE_SCENARIOS, FixtureClient } from "../../src/llm/fixture";
-import { lastRequestLog, makeApp, type TestApp } from "../helpers/app";
+import { lastRequestLog, makeApp, type TestApp, tripBody } from "../helpers/app";
 import { dayBody, plannedTrip, postDay, routeBody } from "../helpers/day";
-import { getTrip, saveBody, saveTrip, tripsApp } from "../helpers/trips";
+import { aiPlan, getTrip, saveBody, saveTrip, tripsApp } from "../helpers/trips";
 
 // POST /api/plan/day for a route the traveler set by hand (a city a day, in any order, back and
 // forth included), planned as the page plans it: planRoute names the days to plan again, the page
@@ -197,6 +197,36 @@ describe("POST /api/plan/day for a route", () => {
     expect(lastRequestLog(logs).tidied).toEqual([
       expect.objectContaining({ rule: "duplicate", day: 2, placeId: taken }),
     ]);
+  });
+
+  it("saves an AI trip after a route with the rules' why lines on the days planned again", async () => {
+    const { app } = tripsApp();
+    const plan = await aiPlan(app, tripBody({ anchors: ["rome"] }));
+    expect(plan.planId).toBeDefined();
+    const { applied, answers } = await planRouteThroughApi(app, plan, [
+      "rome",
+      "florence",
+      "venice",
+    ]);
+    expect(answers.every((answer) => answer.source !== "deterministic")).toBe(true);
+    expect(applied.planId).toBe(plan.planId);
+
+    const id = await saveTrip(app, saveBody(applied));
+    const snapshot = TripSnapshotSchema.parse(await (await getTrip(app, id)).json());
+
+    expect(snapshot.origin).toEqual({ plannedBy: "ai", edited: true });
+    expect(snapshot.itinerary.summary).toBeUndefined();
+    const sources = snapshot.itinerary.days.map((day) =>
+      day.stops.map((stop) => stop.reasonSource),
+    );
+    expect(sources[0]?.every((source) => source === "ai")).toBe(true);
+    expect(
+      sources
+        .slice(1)
+        .flat()
+        .every((source) => source === "rule"),
+    ).toBe(true);
+    expect(validationErrors(snapshot.itinerary, ctx)).toEqual([]);
   });
 
   it("saves a trip of three cities and reopens it as saved", async () => {
