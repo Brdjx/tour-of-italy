@@ -120,6 +120,19 @@
     padding-top: 32px;
   }
 
+  /* Phones and tablets in portrait: the first screen is the title and the form, down to Plan my
+     trip; the highlights and About this data start below the fold, so the traveler scrolls to
+     them (the owner's call on 2026-09-25). The form stretches to the bottom of the viewport from
+     where it starts (--form-top, lib/useFirstScreen.ts). Before that is measured, the form alone
+     is a viewport tall, so nothing below it shows on the first screen in the meantime. A screen too
+     short for the form is unchanged. From 1024 px the highlights sit beside the form instead. */
+  @media (max-width: 1023px) {
+    .app[data-view="compose"] .form-pane {
+      min-height: calc(100svh - var(--form-top, 0px));
+      padding-bottom: max(24px, var(--safe-bottom));
+    }
+  }
+
   .form-pane-body {
     max-width: 560px;
   }

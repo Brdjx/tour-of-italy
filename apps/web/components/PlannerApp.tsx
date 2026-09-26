@@ -11,6 +11,7 @@ import { restoredNote } from "../lib/lastPlan";
 import type { PlanDeps } from "../lib/planRequest";
 import { type FetchTrip, SAVED_NOTES } from "../lib/savedTrip";
 import { defaultFormValues, valuesFromRequest } from "../lib/tripForm";
+import { useFirstScreen } from "../lib/useFirstScreen";
 import { useItinerary } from "../lib/useItinerary";
 import { type RestoredPlan, useLastPlan } from "../lib/useLastPlan";
 import { usePageFocus } from "../lib/usePageFocus";
@@ -74,6 +75,7 @@ export function PlannerApp({
   const [dismissedPhase, setDismissedPhase] = useState<PlanPhase | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const startHeading = useRef<HTMLHeadingElement>(null);
+  const appRef = useRef<HTMLDivElement>(null);
   const expectFocus = useEditFocus(plan, heading);
 
   const announce = useCallback((text: string, edit = false) => {
@@ -234,6 +236,7 @@ export function PlannerApp({
   const hasPlan = plan.itinerary !== null && ctx !== null;
   const waiting = plan.itinerary !== null && ctx === null; // a plan came before the places
   const view: PageView = hasPlan || planning || waiting || expected ? "plan" : "compose";
+  useFirstScreen(appRef, "trip-form-pane", view === "compose");
   // Without a plan the plan view shows only while one is on its way: planning, a plan waiting
   // for the places, or a shared or saved plan about to load.
   const content: PlanContent = planning
@@ -261,7 +264,7 @@ export function PlannerApp({
       <ErrorState id="plan-error" message={phase.message} onRetry={retry} />
     ) : null;
   return (
-    <div className="app" data-view={view} data-testid="planner-app">
+    <div ref={appRef} className="app" data-view={view} data-testid="planner-app">
       <div className="status-scrim" aria-hidden="true" />
       {/* The page itself, which scales back behind a sheet on phones (sheet.css). */}
       <div className="app-page">
