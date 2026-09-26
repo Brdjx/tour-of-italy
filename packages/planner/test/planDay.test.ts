@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { withReplannedDay } from "../src/alternatives";
 import { PACE } from "../src/config";
-import { checkDayBase, dayBaseOptions, newTripErrors } from "../src/dayBases";
+import { checkDayBase, dayBaseOptions } from "../src/dayBases";
+import { newTripErrors } from "../src/dayChecks";
 import { planDeterministic } from "../src/plan";
 import { dayMustIncludes, planDay, usedOnOtherDays, withDay } from "../src/planDay";
 import { tripDates } from "../src/time";
@@ -155,86 +156,83 @@ describe("dayBaseOptions", () => {
       allowed: true,
       transferInMin: 0,
       transferOutMin: 0,
+      warnings: [],
+      replans: [],
     });
     // The last day of a trip can always move: no later day has to fit after it.
-    expect(options.every((o) => o.allowed)).toBe(true);
-    expect(options.find((o) => o.anchorId === "florence")?.transferInMin).toBe(130);
+    expect(options.every((o) => o.allowed && o.replans.length === 0)).toBe(true);
+    expect(options.find((o) => o.anchorId === "florence")).toMatchObject({
+      transferInMin: 130,
+      warnings: [
+        "2 h 10 min by high-speed train from Rome, so the day starts at 11:40.",
+        "Leaves about 7 h before dinner.",
+      ],
+    });
   });
 
-  it("refuses a third city, naming the two the other days use", () => {
+  it("allows a third city, with its travel as facts", () => {
     const { req, days } = trip({ anchors: ["rome", "florence"], startDate: "2026-10-18" });
-    expect(new Set(days.map((d) => d.anchorId))).toEqual(new Set(["rome", "florence"]));
-    const venice = checkDayBase(req, days, days.length - 1, "venice", ctx);
-    const reason = venice.option.reason ?? "";
+    expect(days.map((d) => d.anchorId)).toEqual(["rome", "florence", "florence"]);
+    const venice = dayBaseOptions(req, days, 2, ctx).find((o) => o.anchorId === "venice");
 
-    expect(venice.option).toMatchObject({ allowed: false, refusal: "too_many_bases" });
-    expect(venice.day).toBeNull();
-    expect(reason).toMatch(/^A trip can use at most 2 cities, and the other days use /);
+    expect(venice).toMatchObject({
+      allowed: true,
+      transferInMin: 120,
+      replans: [],
+      warnings: [
+        "2 h by high-speed train from Florence, so the day starts at 11:30.",
+        "Leaves about 7 h 30 min before dinner.",
+      ],
+    });
+    expect(venice?.reason).toBeUndefined();
   });
 
-  it("keeps a day that holds a must-include in its city, and says which place", () => {
-    const { req, days } = trip({ mustInclude: ["place_001"] });
-    const holder = days.findIndex((day) => day.placeIds.includes("place_001"));
-    const option = checkDayBase(req, days, holder, "florence", ctx).option;
-
-    expect(option).toMatchObject({ allowed: false, refusal: "holds_must_include" });
-    expect(option.reason).toBe(`Day ${holder + 1} has Colosseum, which you asked for.`);
-    expect(checkDayBase(req, days, holder, "rome", ctx).option.allowed).toBe(true);
-  });
-
-  it("refuses a move that goes back and forth, and says which day to move first", () => {
+  it("allows a day away and back, and plans the next day again when it no longer fits", () => {
     const { req, days } = romeTrip;
-    const option = checkDayBase(req, days, 1, "florence", ctx).option;
+    const florence = dayBaseOptions(req, days, 1, ctx).find((o) => o.anchorId === "florence");
 
-    expect(option).toMatchObject({
-      allowed: false,
-      refusal: "back_and_forth",
+    expect(florence).toEqual({
+      anchorId: "florence",
+      name: "Florence",
+      current: false,
+      allowed: true,
       transferInMin: 130,
       transferOutMin: 130,
+      warnings: [
+        "2 h 10 min by high-speed train from Rome, so the day starts at 11:40.",
+        "Leaves about 7 h before dinner.",
+        "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
+      ],
+      replans: [2],
     });
-    expect(option.reason).toBe(
-      "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 3 to Florence first.",
-    );
-    // Once day 3 is in Florence, day 2 can follow it.
-    const moved = checkDayBase(req, days, 2, "florence", ctx).day as DaySelection;
-    const after = withDay(days, 2, moved);
-    expect(checkDayBase(req, after, 1, "florence", ctx).option.allowed).toBe(true);
-    // Rome, Rome, Florence: day 1 cannot leave for Florence before day 2 does, and day 3 cannot
-    // come back to Rome before day 2 does. The hint names the day in between both times.
-    expect(checkDayBase(req, after, 0, "florence", ctx).option.reason).toBe(
-      "A trip changes city once at most, so it cannot go from Florence to Rome and back. Move day 2 to Florence first.",
-    );
-    const follow = checkDayBase(req, after, 1, "florence", ctx).day as DaySelection;
-    const twoDays = withDay(after, 1, follow);
-    expect(checkDayBase(req, twoDays, 2, "rome", ctx).option.reason).toBe(
-      "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 2 to Rome first.",
-    );
+    // Planned alone, the day cannot move: day 3 is not planned again, so it would not fit.
+    const alone = checkDayBase(req, days, 1, "florence", ctx);
+    expect(alone.day).toBeNull();
+    expect(alone.option).toMatchObject({
+      refusal: "new_error",
+      reason:
+        "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit.",
+      fix: "Plan day 3 again too.",
+    });
   });
 
-  it("never lets a day go away for one day and come back, whatever the validator says", () => {
-    // Milan, Florence, Milan passed the validator on this trip: 2 h 15 min each way for one day.
-    const { req, days } = trip({ anchors: ["milan"] });
-    for (const base of ctx.anchors.map((anchor) => anchor.id).filter((id) => id !== "milan")) {
-      const option = checkDayBase(req, days, 1, base, ctx).option;
-      expect(option).toMatchObject({ allowed: false, refusal: "back_and_forth" });
-    }
-    // With no neighbour free to move first, the reason stops at the rule: day 3 holds a place
-    // the traveler asked for, and day 1 cannot move (the next test).
-    const { days: rome } = romeTrip;
-    const pinned = request({ mustInclude: [rome[2]?.placeIds[0] as string] });
-    expect(checkDayBase(pinned, rome, 1, "florence", ctx).option.reason).toBe(
-      "A trip changes city once at most, so it cannot go from Rome to Florence and back.",
-    );
-  });
+  it("moves a must-include the day holds to another day of its city", () => {
+    const { req, days } = trip({ mustInclude: ["place_001"] });
+    const holder = days.findIndex((day) => day.placeIds.includes("place_001"));
+    expect(holder).toBe(0);
+    const florence = dayBaseOptions(req, days, holder, ctx).find((o) => o.anchorId === "florence");
 
-  it("gives no hint when the next day cannot move either", () => {
-    const { req, days } = romeTrip;
-    const option = checkDayBase(req, days, 0, "florence", ctx).option;
-
-    expect(option).toMatchObject({ allowed: false, refusal: "new_error" });
-    expect(option.reason).toBe(
-      "Day 2 would start after 2 h 10 min of travel from Florence, and its plan would not fit.",
-    );
+    // Day 2 is planned again after its new travel, and takes the Colosseum.
+    expect(florence).toMatchObject({ allowed: true, replans: [1] });
+    // Planned alone, the day keeps its city, and says which place and how to free it.
+    const option = checkDayBase(req, days, holder, "florence", ctx).option;
+    expect(option).toMatchObject({
+      allowed: false,
+      refusal: "holds_must_include",
+      reason: "Day 1 has Colosseum, which you asked for.",
+      fix: "Remove Colosseum from it first.",
+    });
+    expect(checkDayBase(req, days, holder, "rome", ctx).option.allowed).toBe(true);
   });
 
   it("refuses a move that leaves the next day's plan unable to fit its earlier start", () => {
@@ -254,15 +252,19 @@ describe("dayBaseOptions", () => {
     expect(option.allowed).toBe(false);
     expect(option.transferOutMin).toBe(0);
     expect(option.reason).toBe("Day 3's plan would not fit its new start time.");
+    expect(option.fix).toBe("Plan day 3 again too.");
   });
 
-  it("says when nothing at a base fits the day", () => {
+  it("says when nothing at a base fits the day, after its travel", () => {
     const { req, days } = romeTrip;
     const avoid = ctx.anchorById.get("milan")?.placeIds ?? [];
     const option = checkDayBase(req, days, 2, "milan", ctx, { avoid }).option;
 
     expect(option).toMatchObject({ allowed: false, refusal: "nothing_fits" });
-    expect(option.reason).toBe("Nothing in Milan fits day 3 with your settings.");
+    expect(option.reason).toBe("Nothing in Milan fits day 3 after 3 h 35 min of travel.");
+    expect(option.fix).toBe("Choose another city for day 3.");
+    const first = checkDayBase(req, days, 0, "milan", ctx, { avoid }).option;
+    expect(first.reason).toBe("Nothing in Milan fits day 1 with your settings.");
   });
 
   it("does not hold an error the trip already had elsewhere against the re-plan", () => {
@@ -288,6 +290,26 @@ describe("dayBaseOptions", () => {
     });
     const again = kept[2] as DaySelection;
     expect(newTripErrors(req, kept, 2, again, ctx).map((e) => e.code)).toContain("DUPLICATE_PLACE");
+  });
+
+  it("does not hold a later day still waiting in a route against the day planned now", () => {
+    // Rome x3 to Florence, Rome, Rome with the Colosseum on day 1: day 2 waits, empty, while
+    // day 1 plans, and the validator puts the missing Colosseum on it until it is planned.
+    const { req, days } = trip({ mustInclude: ["place_001"] });
+    const waiting = [
+      { anchorId: "florence", placeIds: [] },
+      { anchorId: "rome", placeIds: [] },
+      days[2] as DaySelection,
+    ];
+    const check = checkDayBase(req, waiting, 0, "florence", ctx);
+
+    expect(check.option.allowed).toBe(true);
+    const after = withDay(waiting, 0, check.day as DaySelection);
+    const codes = newTripErrors(req, waiting, 0, check.day as DaySelection, ctx).map((e) => e.code);
+    expect(codes).toEqual([]);
+    // The day planned now is still judged whole: an empty version of it is an error.
+    const empty = { anchorId: "florence", placeIds: [] };
+    expect(newTripErrors(req, after, 0, empty, ctx).map((e) => e.code)).toContain("EMPTY_DAY");
   });
 
   it("throws on a day out of range or an unknown base", () => {

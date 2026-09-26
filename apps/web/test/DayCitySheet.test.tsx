@@ -27,6 +27,15 @@ const CHOICES: CityChoice[] = [
     reason: null,
     line: "2 h 10 min by high-speed train from Rome, 22 places",
   },
+  {
+    anchorId: "rome",
+    name: "Rome",
+    current: false,
+    allowed: false,
+    reason:
+      "Day 1 has Uffizi Gallery, which you asked for, and no other day of this route is in Florence.",
+    line: "30 places",
+  },
 ];
 
 function renderSheet(open = true, day: number | null = 0) {
@@ -72,6 +81,17 @@ describe("DayCitySheet", () => {
     );
     await userEvent.setup().click(florence);
     expect(onChoose).toHaveBeenCalledWith("florence");
+  });
+
+  it("shows a city the day cannot take dimmed in place with its reason, and does nothing when pressed", async () => {
+    const { onChoose } = renderSheet();
+    const rome = await screen.findByRole("button", { name: "Rome" });
+    expect(rome.getAttribute("aria-disabled")).toBe("true");
+    const reason = document.getElementById(rome.getAttribute("aria-describedby") ?? "");
+    expect(reason?.textContent).toContain("which you asked for");
+    expect(rome.querySelector(".city-option-chevron")).toBeNull();
+    await userEvent.setup().click(rome);
+    expect(onChoose).not.toHaveBeenCalled();
   });
 
   it("keeps no content once closed with no day, and closes from its close pill", async () => {

@@ -9,6 +9,8 @@ export * from "./constraints";
 export * from "./context";
 export * from "./dataVersion";
 export * from "./dayBases";
+export * from "./dayChecks";
+export * from "./dayRoute";
 export * from "./normalize/chips";
 export * from "./normalize/index";
 export { ISSUE_KIND_TEXT } from "./normalize/issueText";

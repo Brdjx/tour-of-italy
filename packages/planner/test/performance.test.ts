@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { alternativesFor } from "../src/alternatives";
+import { dayBaseOptions } from "../src/dayBases";
 import { planDeterministic } from "../src/plan";
 import { makeRequest, realContext } from "./plannerFixtures";
 
 // Performance guard. planDeterministic is the fallback inside the API's 30 s budget and runs in
-// the browser when offline; alternativesFor runs in the browser on every tap of Swap. Budgets:
-// 50 ms per plan and 100 ms per swap list on a developer machine. The assertions allow 5x that,
+// the browser when offline; alternativesFor runs in the browser on every tap of Swap, and
+// dayBaseOptions each time Change city opens. Budgets: 50 ms per plan, 100 ms per swap list and
+// 50 ms per city list on a developer machine. The assertions allow 5x that,
 // so a slow CI runner or coverage instrumentation never flakes, while an accidental blow-up
 // (a quadratic loop over every arrangement, a validator call per pair) still fails.
 
@@ -48,6 +50,20 @@ describe("planner performance on this machine", () => {
     );
     expect(result.median).toBeLessThan(PLAN_BUDGET_MS * SLACK);
     expect(heavyResult.median).toBeLessThan(PLAN_BUDGET_MS * SLACK);
+  });
+
+  it("never takes longer than 5x the 50 ms budget to list the cities for any day of a trip", () => {
+    const itinerary = planDeterministic(heavy, ctx);
+    const days = itinerary.days.map((day) => ({
+      anchorId: day.anchorId,
+      placeIds: day.stops.map((stop) => stop.placeId),
+    }));
+    let median = 0;
+    days.forEach((_day, index) => {
+      median = Math.max(median, timeIt(5, () => dayBaseOptions(heavy, days, index, ctx)).median);
+    });
+    console.info(`dayBaseOptions over every day (heavy trip): slowest median ${round(median)} ms`);
+    expect(median).toBeLessThan(PLAN_BUDGET_MS * SLACK);
   });
 
   it("never takes longer than 5x the 100 ms budget to list swaps for any stop of a typical trip", () => {

@@ -90,6 +90,13 @@ const PLANNER_CORE_FUNCTIONS = [
   "dayBaseOptions",
   "newTripErrors",
   "withReplannedDay",
+  // dayRoute.ts (a city a day set by hand: the page previews it, plans its days one request at a
+  // time, and applies them as one edit)
+  "planRoute",
+  "routeStartDays",
+  "routeOptions",
+  "dayTravel",
+  "withReplannedDays",
 ] as const;
 
 // Decision: read the namespace through Object.entries, the static way to list what it exports.

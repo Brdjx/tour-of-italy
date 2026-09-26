@@ -1,10 +1,12 @@
 import fc from "fast-check";
 import { beforeAll, describe, expect, it } from "vitest";
-import { withReplannedDay } from "../../src/alternatives";
+import { withReplannedDay, withReplannedDays } from "../../src/alternatives";
+import { MAX_BASES_PER_TRIP } from "../../src/config";
 import { sharesLocation } from "../../src/constraints";
 import { checkDayBase, dayBaseOptions } from "../../src/dayBases";
+import { planRoute } from "../../src/dayRoute";
 import { planDay } from "../../src/planDay";
-import { scheduleTrip } from "../../src/trip";
+import { type DaySelection, scheduleTrip } from "../../src/trip";
 import type { Itinerary } from "../../src/types";
 import { validationErrors } from "../../src/validate";
 import {
@@ -22,7 +24,7 @@ import { planFor } from "./planMemo";
 // (dayBases.ts), on any request the API accepts, any day, any base, and any places to avoid.
 // The day never repeats a place of another day, never uses an excluded or avoided place, and a
 // city the options allow always gives a trip the validator and the independent hard-rule check
-// both pass, which changes base once at most. The other days never change.
+// both pass once the days it names are planned again (dayRoute.ts). No other day changes.
 
 const TIMEOUT_MS = 60_000 + PROPERTY_SETTINGS.numRuns * 200;
 
@@ -124,7 +126,7 @@ describe("re-planning one day of a trip", () => {
   );
 
   it(
-    "gives a trip with zero validator errors for every city the options allow, other days unchanged",
+    "gives a trip with zero validator errors for every city the options allow, planning only the days it names",
     () => {
       let allowed = 0;
       let moved = 0;
@@ -136,22 +138,23 @@ describe("re-planning one day of a trip", () => {
           for (const option of dayBaseOptions(request, days, index, ctx)) {
             if (!option.allowed) {
               expect(option.reason?.length ?? 0).toBeGreaterThan(0);
+              expect(option.fix?.length ?? 0).toBeGreaterThan(0);
               expect(option.refusal).toBeDefined();
               continue;
             }
             allowed++;
-            if (!option.current) moved++;
-            // Like the whole-trip planner's arrangements: one base change at most, never back.
-            const bases = days.map((d, at) => (at === index ? option.anchorId : d.anchorId));
-            const changes = bases.filter((id, at) => at > 0 && id !== bases[at - 1]).length;
-            expect(changes).toBeLessThanOrEqual(1);
-            const planned = planDay(request, days, index, option.anchorId, ctx);
-            const rebuilt = rebuiltTrip(itinerary, index, option.anchorId, planned.placeIds);
+            if (option.current) continue;
+            moved++;
+            const route = days.map((d, at) => (at === index ? option.anchorId : d.anchorId));
+            const plan = planRoute(request, days, route, ctx);
+            expect(plan.replan).toEqual([index, ...option.replans].sort((a, b) => a - b));
+            const planned = plan.rulesDays ?? [];
+            const rebuilt = rebuiltRoute(itinerary, planned);
             expect(validationErrors(rebuilt, ctx)).toEqual([]);
-            expect(hardRuleProblems(rebuilt, ctx)).toEqual([]);
-            expect(selectionOf(rebuilt).filter((_, at) => at !== index)).toEqual(
-              days.filter((_, at) => at !== index),
-            );
+            expect(hardRuleProblems(rebuilt, ctx, MAX_BASES_PER_TRIP)).toEqual([]);
+            days.forEach((d, at) => {
+              if (!plan.replan.includes(at)) expect(planned[at]).toEqual(d);
+            });
           }
         }),
         PROPERTY_SETTINGS,
@@ -163,6 +166,16 @@ describe("re-planning one day of a trip", () => {
     TIMEOUT_MS * 3,
   );
 });
+
+/** The itinerary with a route's days, timed from their ids as the page applies them. */
+function rebuiltRoute(itinerary: Itinerary, days: readonly DaySelection[]): Itinerary {
+  const timed = scheduleTrip(itinerary.request, days, ctx).days;
+  return withReplannedDays(
+    itinerary,
+    timed.map((dayPlan, day) => ({ day, dayPlan })),
+    ctx,
+  );
+}
 
 /** The itinerary with the day replaced, timed the way the page applies a re-planned day. */
 function rebuiltTrip(

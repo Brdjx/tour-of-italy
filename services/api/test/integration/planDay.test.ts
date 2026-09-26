@@ -170,28 +170,29 @@ describe("POST /api/plan/day", () => {
     );
   });
 
-  it("refuses a city the day cannot take, with the reason the page shows (422)", async () => {
+  it("refuses a city the day cannot take alone, with the planner's reason and way out (422)", async () => {
     const { app, logs } = makeApp();
     const res = await postDay(app, dayBody(rome, 1, "florence"));
 
     expect(res.status).toBe(422);
     const body = ErrorResponseSchema.parse(await res.json());
+    // Planned alone, day 3 keeps its stops, and they would not fit after the travel back.
     expect(body.error).toMatchObject({
       code: "day_not_allowed",
       message:
-        "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 3 to Florence first.",
+        "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit.",
     });
     expect(lastRequestLog(logs)).toMatchObject({ status: 422, dayRefused: true });
   });
 
-  it("refuses a third city", async () => {
+  it("plans a third city for a day", async () => {
     const trip = plannedTrip({ anchors: ["rome", "florence"], startDate: "2026-10-18" });
+    expect(trip.days.map((day) => day.anchorId)).toEqual(["rome", "rome", "florence"]);
     const { app } = makeApp();
-    const res = await postDay(app, dayBody(trip, 0, "venice"));
+    const res = await postDay(app, dayBody(trip, 1, "venice"));
 
-    expect(res.status).toBe(422);
-    const body = ErrorResponseSchema.parse(await res.json());
-    expect(body.error.message).toMatch(/^A trip can use at most 2 cities/);
+    expect(res.status).toBe(200);
+    expect(expectValidDay(await res.json(), trip, 1).dayPlan.anchorId).toBe("venice");
   });
 
   it("answers 405 with an Allow header for any method but POST", async () => {

@@ -1,39 +1,25 @@
-import { MAX_ANCHORS_PER_TRIP } from "./config";
 import type { PlannerContext } from "./context";
-import { dayMustIncludes, planDay, type ReplanOptions, withDay } from "./planDay";
-import { EPOCH_ISO } from "./planPolicy";
+import { newTripErrors, tripErrors } from "./dayChecks";
+import { type DayRefusal, dayTravel, planRoute, type RoutePlan } from "./dayRoute";
+import { dayMustIncludes, planDay, type ReplanOptions } from "./planDay";
 import { requireIndex } from "./stopEdits";
 import { formatDuration } from "./travel";
-import { type DaySelection, scheduleTrip } from "./trip";
-import { transferInto } from "./tripWalk";
-import type { Itinerary, TripRequest, Violation } from "./types";
-import { validateItinerary } from "./validate";
-import { dayText, dayTitle, listText } from "./validate/text";
-import { isError } from "./violations";
+import type { DaySelection } from "./trip";
+import type { TripRequest, Violation } from "./types";
+import { dayText, dayTitle } from "./validate/text";
 
-// Which cities one day of an existing trip can move to, each with a reason when it cannot. The
-// page lists them when the traveler changes a day's city, and POST /api/plan/day refuses any
-// other with the same reason. A city is allowed when the trip keeps at most MAX_ANCHORS_PER_TRIP
-// bases and changes base at most once, the day holds no must-include of its current base, and the
-// rules-only day there (planDay.ts) is not empty and leaves the trip with no new error from the
-// validator: not on this day, and not on the next one, which starts after a different transfer.
-// Decision: a trip changes base at most once, as the whole-trip planner's arrangements do
-// (planAnchors.ts: "no trip goes back and forth"), so Rome, Florence, Rome is refused even when
-// the validator would pass it. Its must-include check assumes a single base change
-// (validate/mustIncludeFit.ts), and a day away costs two long transfers: Milan, Florence, Milan
-// is 2 h 15 min each way for one day. The reason says which neighbouring day to move first when
-// that move is allowed, so the traveler can still get there a day at a time (Rome, Rome,
-// Florence, then Rome, Florence, Florence). Over 60 one-base trips (every base, pace and budget,
-// dates across 2026 and 2027), day 3 could move to another city in all 60, day 1 in 33 and day 2
-// in none, and once day 3 had moved, day 2 could follow it to the same city in 59.
-
-/** Which rule keeps a day from a base. */
-export type DayRefusal =
-  | "too_many_bases" // the trip would use more than MAX_ANCHORS_PER_TRIP bases
-  | "back_and_forth" // the trip would leave a base and come back to it
-  | "holds_must_include" // the day holds a must-include of its current base
-  | "nothing_fits" // the rules-only day there is empty
-  | "new_error"; // the trip would gain an error from the validator, the next day's included
+// Which cities one day of an existing trip can take, each with its facts and, when it cannot, a
+// reason and a way out. The page lists them when the traveler changes a day's city. Another city
+// is judged as a route (dayRoute.ts): the trip with that one day moved, which may plan the next
+// day again when it no longer fits its new start, or a day of the same city to hold a place the
+// traveler asked for. The day's own city is a new version of the day (checkDayBase).
+// checkDayBase is also the check for planning one day (POST /api/plan/day): with no route it
+// changes no other day, so it refuses a city that would break another; for a day of a route the
+// page sends the trip with the route's cities already in, and it checks that day alone.
+// Decision: no city is refused for travel (decision 16). The first build refused a third city and
+// any back and forth (Rome, Florence, Rome), and a day whose move made the next day not fit; the
+// owner asked for a city a day even when it costs travel, so those are warnings now, with the
+// travel as facts, and the next day is planned again instead.
 
 /** One city a day can take, or the reason it cannot. */
 export interface DayBaseOption {
@@ -42,9 +28,12 @@ export interface DayBaseOption {
   current: boolean; // the day's base now: choosing it plans a new version of the day
   allowed: boolean;
   reason?: string; // why not, one short sentence for the traveler; set only when not allowed
+  fix?: string; // the way out, one short sentence; set only when not allowed
   refusal?: DayRefusal; // the rule behind `reason`; set only when not allowed
   transferInMin: number; // travel into this day from the day before's base, 0 when none
   transferOutMin: number; // travel from this base to the next day's base, 0 when none
+  warnings: string[]; // the facts: this day's travel, then what happens to the other days
+  replans: number[]; // the other days (0-based) this choice plans again, in order
 }
 
 /** The verdict for one base, with the rules-only day planned there when it is allowed. */
@@ -53,46 +42,14 @@ export interface DayBaseCheck {
   day: DaySelection | null; // planDay's day at this base; null when the base is not allowed
 }
 
-/** The key of an error, to tell a new one from one the trip already had. */
-const errorKey = (v: Violation) => `${v.code}|${v.day ?? ""}|${v.placeId ?? ""}`;
-
-/** The validator's errors for the trip timed from its ids. */
-function tripErrors(request: TripRequest, days: readonly DaySelection[], ctx: PlannerContext) {
-  const itinerary: Itinerary = {
-    request,
-    days: scheduleTrip(request, days, ctx).days,
-    source: "deterministic",
-    warnings: [],
-    meta: { attempts: 0, latencyMs: 0, generatedAt: EPOCH_ISO },
-  };
-  return validateItinerary(itinerary, ctx).filter(isError);
-}
-
 /**
- * The errors of the trip with day `dayIndex` replaced by `day` that it did not have before: any
- * error on that day, and any other error whose code, day and place the trip before did not have.
- * `before` is tripErrors of the trip as it was.
- */
-// Decision: an error the trip already had elsewhere is not the re-plan's to fix, and it cannot
-// fix it without changing another day. So a trip the traveler has already broken (an edit the page
-// flagged) can still have a day re-planned, and the re-plan can never make it worse.
-export function newTripErrors(
-  request: TripRequest,
-  days: readonly DaySelection[],
-  dayIndex: number,
-  day: DaySelection,
-  ctx: PlannerContext,
-  before: readonly Violation[] = tripErrors(request, days, ctx),
-): Violation[] {
-  const had = new Set(before.map(errorKey));
-  const after = tripErrors(request, withDay(days, dayIndex, day), ctx);
-  return after.filter((error) => error.day === dayIndex || !had.has(errorKey(error)));
-}
-
-/**
- * The verdict on moving day `dayIndex` to base `anchorId` (or planning it again at its own base),
- * with planDay's day there when it is allowed. Throws RangeError on a day index out of range or
- * an unknown base.
+ * The verdict on planning day `dayIndex` at base `anchorId` with every other day as it is (another
+ * city, or its own for a new version), with planDay's day there when it is allowed. Refused when
+ * the day holds a must-include of its current base and moves, when nothing fits there, or when
+ * the trip would gain an error from the validator (the next day's, after its new start,
+ * included). For a day of a route, pass the trip with the route's cities in and the days still
+ * to plan empty (routeStartDays): the day is then at its own city, and the later empty days are
+ * not held against it. Throws RangeError on a day index out of range or an unknown base.
  */
 export function checkDayBase(
   request: TripRequest,
@@ -106,8 +63,10 @@ export function checkDayBase(
 }
 
 /**
- * Every base as an option for day `dayIndex`: the day's own base first, then the others in the
- * context's order (most places first). Throws RangeError on a day index out of range.
+ * Every base as an option for day `dayIndex`: the day's own city first, as a new version of the
+ * day (checkDayBase, with `options.avoid`), then the others in the context's order (most places
+ * first), each as the route with only this day moved (routeOptions). Throws RangeError on a day
+ * index out of range.
  */
 export function dayBaseOptions(
   request: TripRequest,
@@ -117,17 +76,59 @@ export function dayBaseOptions(
   options: ReplanOptions = {},
 ): DayBaseOption[] {
   requireIndex(dayIndex, days.length, "Day");
-  const before = tripErrors(request, days, ctx);
-  const current = days[dayIndex]?.anchorId;
-  const ids = ctx.anchors.map((anchor) => anchor.id);
-  const ordered = [...ids.filter((id) => id === current), ...ids.filter((id) => id !== current)];
-  return ordered.map((id) => checkWith(request, days, dayIndex, id, ctx, options, before).option);
+  const current = days[dayIndex]?.anchorId as string;
+  const own = checkDayBase(request, days, dayIndex, current, ctx, options).option;
+  const route = days.map((day) => day.anchorId);
+  const others = routeOptions(request, days, route, dayIndex, ctx).filter((o) => !o.current);
+  return [own, ...others];
 }
 
 /**
- * The verdict for one base. `hint` adds which day to move first to a refusal that another move
- * would lift; the checks behind a hint run without one, so they never ask each other back.
+ * Every base as an option for day `dayIndex` of a route the traveler is setting (`route`, a base
+ * a day, starting from the trip's own): the trip's city for the day first, then the others in the
+ * context's order, each judged as `route` with this day's city changed (planRoute). The page's
+ * route editor lists these for each day. Throws RangeError on a day index out of range or a route
+ * that is not a known base for every day.
  */
+export function routeOptions(
+  request: TripRequest,
+  days: readonly DaySelection[],
+  route: readonly string[],
+  dayIndex: number,
+  ctx: PlannerContext,
+): DayBaseOption[] {
+  requireIndex(dayIndex, days.length, "Day");
+  const current = days[dayIndex]?.anchorId;
+  const ids = ctx.anchors.map((anchor) => anchor.id);
+  const ordered = [...ids.filter((id) => id === current), ...ids.filter((id) => id !== current)];
+  return ordered.map((anchorId) => {
+    const target = route.map((id, index) => (index === dayIndex ? anchorId : id));
+    return routeOption(planRoute(request, days, target, ctx), dayIndex, anchorId === current);
+  });
+}
+
+/** One route's verdict as an option for one of its days. */
+function routeOption(plan: RoutePlan, dayIndex: number, current: boolean): DayBaseOption {
+  const day = plan.days[dayIndex] as RoutePlan["days"][number];
+  const others = plan.days.flatMap((other) =>
+    other.day !== dayIndex && other.note !== null ? [other.note] : [],
+  );
+  const option: DayBaseOption = {
+    anchorId: day.anchorId,
+    name: day.name,
+    current,
+    allowed: plan.allowed,
+    transferInMin: day.travelIn?.minutes ?? 0,
+    transferOutMin: day.travelOut?.minutes ?? 0,
+    warnings: [...day.warnings, ...others],
+    replans: plan.replan.filter((index) => index !== dayIndex),
+  };
+  const refusal = plan.refusal;
+  if (refusal === null) return option;
+  return { ...option, reason: refusal.reason, fix: refusal.fix, refusal: refusal.code };
+}
+
+/** The verdict for one base with every other day as it is. */
 function checkWith(
   request: TripRequest,
   days: readonly DaySelection[],
@@ -136,95 +137,66 @@ function checkWith(
   ctx: PlannerContext,
   options: ReplanOptions,
   before: readonly Violation[],
-  hint = true,
 ): DayBaseCheck {
   requireIndex(dayIndex, days.length, "Day");
   const anchor = ctx.anchorById.get(anchorId);
   if (!anchor) throw new RangeError(`"${anchorId}" is not a base`);
   const arrangement = days.map((day, index) => (index === dayIndex ? anchorId : day.anchorId));
   const current = days[dayIndex]?.anchorId === anchorId;
+  const travel = dayTravel(request, arrangement, dayIndex, ctx);
   const option: DayBaseOption = {
     anchorId,
     name: anchor.name,
     current,
     allowed: true,
-    transferInMin: transferInto(arrangement, dayIndex, ctx),
-    transferOutMin: dayIndex + 1 < days.length ? transferInto(arrangement, dayIndex + 1, ctx) : 0,
+    transferInMin: travel.travelIn?.minutes ?? 0,
+    transferOutMin: travel.travelOut?.minutes ?? 0,
+    warnings: travel.warnings,
+    replans: [],
   };
-  const refuse = (refusal: DayRefusal, reason: string): DayBaseCheck => ({
-    option: { ...option, allowed: false, reason, refusal },
+  const refuse = (refusal: DayRefusal, reason: string, fix: string): DayBaseCheck => ({
+    option: { ...option, allowed: false, reason, fix, refusal },
     day: null,
   });
-  // The first of these days that can move to this base, as "Move day 3 to Florence first.".
-  const moveFirst = (candidates: readonly number[]): string => {
-    if (!hint) return "";
-    const first = candidates.find((index) => {
-      const other = days[index];
-      if (other === undefined || other.anchorId === anchorId) return false;
-      return checkWith(request, days, index, anchorId, ctx, {}, before, false).day !== null;
-    });
-    return first === undefined ? "" : ` Move ${dayText(first)} to ${anchor.name} first.`;
-  };
-  const bases = new Set(arrangement);
-  if (bases.size > MAX_ANCHORS_PER_TRIP) {
-    const others = [...new Set(arrangement.filter((_, index) => index !== dayIndex))];
-    const names = others.map((id) => ctx.anchorById.get(id)?.name ?? id);
-    return refuse(
-      "too_many_bases",
-      `A trip can use at most ${MAX_ANCHORS_PER_TRIP} cities, and the other days use ${listText(names)}.`,
-    );
-  }
+  const elsewhere = `Choose another city for ${dayText(dayIndex)}.`;
   if (!current) {
     const held = heldMustInclude(request, days, dayIndex, ctx);
     if (held !== null) {
-      return refuse(
-        "holds_must_include",
-        `${dayTitle(dayIndex)} has ${held}, which you asked for.`,
-      );
-    }
-    if (baseChanges(arrangement) > 1) {
-      // At most two bases, so the trip starts in one, goes to the other and comes back.
-      const start = arrangement[0] as string;
-      const [from, via] = [start, arrangement.find((id) => id !== start) as string].map(
-        (id) => ctx.anchorById.get(id)?.name ?? id,
-      );
-      return refuse(
-        "back_and_forth",
-        `A trip changes city once at most, so it cannot go from ${from} to ${via} and back.${moveFirst([dayIndex + 1, dayIndex - 1])}`,
-      );
+      const reason = `${dayTitle(dayIndex)} has ${held}, which you asked for.`;
+      return refuse("holds_must_include", reason, `Remove ${held} from it first.`);
     }
   }
   const day = planDay(request, days, dayIndex, anchorId, ctx, options);
   if (day.placeIds.length === 0) {
+    const inMin = option.transferInMin;
+    const when = inMin === 0 ? "with your settings" : `after ${formatDuration(inMin)} of travel`;
     return refuse(
       "nothing_fits",
-      `Nothing in ${anchor.name} fits ${dayText(dayIndex)} with your settings.`,
+      `Nothing in ${anchor.name} fits ${dayText(dayIndex)} ${when}.`,
+      elsewhere,
     );
   }
   const errors = newTripErrors(request, days, dayIndex, day, ctx, before);
   const first = errors[0];
   if (first === undefined) return { option, day };
-  if (first.day !== dayIndex + 1) return refuse("new_error", first.detail);
+  if (first.day !== dayIndex + 1) return refuse("new_error", first.detail, elsewhere);
   const next = dayTitle(dayIndex + 1);
+  const again = `Plan ${dayText(dayIndex + 1)} again too.`;
   if (option.transferOutMin === 0) {
-    return refuse("new_error", `${next}'s plan would not fit its new start time.`);
+    return refuse("new_error", `${next}'s plan would not fit its new start time.`, again);
   }
   const late = `${next} would start after ${formatDuration(option.transferOutMin)} of travel from ${anchor.name}, and its plan would not fit.`;
-  return refuse("new_error", `${late}${moveFirst([dayIndex + 1])}`);
-}
-
-/** How many times the trip changes base from one day to the next. */
-function baseChanges(arrangement: readonly string[]): number {
-  return arrangement.filter((id, index) => index > 0 && id !== arrangement[index - 1]).length;
+  return refuse("new_error", late, again);
 }
 
 /**
  * The name of a must-include the day holds that would leave the trip with the day's base, or
  * null. A must-include the traveler also excluded, or an unknown id, does not count.
  */
-// Decision: a day holding a place the traveler asked for keeps its city. Moving it would drop the
-// place, and the page drops a must-include only when the traveler removes that stop themselves
-// (rescheduleDay). The reason names the place, so they know what to remove first.
+// Decision: with every other day as it is, a day holding a place the traveler asked for keeps its
+// city. Moving it would drop the place, and the page drops a must-include only when the traveler
+// removes that stop themselves (rescheduleDay). A route may move the place to another day of its
+// city (dayRoute.ts); this check plans one day only.
 function heldMustInclude(
   request: TripRequest,
   days: readonly DaySelection[],

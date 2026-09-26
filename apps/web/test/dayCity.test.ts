@@ -1,9 +1,4 @@
-import {
-  type Itinerary,
-  MAX_ANCHORS_PER_TRIP,
-  validationErrors,
-  withReplannedDay,
-} from "@italy/planner";
+import { type Itinerary, validationErrors, withReplannedDay } from "@italy/planner";
 import { describe, expect, it, vi } from "vitest";
 import type { PlanCallOptions, PlanDayBody } from "../lib/api";
 import { ApiError } from "../lib/apiError";
@@ -52,12 +47,18 @@ describe("the Change city sheet's choices", () => {
       "bologna",
     ]);
     expect(choices[0]).toMatchObject({ current: true, allowed: true, reason: null });
-    const florence = must(choices[1]);
-    expect(florence.allowed).toBe(false);
-    // Rome, Florence, Rome would go back and forth, so the reason says what to change first.
-    expect(florence.reason).toBe(
-      "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 3 to Florence first.",
-    );
+    // Rome, Florence, Rome is allowed: travel is the traveler's choice (decision 16), and the
+    // planner plans day 3 again after its new travel.
+    expect(choices.slice(1).every((choice) => choice.allowed && choice.reason === null)).toBe(true);
+    // A city is refused only for what no route could fix: the Uffizi on its only Florence day.
+    const pinned = fixturePlan({ mustInclude: ["place_026"] });
+    expect(pinned.days.map((day) => day.anchorId)).toEqual([FLORENCE, ROME, ROME]);
+    expect(must(cityChoices(pinned, 0, ctx)[1])).toMatchObject({
+      anchorId: ROME,
+      allowed: false,
+      reason:
+        "Day 1 has Uffizi Gallery, which you asked for, and no other day of this route is in Florence.",
+    });
   });
 
   it("gives each city one factual line: how the day meets the days either side, and its places", () => {
@@ -85,30 +86,11 @@ describe("the Change city sheet's choices", () => {
   });
 
   it("gives a reason that is the same for every city in full once, then short", () => {
-    const moved = must(dayAnswer(plan, 2, FLORENCE).dayPlan);
-    const trip = { ...plan, days: plan.days.map((day, i) => (i === 2 ? moved : day)) };
-    const reasons = cityChoices(trip, 0, ctx).map((choice) => [choice.anchorId, choice.reason]);
-    expect(reasons).toEqual([
-      [ROME, null],
-      [
-        FLORENCE,
-        "A trip changes city once at most, so it cannot go from Florence to Rome and back. Move day 2 to Florence first.",
-      ],
-      ["milan", "A trip can use at most 2 cities, and the other days use Rome and Florence."],
-      ["venice", "Would be a third city."],
-      ["bologna", "Would be a third city."],
-    ]);
-    // "A third city" is right only while a trip can have two.
-    expect(MAX_ANCHORS_PER_TRIP).toBe(2);
-
-    // A day holding a must-include keeps its city: named once, then short on the rows after it.
-    const pinned = fixturePlan({ mustInclude: [must(ids(plan, 1)[0])] });
-    const holder = pinned.days.findIndex((day) =>
-      day.stops.some((stop) => pinned.request.mustInclude.includes(stop.placeId)),
-    );
-    const held = cityChoices(pinned, holder, ctx).filter((choice) => !choice.current);
+    // Day 1 holds the Uffizi and is the trip's only Florence day: every other city would lose it.
+    const pinned = fixturePlan({ mustInclude: ["place_026"] });
+    const held = cityChoices(pinned, 0, ctx).filter((choice) => !choice.current);
     expect(held.map((choice) => choice.reason)).toEqual([
-      expect.stringMatching(/^Day \d has .+, which you asked for\.$/),
+      "Day 1 has Uffizi Gallery, which you asked for, and no other day of this route is in Florence.",
       SHORT_REASONS.holds_must_include,
       SHORT_REASONS.holds_must_include,
       SHORT_REASONS.holds_must_include,
@@ -348,9 +330,11 @@ describe("taking the API's day, or planning it here", () => {
       basis,
       ctx,
     );
+    // Planned alone, day 2 cannot move: day 3 would keep stops that no longer fit.
     expect(refused).toEqual({
       kind: "refused",
-      reason: expect.stringContaining("Move day 3 to Florence first."),
+      reason:
+        "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit.",
     });
     const gone = resolveDay(
       plan,

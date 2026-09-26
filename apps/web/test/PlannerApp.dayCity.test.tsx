@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 describe("Change city", () => {
-  it("opens from the city on the day's line with every base, the day's own first, and why one cannot be chosen", async () => {
+  it("opens from the city on the day's line with every base, the day's own first", async () => {
     const { user } = setup({ postDay: answering });
     await planAndOpen(user, 2);
     const pill = screen.getByRole("button", { name: "Rome, change city" });
@@ -143,22 +143,13 @@ describe("Change city", () => {
       "venice",
       "bologna",
     ]);
-    // Day 3 still starts in Rome, so none of them fits day 2 yet; each one says why, in place,
-    // and none has the onward chevron.
+    // Travel is the traveler's choice (decision 16): every city can take day 2, and points onward.
     for (const element of options) {
-      expect(element.getAttribute("aria-disabled")).toBe("true");
-      expect(element.dataset.allowed).toBe("false");
-      expect(element.querySelector(".city-option-chevron")).toBeNull();
+      expect(element.getAttribute("aria-disabled")).toBeNull();
+      expect(element.dataset.allowed).toBe("true");
+      expect(element.querySelector(".city-option-chevron")).not.toBeNull();
     }
-    const florence = option("florence");
-    expect(florence).toHaveProperty("textContent", expect.stringContaining("Florence"));
-    expect(screen.getByRole("button", { name: "Florence" }).getAttribute("aria-describedby")).toBe(
-      within(florence).getByText(/Move day 3 to Florence first\.$/).id,
-    );
-    // A city the planner does not allow does nothing when pressed.
-    await user.click(florence);
-    expect(answering).not.toHaveBeenCalled();
-    expect(sheet.hasAttribute("open")).toBe(true);
+    expect(option("florence")).toHaveProperty("textContent", expect.stringContaining("Florence"));
 
     // Closing puts focus back on the city it was opened from.
     await user.click(within(sheet).getByTestId("city-close"));

@@ -17,13 +17,20 @@ import type { Anchor, DayPlan, Itinerary, Meal, Place, Stop } from "../../src/ty
 // scheduler, the validator, or the constraint helpers they share, so a bug in any of those
 // cannot also hide itself here. Each problem is a readable string; an empty list means valid.
 
-/** Every broken hard rule, or [] when the plan could safely reach a traveler. */
-export function hardRuleProblems(itinerary: Itinerary, ctx: PlannerContext): string[] {
+/**
+ * Every broken hard rule, or [] when the plan could safely reach a traveler. `maxBases` is
+ * MAX_ANCHORS_PER_TRIP for a trip a planner arranged, and one a day for a route set by hand.
+ */
+export function hardRuleProblems(
+  itinerary: Itinerary,
+  ctx: PlannerContext,
+  maxBases = MAX_ANCHORS_PER_TRIP,
+): string[] {
   const problems: string[] = [];
   const { request, days } = itinerary;
   if (days.length !== TRIP_DAYS) problems.push(`has ${days.length} days, not ${TRIP_DAYS}`);
   const bases = new Set(days.map((day) => day.anchorId));
-  if (bases.size > MAX_ANCHORS_PER_TRIP) problems.push(`uses ${bases.size} bases`);
+  if (bases.size > maxBases) problems.push(`uses ${bases.size} bases`);
   const seen = new Set<string>();
   let previous: Anchor | undefined;
   days.forEach((day, index) => {

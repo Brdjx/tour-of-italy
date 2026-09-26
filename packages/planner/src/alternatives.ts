@@ -35,27 +35,50 @@ export interface Alternative {
  * the stop keeps its place and role and the reason still holds (attachReasons); every other stop
  * gets a rule reason. The warnings become the validator's. Throws RangeError on a bad day index.
  */
-// Decision: the summary goes when the day's base changes. "Three days in Rome" names no place the
-// sentence check (summaryForPlaces) could catch, and a saved trip drops it in the same case
-// (services/api/src/trips/rebuild.ts). A new version of the day at the same base keeps it; the
-// page still drops any sentence naming a place the trip no longer has.
 export function withReplannedDay(
   itinerary: Itinerary,
   dayIndex: number,
   day: Pick<DayPlan, "anchorId" | "stops">,
   ctx: PlannerContext,
 ): Itinerary {
-  requireIndex(dayIndex, itinerary.days.length, "Day");
-  const previous = itinerary.days.map((old, index) =>
-    index === dayIndex ? { ...old, anchorId: day.anchorId, stops: day.stops } : old,
-  );
+  return withReplannedDays(itinerary, [{ day: dayIndex, dayPlan: day }], ctx);
+}
+
+/** One day planned again, as withReplannedDays takes it. */
+export interface ReplannedDay {
+  day: number; // 0-based
+  dayPlan: Pick<DayPlan, "anchorId" | "stops">;
+}
+
+/**
+ * The itinerary with several days replaced by re-planned days at once, as withReplannedDay does
+ * for one: a route's days (dayRoute.ts), applied as one edit so one Undo takes them all back. A
+ * day listed twice takes its last entry. Throws RangeError on a bad day index.
+ */
+// Decision: the summary goes when any day's base changes. "Three days in Rome" names no place the
+// sentence check (summaryForPlaces) could catch, and a saved trip drops it in the same case
+// (services/api/src/trips/rebuild.ts). New versions of days at the same bases keep it; the page
+// still drops any sentence naming a place the trip no longer has.
+export function withReplannedDays(
+  itinerary: Itinerary,
+  replanned: readonly ReplannedDay[],
+  ctx: PlannerContext,
+): Itinerary {
+  for (const { day } of replanned) requireIndex(day, itinerary.days.length, "Day");
+  const latest = new Map(replanned.map((entry) => [entry.day, entry.dayPlan]));
+  const previous = itinerary.days.map((old, index) => {
+    const day = latest.get(index);
+    return day ? { ...old, anchorId: day.anchorId, stops: day.stops } : old;
+  });
   const selection = previous.map((old) => ({ anchorId: old.anchorId, placeIds: idsOf(old) }));
   const { days } = scheduleTrip(itinerary.request, selection, ctx, previous);
   const { summary, ...rest } = itinerary;
-  const sameBase = itinerary.days[dayIndex]?.anchorId === day.anchorId;
+  const sameBases = previous.every(
+    (day, index) => itinerary.days[index]?.anchorId === day.anchorId,
+  );
   const next: Itinerary = {
     ...rest,
-    ...(sameBase && summary !== undefined ? { summary } : {}),
+    ...(sameBases && summary !== undefined ? { summary } : {}),
     days,
     warnings: [],
   };

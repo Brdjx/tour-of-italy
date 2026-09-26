@@ -206,12 +206,11 @@ export interface CityChoice {
  * that gives it (cityChoices).
  */
 // Decision: said in full once, on the first row that has it, and short on the rows after, so a
-// sheet with three cities past the two-city limit does not read one long sentence three times.
-// Every row still says why (a reason is never hidden), and a reason that names the city (the
-// next day's travel from it, nothing fitting there) stays whole on every row. "A third city"
-// follows MAX_ANCHORS_PER_TRIP, which is 2 (the tests pin it).
+// sheet where every other city is refused for the same place does not read one long sentence four
+// times. Every row still says why (a reason is never hidden), and a reason that names the city
+// (nothing fitting there) stays whole on every row. The planner no longer refuses a city for
+// travel (decision 16), so a third city has no reason to shorten.
 export const SHORT_REASONS: Partial<Record<DayRefusal, string>> = {
-  too_many_bases: "Would be a third city.",
   holds_must_include: "This day has a place you asked for.",
 };
 

@@ -471,7 +471,7 @@ describe("a day planned again", () => {
     const after = itineraryReducer(before, action, ctx);
     expect(after.itinerary).toBe(before.itinerary);
     expect(after.history).toEqual([]);
-    expect(after.message).toContain("Move day 3 to Florence first.");
+    expect(after.message).toContain("and its plan would not fit.");
   });
 
   it("does nothing without a plan or the places", () => {
