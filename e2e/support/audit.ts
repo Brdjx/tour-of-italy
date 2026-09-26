@@ -85,21 +85,42 @@ export async function smallFieldText(page: Page): Promise<string[]> {
 /**
  * Visible interactive elements smaller than `min` px in either direction, as "name WxH".
  * Radio buttons and checkboxes are drawn as their whole label, so the label is measured. The
- * map's stops, a stop's popup and Expand map count like any other control. MapLibre's own
- * credits button is left out: it is out of the tab order and hidden from screen readers, and
- * the caption under the map has the same credits as links. Behind an open modal dialog (a sheet,
- * the full-screen map) the page is inert, as under [inert]: nothing there can be pressed, and on
- * phones it is scaled back, so its controls would measure under their real size.
+ * map's stops, a stop's popup and Expand map count like any other control. Left out:
+ * - MapLibre's own credits button: it is out of the tab order and hidden from screen readers,
+ *   and the caption under the map has the same credits as links.
+ * - Anything not rendered: under [hidden] or display: none, or in a closed <details>, whose
+ *   content the browser skips (content-visibility) but still measures when asked.
+ * - Behind the top modal dialog (a sheet, the full-screen map) the page is inert, as under
+ *   [inert], and so is a sheet under another (More options over Edit trip): nothing there can be
+ *   pressed, and it is scaled back, so its controls would measure under their real size.
+ * - A link in a sentence or block of text, such as a photo's credit or the map's credits in
+ *   About this data. WCAG 2.5.5 (Target Size, Enhanced, the 44 px rule) exempts it by name
+ *   ("Inline: the target is in a sentence or block of text"), and so does 2.5.8, which axe checks:
+ *   such a link is as tall as the line it sits in. A link that stands alone is measured.
  */
 export async function smallTargets(page: Page, min = 44): Promise<string[]> {
   return page.evaluate((size) => {
     const selector =
       'button, a[href], input:not([type="hidden"]), select, textarea, summary, [role="tab"], [role="option"], [tabindex="0"]';
     const small: string[] = [];
-    const modal = document.querySelector("dialog:modal") !== null;
+    // The top modal dialog's backdrop covers the screen, so a point in the corner hits it.
+    const corner = document.elementFromPoint(1, 1);
+    const modals = [...document.querySelectorAll("dialog:modal")];
+    const top = modals.find((dialog) => dialog.contains(corner)) ?? modals.at(-1) ?? null;
+    /** The link's words are part of a sentence: its block has other words beside it. */
+    const inText = (element: HTMLElement): boolean => {
+      if (!(element instanceof HTMLAnchorElement)) return false;
+      if (getComputedStyle(element).display !== "inline") return false;
+      let block = element.parentElement;
+      while (block && getComputedStyle(block).display === "inline") block = block.parentElement;
+      const around = (block?.textContent ?? "").replace(element.textContent ?? "", "");
+      return /\p{L}/u.test(around);
+    };
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (element.closest(".maplibregl-control-container, [hidden], [inert]")) continue;
-      if (modal && !element.closest("dialog:modal")) continue;
+      if (top && !top.contains(element)) continue;
+      if (element.checkVisibility && !element.checkVisibility()) continue;
+      if (inText(element)) continue;
       const input = element instanceof HTMLInputElement ? element : null;
       const drawn =
         input && (input.type === "radio" || input.type === "checkbox")
