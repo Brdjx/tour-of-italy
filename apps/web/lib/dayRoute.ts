@@ -190,6 +190,20 @@ export const SHORT_REASONS: Partial<Record<DayRefusal, string>> = {
   holds_must_include: "This day has a place you asked for.",
 };
 
+/**
+ * The short form of `option`'s reason in day `day`'s list (SHORT_REASONS), naming the day that
+ * holds the place when it is another day; undefined when the reason has no short form.
+ */
+// Decision: found in review (2026-09-26). In a route being set the place can be on another day:
+// with Rome three days, the Colosseum on day 1 and day 1 set to Florence, every other city for
+// day 2 loses it, and "This day has a place you asked for." on day 2's list named the wrong day.
+function shortReason(option: DayBaseOption, day: number): string | undefined {
+  const short = option.refusal ? SHORT_REASONS[option.refusal] : undefined;
+  const holder = option.refusalDay ?? day;
+  if (short === undefined || holder === day) return short;
+  return short.replace("This day", `Day ${holder + 1}`);
+}
+
 /** Said beside New ideas while the route being set has changes. */
 export const IDEAS_WAIT = "Your route has changes. Plan them or reset it first.";
 
@@ -213,11 +227,11 @@ export function dayChoices(
   const known = new Set(
     draftPlan.days.flatMap((other) => (other.day !== day && other.note ? [other.note] : [])),
   );
-  const said = new Set<DayRefusal>();
+  const said = new Set<string>(); // the full reasons already given on a row above
   const rows = routeOptions(request, days, draft, day, ctx).map((option): CityRow => {
-    const refusal = option.refusal;
-    const short = refusal && said.has(refusal) ? SHORT_REASONS[refusal] : undefined;
-    if (refusal) said.add(refusal);
+    const full = `${option.reason ?? ""} ${option.fix ?? ""}`.trim();
+    const short = said.has(full) ? shortReason(option, day) : undefined;
+    if (option.refusal) said.add(full);
     return {
       anchorId: option.anchorId,
       name: option.name,
@@ -226,9 +240,7 @@ export function dayChoices(
       allowed: option.allowed,
       line: neighbourLine(draft, day, option, ctx),
       warnings: option.warnings.filter((warning) => !known.has(warning)),
-      reason: option.allowed
-        ? null
-        : (short ?? `${option.reason ?? ""} ${option.fix ?? ""}`.trim()),
+      reason: option.allowed ? null : (short ?? full),
     };
   });
   const own = days[day] as DaySelection;

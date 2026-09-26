@@ -30,6 +30,7 @@ export interface DayBaseOption {
   reason?: string; // why not, one short sentence for the traveler; set only when not allowed
   fix?: string; // the way out, one short sentence; set only when not allowed
   refusal?: DayRefusal; // the rule behind `reason`; set only when not allowed
+  refusalDay?: number; // the day (0-based) the refusal is about, from routeOptions; when not allowed
   transferInMin: number; // travel into this day from the day before's base, 0 when none
   transferOutMin: number; // travel from this base to the next day's base, 0 when none
   warnings: string[]; // the facts: this day's travel, then what happens to the other days
@@ -125,7 +126,13 @@ function routeOption(plan: RoutePlan, dayIndex: number, current: boolean): DayBa
   };
   const refusal = plan.refusal;
   if (refusal === null) return option;
-  return { ...option, reason: refusal.reason, fix: refusal.fix, refusal: refusal.code };
+  return {
+    ...option,
+    reason: refusal.reason,
+    fix: refusal.fix,
+    refusal: refusal.code,
+    refusalDay: refusal.day,
+  };
 }
 
 /** The verdict for one base with every other day as it is. */

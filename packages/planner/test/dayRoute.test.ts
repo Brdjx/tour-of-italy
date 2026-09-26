@@ -458,6 +458,7 @@ describe("routeOptions", () => {
       reason:
         "Day 1 has Colosseum, which you asked for, and no other day of this route is in Rome.",
       fix: "Keep day 1 in Rome, or remove Colosseum from day 1 first.",
+      refusalDay: 0,
     });
   });
 });

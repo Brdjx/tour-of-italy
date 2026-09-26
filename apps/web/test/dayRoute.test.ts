@@ -211,6 +211,26 @@ describe("a day's cities", () => {
     ]);
   });
 
+  it("names the day that has the place when it is not the day being set", () => {
+    // Rome three days with the Colosseum on day 1, and day 1 set to Florence: day 2 must stay in
+    // Rome to take it, and every other city for day 2 is refused because of day 1's place.
+    const pinned = fixturePlan({
+      mustInclude: ["place_001"],
+      anchors: [ROME],
+      interests: ["historic"],
+    });
+    expect(ids(pinned, 0)).toContain("place_001");
+    const rows = dayChoices(pinned, [FLORENCE, ROME, FLORENCE], 1, ctx).rows;
+
+    expect(rows.map((row) => row.reason)).toEqual([
+      null,
+      "Day 1 has Colosseum, which you asked for, and no other day of this route is in Rome. Keep day 1 in Rome, or remove Colosseum from day 1 first.",
+      "Day 1 has a place you asked for.",
+      "Day 1 has a place you asked for.",
+      "Day 1 has a place you asked for.",
+    ]);
+  });
+
   it("checks new ideas with the day's own places left out", () => {
     // Every other place in Rome skipped: the day has nothing new, and the list says so.
     const used = new Set(plan.days.flatMap((day) => day.stops.map((stop) => stop.placeId)));
