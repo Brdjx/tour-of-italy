@@ -7,9 +7,11 @@ import {
   type PlannerContext,
   type PlanSource,
   planDeterministic,
+  planRoute,
   scheduleTrip,
   type TripRequest,
   withDay,
+  withReplannedDays,
 } from "@italy/planner";
 import raw from "../../../data/italy.json";
 import type { PlanDayBody } from "../lib/api";
@@ -45,6 +47,19 @@ export function makeRequest(overrides: Partial<TripRequest> = {}): TripRequest {
 /** A deterministic plan for the request, identical on every run. */
 export function fixturePlan(overrides: Partial<TripRequest> = {}): Itinerary {
   return planDeterministic(makeRequest(overrides), ctx, { generatedAt: GENERATED_AT });
+}
+
+/**
+ * The owner's trip (decision 17, 2026-09-26): Rome, Venice, Bologna from Saturday 10 October,
+ * days 2 and 3 planned again by the rules as the route sheet plans them, so day 3 is a Monday in
+ * Bologna, where no place serves dinner.
+ */
+export function ownersMonday(): Itinerary {
+  const plan = fixturePlan({ startDate: "2026-10-10" });
+  const route = planRoute(plan.request, tripSelection(plan), ["rome", "venice", "bologna"], ctx);
+  const timed = scheduleTrip(plan.request, must(route.rulesDays, "the route's days"), ctx);
+  const days = [1, 2].map((day) => ({ day, dayPlan: must(timed.days[day], `day ${day + 1}`) }));
+  return withReplannedDays(plan, days, ctx);
 }
 
 /** The plan as an AI-sourced API response would carry it. */

@@ -1,7 +1,10 @@
-import type { Violation } from "@italy/planner";
+import type { MealGap, MealGapPlace, Violation } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import {
+  dayChips,
   flaggedStopCount,
+  mealChip,
+  missingMeal,
   stopChips,
   tripViolations,
   violationChip,
@@ -105,5 +108,177 @@ describe("flaggedStopCount", () => {
       2,
     );
     expect(flaggedStopCount([{ ...on(0, 2), severity: "warning" }])).toBe(0);
+  });
+});
+
+// A day with no lunch or dinner (decision 17): the chip names the meal and its cause, and offers
+// only a way out that can work. The owner's Monday in Bologna said "Meal missing" and to swap a
+// stop near that meal time, when no place of Bologna serves dinner on Mondays.
+describe("a missing meal's chip", () => {
+  const dinner: Violation = {
+    code: "MEAL_MISSING",
+    severity: "warning",
+    day: 2,
+    detail: "Day 3 has no dinner stop.",
+  };
+  const lunch: Violation = { ...dinner, detail: "Day 3 has no lunch stop." };
+
+  function spot(overrides: Partial<MealGapPlace>): MealGapPlace {
+    return {
+      placeId: "place_x",
+      name: "A place",
+      block: null,
+      why: "",
+      overBudget: false,
+      day: null,
+      ...overrides,
+    };
+  }
+
+  function gap(overrides: Partial<MealGap>): MealGap {
+    return {
+      day: 2,
+      meal: "dinner",
+      cause: "not_planned",
+      text: "A place could take dinner that day.",
+      places: [],
+      ...overrides,
+    };
+  }
+
+  const closed = (name: string) =>
+    spot({ name, block: "closed_weekday", why: "closed on Mondays" });
+
+  it("reads the meal from the validator's words and the scheduler's", () => {
+    expect(missingMeal(dinner)).toBe("dinner");
+    expect(missingMeal({ detail: "No lunch stop on this day." })).toBe("lunch");
+    expect(missingMeal({ detail: "No lunch." })).toBeNull();
+  });
+
+  it("says none is open, names the places, and offers another city, never a swap", () => {
+    const places = ["Trattoria Anna Maria", "Enoteca Italiana, Bologna"].map(closed);
+    const text = "Bologna's two dinner places are all closed on Mondays.";
+    const chip = mealChip(dinner, gap({ cause: "none_open", text, places }), 3);
+    expect(chip).toEqual({
+      key: "MEAL_MISSING--3",
+      label: "No dinner open",
+      tone: "warning",
+      explanation: text,
+      // The sentence says why for them all, so each name stands alone.
+      places: [
+        { name: "Trattoria Anna Maria", why: null },
+        { name: "Enoteca Italiana, Bologna", why: null },
+      ],
+      wayOut: "Choose another city for this day to have dinner in the plan.",
+      action: "city",
+    });
+    expect(`${chip.explanation} ${chip.wayOut}`).not.toMatch(/swap/i);
+  });
+
+  it("gives each place its own reason when the reasons differ", () => {
+    const places = [
+      spot({
+        name: "Via Drapperie, Bologna",
+        block: "out_of_reach",
+        why: "not reachable in time that day",
+      }),
+      closed("Trattoria Anna Maria"),
+    ];
+    const chip = mealChip(lunch, gap({ meal: "lunch", cause: "none_open", places }));
+    expect(chip.label).toBe("No lunch open");
+    expect(chip.places).toEqual([
+      { name: "Via Drapperie, Bologna", why: "not reachable in time that day" },
+      { name: "Trattoria Anna Maria", why: "closed on Mondays" },
+    ]);
+  });
+
+  it("offers the swap when a place off the trip and within the budget could take the meal", () => {
+    const chip = mealChip(
+      dinner,
+      gap({ text: "Enoteca Italiana, Bologna could take dinner that day.", places: [spot({})] }),
+    );
+    expect(chip).toEqual({
+      key: "MEAL_MISSING--0",
+      label: "No dinner planned",
+      tone: "warning",
+      explanation:
+        "Enoteca Italiana, Bologna could take dinner that day. Swap a stop near dinner time for a place to eat, or undo your last change.",
+    });
+  });
+
+  it("names the places a swap could bring in when the sentence only counts them", () => {
+    const text = "Three places in Venice could take dinner that day.";
+    const places = ["Antiche Carampane", "Osteria alle Testiere", "Al Covo"].map((name) =>
+      spot({ name }),
+    );
+    const held = spot({ name: "Harry's Bar", day: 0 });
+    const chip = mealChip(dinner, gap({ text, places: [...places, held] }));
+    expect(chip).toMatchObject({
+      label: "No dinner planned",
+      explanation: text,
+      places: places.map((place) => ({ name: place.name, why: null })),
+      wayOut: "Swap a stop near dinner time for a place to eat, or undo your last change.",
+    });
+    expect(chip.action).toBeUndefined();
+  });
+
+  it("offers another city, with the day that has each place, when every one is in the trip", () => {
+    const places = [
+      spot({ name: "Da Vittorio", day: 0 }),
+      spot({ name: "Luini", day: 1 }),
+      closed("Trattoria Milanese"),
+    ];
+    const text = "Every place in Milan that could take dinner that day is already in the trip.";
+    const chip = mealChip(dinner, gap({ text, places }));
+    expect(chip).toMatchObject({
+      label: "No dinner planned",
+      explanation: text,
+      places: [
+        { name: "Da Vittorio", why: "on day 1" },
+        { name: "Luini", why: "on day 2" },
+      ],
+      wayOut: "Choose another city for this day, or undo your last change.",
+      action: "city",
+    });
+  });
+
+  it("says a place is over the budget only beside places on a day, since the sentence says it otherwise", () => {
+    const over = spot({ name: "Al Quadri, Venice", overBudget: true });
+    const alone = mealChip(dinner, gap({ places: [over] }));
+    expect(alone.places).toEqual([{ name: "Al Quadri, Venice", why: null }]);
+    expect(alone.action).toBe("city");
+    const mixed = mealChip(dinner, gap({ places: [over, spot({ name: "Harry's Bar", day: 0 })] }));
+    expect(mixed.places).toEqual([
+      { name: "Al Quadri, Venice", why: "over your budget" },
+      { name: "Harry's Bar", why: "on day 1" },
+    ]);
+  });
+
+  it("keeps the validator's words when the planner cannot say why", () => {
+    const unread = mealChip(dinner, gap({ text: "" }));
+    expect(unread.label).toBe("No dinner planned");
+    expect(unread.explanation).toBe(`Day 3 has no dinner stop. ${WARNING_NEXT_STEP.MEAL_MISSING}`);
+    expect(mealChip(dinner, undefined).label).toBe("Meal missing");
+  });
+
+  it("pairs each of a day's missing meals with its own cause", () => {
+    const transfer: Violation = { ...dinner, code: "LONG_TRANSFER", detail: "A long way." };
+    const chips = dayChips(
+      [lunch, dinner, transfer],
+      [
+        gap({ meal: "lunch", cause: "none_open", text: "No lunch.", places: [closed("A")] }),
+        gap({ cause: "none_open", text: "No dinner.", places: [closed("B")] }),
+      ],
+    );
+    expect(chips.map((chip) => chip.label)).toEqual([
+      "No lunch open",
+      "No dinner open",
+      "Long transfer",
+    ]);
+    expect(chips.map((chip) => chip.key)).toEqual([
+      "MEAL_MISSING--0",
+      "MEAL_MISSING--1",
+      "LONG_TRANSFER--2",
+    ]);
   });
 });

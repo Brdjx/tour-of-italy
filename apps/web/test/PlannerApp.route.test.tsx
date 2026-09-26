@@ -593,3 +593,124 @@ describe("the route sheet", () => {
     expect(screen.queryByText(/not one of the bases you chose/)).toBeNull();
   });
 });
+
+// A missing meal (decision 17), on the owner's route: Rome, Venice, Bologna from Saturday 10
+// October, day 3 a Monday, when none of Bologna's dinner places opens. The route warns before
+// Bologna is chosen, the day says why it has no dinner and offers another city, and a day where
+// code added a meal the AI left out says it was fixed after a check.
+describe("a meal a day cannot have", () => {
+  const SATURDAY = { ...aiPlan({ startDate: "2026-10-10" }), planId: "Mm9Yy8Xx7W" };
+
+  /** The chip on the day's line with this label. */
+  function chip(label: string): HTMLElement {
+    return must(
+      screen.getAllByTestId("warning-chip").find((one) => one.textContent === label),
+      `the ${label} chip`,
+    );
+  }
+
+  /** Day 2 to Venice and day 3 to Bologna, planned. */
+  async function ownersRoute(user: User) {
+    await planAndOpen(user, 2);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("venice"));
+    await user.click(routeDay(3));
+    await user.click(option("bologna"));
+    await user.click(within(sheet()).getByRole("button", { name: "Plan day 2 and day 3" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("live-region").textContent).toContain(
+        "Route changed: Rome, Venice, Bologna.",
+      ),
+    );
+    await user.click(screen.getByTestId("day-tab-3"));
+  }
+
+  it("says before Bologna is chosen that it has no dinner on Mondays, and Bologna stays a choice", async () => {
+    const { user } = setup({ postDay: answering, post: async () => SATURDAY });
+    await planAndOpen(user, 2);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("venice"));
+    await user.click(routeDay(3));
+    const bologna = option("bologna");
+    expect(bologna.dataset.allowed).toBe("true");
+    const facts = [...bologna.querySelectorAll(".city-warning")].map((fact) => fact.textContent);
+    expect(facts).toEqual([
+      "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
+      "No dinner in Bologna on Mondays.",
+    ]);
+    // Said to a screen reader with the city's name.
+    const description = document.getElementById(bologna.getAttribute("aria-describedby") ?? "");
+    expect(description?.textContent).toContain("No dinner in Bologna on Mondays.");
+    await user.click(bologna);
+    const third = routeDay(3);
+    expect(third.textContent).toContain("was");
+    expect([...third.querySelectorAll(".city-warning")].map((fact) => fact.textContent)).toEqual([
+      "No dinner in Bologna on Mondays.",
+    ]);
+    expect(within(sheet()).getByTestId("route-confirm").getAttribute("aria-disabled")).toBeNull();
+  });
+
+  it("says why day 3 has no dinner once planned, and offers another city for it", async () => {
+    const { user } = setup({ postDay: answering, post: async () => SATURDAY });
+    await ownersRoute(user);
+    expect(screen.getByTestId("day-subtitle").textContent).toContain("Day 3 in Bologna");
+    // No dinner to have: the transfer does not count the hours before it.
+    expect(screen.getByTestId("transfer-note").textContent).toContain("from Venice");
+    expect(screen.queryByTestId("transfer-left")).toBeNull();
+    const none = chip("No dinner open");
+    await user.click(none);
+    const panel = must(document.getElementById(none.getAttribute("aria-controls") ?? ""));
+    expect(panel.hidden).toBe(false);
+    expect(panel.textContent).toContain("Bologna's three dinner places are all closed on Mondays.");
+    expect(
+      within(panel)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "Osteria Francescana",
+      "Tagliatelle al Ragù at Trattoria Anna Maria",
+      "Enoteca Italiana, Bologna",
+    ]);
+    expect(panel.textContent).not.toMatch(/swap/i);
+    await user.click(within(panel).getByTestId("chip-city"));
+    expect(sheet().hasAttribute("open")).toBe(true);
+    expect(within(sheet()).getByRole("heading", { name: "City for day 3" })).toBeTruthy();
+  });
+
+  it("says a day where code added a meal was fixed after a check, with the rules' why line on it", async () => {
+    // As POST /api/plan/day answers when the AI left out dinner and code added it (mealAdd.ts):
+    // ai_repaired, the added stop with its rule reason.
+    const added = vi.fn<PostDay>(async (body) => {
+      const ai = dayAnswerFor(body);
+      const rules = dayAnswerFor(body, "deterministic");
+      const stops = ai.dayPlan.stops.map((stop, index) =>
+        stop.role === "dinner" ? must(rules.dayPlan.stops[index]) : stop,
+      );
+      return { ...ai, source: "ai_repaired", dayPlan: { ...ai.dayPlan, stops } };
+    });
+    const { user } = setup({ postDay: added, post: async () => SATURDAY });
+    await planAndOpen(user, 2);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("venice"));
+    await user.click(within(sheet()).getByTestId("route-confirm"));
+    await waitFor(() =>
+      expect(screen.getByTestId("live-region").textContent).toContain("Day 2 now in Venice."),
+    );
+    await user.click(screen.getByTestId("day-tab-2"));
+    expect(screen.getByTestId("day-source").textContent).toBe(
+      "Planned again with AI, fixed after a check",
+    );
+    const rows = screen.getAllByTestId("stop-row");
+    const dinner = must(
+      rows.find((row) => row.textContent?.includes("Dinner")),
+      "the dinner row",
+    );
+    const reason = within(dinner).getByTestId("stop-reason");
+    expect(reason.textContent).toMatch(/^Why, from the rules: /);
+    expect(reason.querySelector(".reason-mark--ai")).toBeNull();
+    const others = rows.filter((row) => row !== dinner);
+    for (const row of others) {
+      expect(within(row).getByTestId("stop-reason").textContent).toContain(AI_DAY_REASON);
+    }
+  });
+});

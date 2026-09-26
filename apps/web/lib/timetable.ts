@@ -2,10 +2,12 @@ import {
   type Anchor,
   coversMeal,
   type DayPlan,
+  dayMealGaps,
   dayTravel,
   dayWindow,
   type Itinerary,
   type Meal,
+  type MealGap,
   PACE,
   type Place,
   type PlannerContext,
@@ -14,7 +16,7 @@ import {
   travelMode,
   type Violation,
 } from "@italy/planner";
-import { type Chip, stopChips, violationChip, violationsForDay, violationsForStop } from "./chips";
+import { type Chip, dayChips, stopChips, violationsForDay, violationsForStop } from "./chips";
 import { longDate, shortDate, transferText, travelText } from "./format";
 import { displayReason } from "./reasonText";
 
@@ -77,6 +79,11 @@ export function buildDayView(
   if (!day) return null;
   const anchor = ctx.anchorById.get(day.anchorId);
   const all = [...errors, ...itinerary.warnings];
+  const own = violationsForDay(all, dayIndex);
+  // Why the day has no lunch or dinner, worked out only for a day the validator says lacks one.
+  const gaps = own.some((violation) => violation.code === "MEAL_MISSING")
+    ? dayMealGaps(itinerary, dayIndex, ctx)
+    : [];
   const seated = day.stops.map((stop) => stop.role).filter((role) => role !== "visit");
   const rows = day.stops.map((stop, index) => {
     const place = ctx.placesById.get(stop.placeId);
@@ -106,11 +113,9 @@ export function buildDayView(
     tabLabel: shortDate(day.date),
     heading: longDate(day.date),
     stopsText: stopsText(day),
-    transfer: transferFor(itinerary, dayIndex, ctx),
+    transfer: transferFor(itinerary, dayIndex, ctx, gaps),
     returnLeg: returnFor(day, ctx, anchor),
-    dayChips: violationsForDay(all, dayIndex).map((violation, index) =>
-      violationChip(violation, index),
-    ),
+    dayChips: dayChips(own, gaps),
     rows,
   };
 }
@@ -184,6 +189,7 @@ function transferFor(
   itinerary: Itinerary,
   dayIndex: number,
   ctx: PlannerContext,
+  gaps: readonly MealGap[],
 ): TransferView | null {
   const day = itinerary.days[dayIndex];
   const previous = itinerary.days[dayIndex - 1];
@@ -194,13 +200,16 @@ function transferFor(
   const pace = itinerary.request.pace;
   // Decision: the planner's own words for what the travel leaves of the day (dayTravel, whose
   // second fact it is), so the day says what the route sheet said before it was planned.
+  // A day with no dinner open says so on its chip, so it has no "before dinner" to count to
+  // (lib/dayRoute.ts travelFacts, as the route sheet said before it was planned).
   const bases = itinerary.days.map((other) => other.anchorId);
   const facts = dayTravel(itinerary.request, bases, dayIndex, ctx).warnings;
+  const noDinner = gaps.some((gap) => gap.meal === "dinner" && gap.cause === "none_open");
   return {
     text: transferText(day.transferMin, travelMode(from.centroid, to.centroid), from.name),
     depart: PACE[pace].dayStart,
     arrive: dayWindow(pace, day.transferMin).start,
-    left: facts[1] ?? null,
+    left: noDinner ? null : (facts[1] ?? null),
   };
 }
 

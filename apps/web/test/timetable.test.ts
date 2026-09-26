@@ -1,4 +1,10 @@
-import { type Itinerary, placesOfAnchor, TRAVEL, type Violation } from "@italy/planner";
+import {
+  type Itinerary,
+  placesOfAnchor,
+  rescheduleDay,
+  TRAVEL,
+  type Violation,
+} from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import {
   boundsOf,
@@ -21,7 +27,7 @@ import {
   stopsText,
   thumbnailRows,
 } from "../lib/timetable";
-import { ctx, fixturePlan, must, vaticanDay } from "./fixtures";
+import { ctx, fixturePlan, must, ownersMonday, vaticanDay } from "./fixtures";
 
 // The timetable's arithmetic: legs, free time, transfers, flags and chips. A wrong number here
 // shows the traveler a wrong plan even when the planner is right.
@@ -168,6 +174,53 @@ describe("buildDayView", () => {
     const { returnTravelMin: _omitted, ...withoutReturn } = day;
     const none = { ...plan, days: [withoutReturn, ...plan.days.slice(1)] };
     expect(buildDayView(none, 0, ctx, [])?.returnLeg).toBeNull();
+  });
+});
+
+// The owner's day 3 (decision 17): Monday 12 October in Bologna after the train from Venice, where
+// none of Bologna's dinner places opens on Mondays.
+describe("a day with no lunch or dinner", () => {
+  const trip = ownersMonday();
+
+  it("says no dinner is open on the owner's Monday in Bologna, with the places and the way out", () => {
+    const view = must(buildDayView(trip, 2, ctx, []));
+    expect(view.anchorName).toBe("Bologna");
+    expect(view.dayChips).toEqual([
+      expect.objectContaining({
+        label: "No dinner open",
+        explanation: "Bologna's three dinner places are all closed on Mondays.",
+        action: "city",
+      }),
+    ]);
+    expect(view.dayChips[0]?.places?.map((place) => place.name)).toEqual([
+      "Osteria Francescana",
+      "Tagliatelle al Ragù at Trattoria Anna Maria",
+      "Enoteca Italiana, Bologna",
+    ]);
+    // No dinner to have, so the transfer does not count the hours left before it.
+    expect(view.transfer).toMatchObject({ text: "2 h 25 min by train or car from Venice" });
+    expect(view.transfer?.left).toBeNull();
+  });
+
+  it("keeps what the travel leaves on a day that can have dinner", () => {
+    const view = must(buildDayView(trip, 1, ctx, []));
+    expect(view.transfer?.left).toBe("Leaves about 6 h before dinner.");
+    expect(view.dayChips.map((chip) => chip.label)).toEqual(["Long transfer"]);
+  });
+
+  it("offers the swap once the traveler takes off a dinner another place could take", () => {
+    const venice = must(trip.days[1]);
+    const kept = venice.stops.filter((stop) => stop.role !== "dinner").map((stop) => stop.placeId);
+    const edited = rescheduleDay(trip, 1, kept, ctx).itinerary;
+    const chip = must(buildDayView(edited, 1, ctx, [])).dayChips.find(
+      (one) => one.label === "No dinner planned",
+    );
+    expect(chip?.explanation).toMatch(/^\w+ places in Venice could take dinner that day\.$/);
+    expect(chip?.places?.length).toBeGreaterThan(1);
+    expect(chip?.wayOut).toBe(
+      "Swap a stop near dinner time for a place to eat, or undo your last change.",
+    );
+    expect(chip?.action).toBeUndefined();
   });
 });
 

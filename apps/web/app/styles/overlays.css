@@ -137,6 +137,69 @@
     animation: sheet-content-in var(--dur-move) var(--ease-content) both;
   }
 
+  /* A missing meal's places, under its words: each name in ink, and why in muted when it is not
+     the same for all. A small square in the strong hairline marks each, as the caution square
+     marks a fact, without its caution. */
+  .chip-places {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 8px;
+  }
+
+  .chip-place {
+    position: relative;
+    padding-left: 15px;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+
+  .chip-place::before {
+    position: absolute;
+    top: 0.45em;
+    left: 1px;
+    width: 5px;
+    height: 5px;
+    background: var(--line-strong);
+    content: "";
+  }
+
+  .chip-place-name {
+    font-weight: 500;
+  }
+
+  .chip-place-why {
+    color: var(--muted);
+  }
+
+  /* The way out in words, under the places, when the page has no control for it. */
+  .chip-way-out {
+    margin-top: 8px;
+  }
+
+  /* The way out, another city for the day: an outline pill with the onward chevron, as the city
+     on the day's line has, since it opens the same sheet (its size is outside the layer, below,
+     since .pill in globals.css is too). */
+  .chip-action {
+    margin-top: 10px;
+  }
+
+  .chip-action-chevron {
+    flex-shrink: 0;
+    color: var(--muted);
+    transform: rotate(-90deg);
+  }
+
+  @media (hover: hover) {
+    .chip-action-chevron {
+      transition: translate var(--dur-move) var(--ease-out);
+    }
+
+    .chip-action:hover:not([aria-disabled="true"]) .chip-action-chevron {
+      translate: 2px 0;
+    }
+  }
+
   /* ----- Swap sheet: a bottom sheet on phones, a side sheet from 768 px ----- */
 
   .sheet-layer {
@@ -294,6 +357,12 @@
       animation: none;
     }
 
+    .chip-action-chevron,
+    .chip-action:hover .chip-action-chevron {
+      translate: none;
+      transition: none;
+    }
+
     .chip,
     .toast-undo,
     .banner-button {
@@ -301,4 +370,11 @@
       transition: none;
     }
   }
+}
+
+/* Decision: outside the layer, like .pill in globals.css, whose padding and gap it changes: the
+   chevron sits close after the words, as it does on the city pill. */
+.chip-explanation .chip-action {
+  padding: 0 12px 0 16px;
+  gap: 2px;
 }

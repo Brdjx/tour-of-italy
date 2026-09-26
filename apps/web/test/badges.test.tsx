@@ -161,6 +161,109 @@ describe("WarningChips", () => {
   });
 });
 
+// A missing meal's chip (decision 17): its words, the places it is about, and its way out, which
+// is another city for the day: a control where the page can change the day's city, else words.
+describe("a missing meal's chip", () => {
+  const meal: Chip = {
+    key: "meal",
+    label: "No dinner open",
+    tone: "warning",
+    explanation: "Of Bologna's two dinner places, one is closed on Mondays and one is avoided.",
+    places: [
+      { name: "Trattoria Anna Maria", why: "closed on Mondays" },
+      { name: "Enoteca Italiana, Bologna", why: null },
+    ],
+    wayOut: "Choose another city for this day to have dinner in the plan.",
+    action: "city",
+  };
+  const transfer: Chip = {
+    key: "transfer",
+    label: "Long transfer",
+    tone: "warning",
+    explanation: "A long way.",
+  };
+  const described = (chip: HTMLElement) =>
+    (chip.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent)
+      .join(" ");
+
+  it("lists the places under its words, then the way out in words where the city cannot change", async () => {
+    const user = userEvent.setup();
+    render(<WarningChips chips={[meal]} />);
+    const chip = screen.getByTestId("warning-chip");
+    await user.click(chip);
+    const panel = screen.getByTestId("chip-explanation");
+    expect(panel.hidden).toBe(false);
+    expect(chip.getAttribute("aria-controls")).toBe(panel.id);
+    expect([...panel.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
+      "Trattoria Anna Maria: closed on Mondays",
+      "Enoteca Italiana, Bologna",
+    ]);
+    expect(panel.textContent).toContain(meal.wayOut);
+    expect(screen.queryByTestId("chip-city")).toBeNull();
+    expect(described(chip)).toBe(`${meal.explanation} ${meal.wayOut}`);
+  });
+
+  it("offers another city as a control that Tab reaches from its chip, and says it in the description", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(<WarningChips chips={[meal, transfer]} city={{ onOpen, disabled: false }} />);
+    const [chip, next] = screen.getAllByTestId("warning-chip") as [HTMLElement, HTMLElement];
+    // The words stay in the description; on screen the control says them.
+    expect(described(chip)).toBe(`${meal.explanation} ${meal.wayOut}`);
+    await user.tab();
+    expect(document.activeElement).toBe(chip);
+    const action = screen.getByTestId("chip-city");
+    expect(action.textContent).toBe("Choose another city");
+    expect(action.getAttribute("aria-haspopup")).toBe("dialog");
+    // Tab goes into the open explanation, before the next chip, and it stays open.
+    await user.tab();
+    expect(document.activeElement).toBe(action);
+    expect(action.closest("[data-testid='chip-explanation']")?.hasAttribute("hidden")).toBe(false);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(chip);
+    await user.tab();
+    expect(document.activeElement).toBe(action);
+    await user.keyboard("{Enter}");
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    // On to the next chip, which opens its own explanation.
+    await user.tab();
+    expect(document.activeElement).toBe(next);
+    expect(screen.getByText("A long way.").hidden).toBe(false);
+    await waitFor(() => expect(action.closest("[hidden]")).not.toBeNull());
+  });
+
+  it("closes on Escape from the control and gives focus back to the chip", async () => {
+    const user = userEvent.setup();
+    render(<WarningChips chips={[meal]} city={{ onOpen: vi.fn(), disabled: false }} />);
+    const chip = screen.getByTestId("warning-chip");
+    await user.tab();
+    await user.tab();
+    await user.keyboard("{Escape}");
+    expect(document.activeElement).toBe(chip);
+    await waitFor(() => expect(screen.getByTestId("chip-explanation").hidden).toBe(true));
+    // Tab past the last chip's control goes on out of the chips.
+    await user.click(chip);
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByTestId("chip-city"));
+    await user.tab();
+    expect(document.activeElement).toBe(document.body);
+    await waitFor(() => expect(screen.getByTestId("chip-explanation").hidden).toBe(true));
+  });
+
+  it("dims the control in place while days are planned, and a press does nothing", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(<WarningChips chips={[meal]} city={{ onOpen, disabled: true }} />);
+    await user.click(screen.getByTestId("warning-chip"));
+    const action = screen.getByTestId("chip-city");
+    expect(action.getAttribute("aria-disabled")).toBe("true");
+    await user.click(action);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+});
+
 describe("banners and status", () => {
   it("shows an error as an alert with a retry", async () => {
     const onRetry = vi.fn();

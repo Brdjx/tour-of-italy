@@ -14,7 +14,7 @@ import { SourceMark } from "./SourceBadge";
 import { StopDetailsSheet } from "./StopDetailsSheet";
 import { StopRow } from "./StopRow";
 import { DayRowsSkeleton } from "./skeleton/PlanSkeleton";
-import { WarningChips } from "./WarningChip";
+import { type ChipCityControl, WarningChips } from "./WarningChip";
 
 // One day as a departure board: a header (date, base, what the day holds, day-level notes), the
 // transfer from the previous base as the first timed row when there is one, and an ordered list
@@ -26,7 +26,8 @@ import { WarningChips } from "./WarningChip";
 // (RouteSheet). While the day is planned again, or waits its turn in a route, the line says so
 // and the rows are a skeleton; while other days are planned, editing waits and one line says so;
 // a day planned again says how under its line, in the source line's words. A day that starts
-// with travel says on its transfer row what the travel leaves of it.
+// with travel says on its transfer row what the travel leaves of it. A day with no lunch or
+// dinner says why on its chip, and when another city is the way out, the chip offers it.
 
 /** Thumbnails on stops before this index load at once; the rest load as they scroll near. */
 const EAGER_PHOTOS = 3;
@@ -184,7 +185,10 @@ export function DayTimetable(props: DayTimetableProps) {
                 {locked}
               </p>
             ) : null}
-            <WarningChips chips={view.dayChips} />
+            <WarningChips
+              chips={view.dayChips}
+              city={props.city ? chipCity(props.city) : undefined}
+            />
           </>
         )}
       </header>
@@ -208,6 +212,11 @@ export function DayTimetable(props: DayTimetableProps) {
       {props.details ? null : <StopDetailsSheet {...own.sheet} date={view.day.date} />}
     </section>
   );
+}
+
+/** The city pill's control, for a day chip whose way out is another city (a missing meal). */
+function chipCity(control: DayCityControl): ChipCityControl {
+  return { onOpen: control.onOpen, disabled: control.disabled };
 }
 
 /** "Rome" and an onward chevron: the city, which opens the route sheet on the day's cities. */
