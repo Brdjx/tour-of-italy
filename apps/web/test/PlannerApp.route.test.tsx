@@ -433,6 +433,27 @@ describe("the route sheet", () => {
     expect(document.querySelector('[data-flagged="true"]')).toBeNull();
   });
 
+  it("names the day whose call failed on a day of the run that was not sent", async () => {
+    const postDay = vi.fn<PostDay>(async () => {
+      throw new ApiError({ kind: "http", status: 503, message: "x" });
+    });
+    const { user } = setup({ postDay });
+    await planAndOpen(user, 2);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("venice"));
+    await user.click(within(sheet()).getByRole("button", { name: "Plan day 2 and day 3" }));
+
+    await waitFor(() => expect(screen.getByTestId("day-source")).toBeTruthy());
+    expect(postDay).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("day-source").textContent).toBe(
+      "Planned again on this device: the server failed",
+    );
+    await user.click(screen.getByTestId("day-tab-3"));
+    expect(screen.getByTestId("day-source").textContent).toBe(
+      "Planned again on this device: the server failed on day 2",
+    );
+  });
+
   it("says after a while that the day is still being planned", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const days = deferredDays();

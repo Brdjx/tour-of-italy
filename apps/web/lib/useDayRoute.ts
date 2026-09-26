@@ -196,7 +196,7 @@ export function useDayRoute(options: DayRouteOptions) {
     const post = latest.current.post;
     let working: DaySelection[] = run.start.map((day) => ({ ...day, placeIds: [...day.placeIds] }));
     const done: ReplannedResult[] = [];
-    let failed: FallbackCause | null = null;
+    let failed: { cause: FallbackCause; day: number } | null = null;
     for (const [step, job] of run.jobs.entries()) {
       setPending((now) => (now ? { ...now, step, slow: false } : now));
       latest.current.announce(`${planningText(run, step)}.`);
@@ -207,7 +207,7 @@ export function useDayRoute(options: DayRouteOptions) {
       }, SLOW_PLAN_MS);
       let reply: DayReply;
       if (failed) {
-        reply = { kind: "failed", cause: failed };
+        reply = { kind: "failed", cause: failed.cause, failedOn: failed.day };
       } else {
         try {
           const body = jobBody(current.request, working, job, run.route);
@@ -221,7 +221,7 @@ export function useDayRoute(options: DayRouteOptions) {
       }
       if (call.signal.aborted) return;
       clearTimeout(slowTimer.current);
-      if (reply.kind === "failed") failed = reply.cause;
+      if (reply.kind === "failed") failed ??= { cause: reply.cause, day: job.day };
       const resolved = resolveJob(current, working, job, reply, ctx);
       if (resolved.kind === "refused") {
         finish();

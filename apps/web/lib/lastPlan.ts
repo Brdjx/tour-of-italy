@@ -45,6 +45,12 @@ const DayMadeSchema = z
     z.strictObject({
       kind: z.literal("device"),
       cause: z.enum(CAUSES).nullable(),
+      failedOn: z
+        .number()
+        .int()
+        .min(0)
+        .max(TRIP_DAYS - 1)
+        .optional(),
       edited: z.literal(true).optional(),
     }),
   ])

@@ -16,10 +16,13 @@ import { type FallbackCause, fallbackCause } from "./planRequest";
 // code decides: whatever arrives is checked against the trip it was asked for, timed again in
 // the browser and checked by the validator.
 
-/** How the call went: the API's day, or why the page plans it here instead. */
+/**
+ * How the call went: the API's day, or why the page plans it here instead. `failedOn` is set on a
+ * day of a run that was not sent because an earlier day's call failed: the day whose call did.
+ */
 export type DayReply =
   | { kind: "answer"; response: PlanDayResponse }
-  | { kind: "failed"; cause: FallbackCause };
+  | { kind: "failed"; cause: FallbackCause; failedOn?: number };
 
 /**
  * How a day planned again was made, shown under the day's heading (dayClaim). `edited` once the
@@ -27,7 +30,7 @@ export type DayReply =
  */
 export type DayMade =
   | { kind: "api"; source: PlanSource; fallbackReason?: FallbackReason; edited?: true }
-  | { kind: "device"; cause: FallbackCause | null; edited?: true };
+  | { kind: "device"; cause: FallbackCause | null; failedOn?: number; edited?: true };
 
 /** The trip as the API and the planner read it: each day's base and place ids in order. */
 export function tripSelection(itinerary: Pick<Itinerary, "days">): DaySelection[] {
@@ -81,8 +84,9 @@ export function dayClaim(made: DayMade): { claim: string; ai: boolean } {
 
 function madeClaim(made: DayMade): { claim: string; ai: boolean } {
   if (made.kind === "device") {
-    const claim = made.cause ? DEVICE_DAY_CLAIM[made.cause] : "Planned again on this device";
-    return { claim, ai: false };
+    const { cause, failedOn } = made;
+    if (!cause) return { claim: "Planned again on this device", ai: false };
+    return { claim: `${DEVICE_DAY_CLAIM[cause]}${failedOnText(cause, failedOn)}`, ai: false };
   }
   if (made.source === "ai") return { claim: "Planned again with AI", ai: true };
   if (made.source === "ai_repaired") {
@@ -116,6 +120,17 @@ const DEVICE_DAY_CLAIM: Record<FallbackCause, string> = {
   unreadable: "Planned again on this device: the reply was unreadable",
   invalid: "Planned again on this device: the server's day broke a rule",
 };
+
+/**
+ * " on day 2" after the cause of a day that was not sent, since the call that failed was that
+ * day's; nothing for a day whose own call failed, or offline, which holds for every day.
+ */
+// Decision: found in review (2026-09-26). After one failed call the rest of a run is planned here
+// without asking again (useDayRoute), and those days said "the server timed out" as if their own
+// call had.
+function failedOnText(cause: FallbackCause, failedOn: number | undefined): string {
+  return failedOn === undefined || cause === "offline" ? "" : ` on day ${failedOn + 1}`;
+}
 
 /** A fresh record of how each day was made: none planned again yet. */
 export function noDaysMade(): (DayMade | null)[] {

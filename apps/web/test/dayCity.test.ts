@@ -120,6 +120,18 @@ describe("what the page says about a day planned again", () => {
         false,
       ],
       [{ kind: "device", cause: null }, "Planned again on this device", false],
+      // Not sent, since an earlier day's call failed: that day's call is named.
+      [
+        { kind: "device", cause: "timeout", failedOn: 1 },
+        "Planned again on this device: the server timed out on day 2",
+        false,
+      ],
+      // Offline holds for every day of the run, sent or not.
+      [
+        { kind: "device", cause: "offline", failedOn: 0 },
+        "Planned again on this device, offline",
+        false,
+      ],
       // A stop changed on the day since, as the trip's source line says it.
       [{ kind: "api", source: "ai", edited: true }, "Planned again with AI, edited", true],
       [

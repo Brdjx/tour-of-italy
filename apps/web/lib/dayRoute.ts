@@ -406,6 +406,7 @@ export function resolveJob(
   const { request } = itinerary;
   const check = checkDayBase(request, working, job.day, job.anchorId, ctx, { avoid: job.avoid });
   let cause: FallbackCause;
+  let failedOn: number | undefined;
   if (reply.kind === "answer") {
     const { response } = reply;
     if (answerFits(itinerary, working, job, response, check.day, ctx)) {
@@ -420,13 +421,15 @@ export function resolveJob(
     cause = "invalid";
   } else {
     cause = reply.cause;
+    failedOn = reply.failedOn;
   }
   if (check.day === null) {
     return { kind: "refused", reason: check.option.reason ?? "This day cannot be planned there." };
   }
   // scheduleTrip times every day it is given, so the day is there.
   const timed = scheduleTrip(request, withDay(working, job.day, check.day), ctx);
-  return { kind: "day", dayPlan: timed.days[job.day] as DayPlan, made: { kind: "device", cause } };
+  const made: DayMade = { kind: "device", cause, ...(failedOn === undefined ? {} : { failedOn }) };
+  return { kind: "day", dayPlan: timed.days[job.day] as DayPlan, made };
 }
 
 function answerFits(
