@@ -22,7 +22,7 @@ import { planFor } from "./planMemo";
 // (dayBases.ts), on any request the API accepts, any day, any base, and any places to avoid.
 // The day never repeats a place of another day, never uses an excluded or avoided place, and a
 // city the options allow always gives a trip the validator and the independent hard-rule check
-// both pass. The other days never change.
+// both pass, which changes base once at most. The other days never change.
 
 const TIMEOUT_MS = 60_000 + PROPERTY_SETTINGS.numRuns * 200;
 
@@ -136,10 +136,15 @@ describe("re-planning one day of a trip", () => {
           for (const option of dayBaseOptions(request, days, index, ctx)) {
             if (!option.allowed) {
               expect(option.reason?.length ?? 0).toBeGreaterThan(0);
+              expect(option.refusal).toBeDefined();
               continue;
             }
             allowed++;
             if (!option.current) moved++;
+            // Like the whole-trip planner's arrangements: one base change at most, never back.
+            const bases = days.map((d, at) => (at === index ? option.anchorId : d.anchorId));
+            const changes = bases.filter((id, at) => at > 0 && id !== bases[at - 1]).length;
+            expect(changes).toBeLessThanOrEqual(1);
             const planned = planDay(request, days, index, option.anchorId, ctx);
             const rebuilt = rebuiltTrip(itinerary, index, option.anchorId, planned.placeIds);
             expect(validationErrors(rebuilt, ctx)).toEqual([]);

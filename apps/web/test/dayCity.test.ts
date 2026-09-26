@@ -47,9 +47,9 @@ describe("the Change city sheet's choices", () => {
     expect(choices[0]).toMatchObject({ current: true, allowed: true, reason: null });
     const florence = must(choices[1]);
     expect(florence.allowed).toBe(false);
-    // Day 3 would start after the trip back to Rome, so the reason says what to change first.
+    // Rome, Florence, Rome would go back and forth, so the reason says what to change first.
     expect(florence.reason).toBe(
-      "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit. Move day 3 to Florence first.",
+      "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 3 to Florence first.",
     );
   });
 

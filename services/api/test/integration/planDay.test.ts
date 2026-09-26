@@ -179,7 +179,7 @@ describe("POST /api/plan/day", () => {
     expect(body.error).toMatchObject({
       code: "day_not_allowed",
       message:
-        "Day 3 would start after 2 h 10 min of travel from Florence, and its plan would not fit. Move day 3 to Florence first.",
+        "A trip changes city once at most, so it cannot go from Rome to Florence and back. Move day 3 to Florence first.",
     });
     expect(lastRequestLog(logs)).toMatchObject({ status: 422, dayRefused: true });
   });
