@@ -99,16 +99,17 @@ test.describe("setting a city for each day", () => {
     await routeDone(page, "Route changed: Florence, Venice, Milan.");
     await page.unroute("**/api/plan/day*");
 
-    const after = await readTrip(page, press);
-    // Day 1 may take the Florence places day 3 gave up; no place is on two days.
-    const ids = allIds(after);
-    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
+    // Each day is opened once: its stops are read, then its city and source checked on screen.
+    const after: StopData[][] = [];
     for (const [index, name] of ["Florence", "Venice", "Milan"].entries()) {
-      await readDay(page, press, index + 1);
+      after.push(await readDay(page, press, index + 1));
       await expect(page.getByTestId("day-subtitle")).toContainText(`Day ${index + 1} in ${name}`);
       await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
       expectTimesInOrder(after[index] ?? []);
     }
+    // Day 1 may take the Florence places day 3 gave up; no place is on two days.
+    const ids = allIds(after);
+    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
     await expect(page.getByTestId("source-badge")).toContainText(BADGE.edited);
 
@@ -270,16 +271,15 @@ test.describe("setting a city for each day", () => {
   test("gives new ideas for a day, with none of its places back", async ({ page, press }) => {
     await openPlanner(page);
     await planTrip(page, press);
-    const before = await readTrip(page, press);
+    // Only day 2 is compared, so only day 2 is read before (every day is read after).
+    const before = await readDay(page, press, 2);
     const sheet = await openCitiesFor(page, press, 2);
     await press(sheet.getByTestId("city-new-ideas"));
     await expect(sheet).toBeHidden();
     await routeDone(page, "New ideas for day 2.");
     await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
     const ideas = await readTrip(page, press);
-    expect(placeIds(ideas[1] ?? []).some((id) => placeIds(before[1] ?? []).includes(id))).toBe(
-      false,
-    );
+    expect(placeIds(ideas[1] ?? []).some((id) => placeIds(before).includes(id))).toBe(false);
     const ids = allIds(ideas);
     expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
   });

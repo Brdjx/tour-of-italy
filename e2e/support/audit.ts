@@ -18,9 +18,17 @@ function exempt(rule: string, node: { html: string }): boolean {
   return rule === "target-size" && node.html.includes('data-testid="map-stop"');
 }
 
-/** Fails on any serious or critical axe violation, listing each rule with its first targets. */
+/**
+ * Fails on any serious or critical axe violation, listing each rule with its first targets.
+ * Decision: axe runs in legacy mode, axe.run in the page itself. The default runs axe in each
+ * frame, then opens a blank page to merge the frames' results, which only cross-origin frames
+ * need; the app has no frames. After the page settled, both modes found the same violations
+ * (with their targets), passes and incomplete checks on a plan in 40 of 40 pairs on five
+ * projects, and legacy mode took 0.45 to 1.1 s a run against 0.7 to 1.7 s (26 September 2026).
+ * The audit spec runs axe 40 times per project. A same-origin frame would still be audited.
+ */
 export async function expectNoSeriousA11yIssues(page: Page, state: string): Promise<void> {
-  const result = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  const result = await new AxeBuilder({ page }).withTags(AXE_TAGS).setLegacyMode(true).analyze();
   const serious = result.violations
     .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
     .map((violation) => ({

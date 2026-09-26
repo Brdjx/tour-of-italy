@@ -66,8 +66,10 @@ export async function plansAnnounced(page: Page): Promise<number> {
 export async function planTrip(page: Page, press: Press) {
   const before = await plansAnnounced(page);
   await press(page.getByTestId("plan-button"));
+  // Decision: a read every 100 ms. The default backs off to a read a second, which found a plan
+  // ready in 0.25 to 0.7 s on a laptop up to a second late, in nearly every test.
   await expect
-    .poll(() => plansAnnounced(page), { message: "no new plan arrived" })
+    .poll(() => plansAnnounced(page), { message: "no new plan arrived", intervals: [100] })
     .toBe(before + 1);
   await expect(page.getByTestId("plan-view")).toBeVisible();
   await expect(page.getByTestId("stop-row").first()).toBeVisible();

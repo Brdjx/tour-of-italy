@@ -6,6 +6,7 @@ import {
   openPlanner,
   placeIds,
   planTrip,
+  readDay,
   readTrip,
   reopenForm,
 } from "../support/plan";
@@ -69,9 +70,8 @@ test.describe("the trip form", () => {
   test("never plans a place the traveler asked to skip", async ({ page, press }) => {
     await openPlanner(page);
     await planTrip(page, press);
-    const first = await readTrip(page, press);
-    const skipped = first[0]?.[0]?.placeId ?? "";
-    await press(page.getByTestId("day-tab-1"));
+    // Day 1's first stop is the one skipped, so only day 1 is read before (every day is after).
+    const skipped = (await readDay(page, press, 1))[0]?.placeId ?? "";
     const skippedName = (await page.locator(`[data-place-id="${skipped}"] h3`).innerText()).trim();
     // More options stacks over the Edit trip sheet; Done goes back to it and its Plan my trip.
     await reopenForm(page, press);
