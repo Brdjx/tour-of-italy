@@ -385,6 +385,25 @@ describe("Change city", () => {
     expect(screen.getByTestId("source-badge").textContent).toContain("edited");
   });
 
+  it("says the day was edited once a stop on it changes after it was planned again", async () => {
+    const { user } = setup({ postDay: answering });
+    await planAndOpen(user, 3);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("florence"));
+    await waitFor(() =>
+      expect(screen.getByTestId("day-source").textContent).toBe("Planned again with AI"),
+    );
+    const rows = screen.getAllByTestId("stop-row");
+    await user.click(within(must(rows[0])).getByTestId("remove-button"));
+    await waitFor(() =>
+      expect(screen.getByTestId("day-source").textContent).toBe("Planned again with AI, edited"),
+    );
+    await user.click(screen.getByTestId("undo-button"));
+    await waitFor(() =>
+      expect(screen.getByTestId("day-source").textContent).toBe("Planned again with AI"),
+    );
+  });
+
   it("shows no 'not one of your bases' note on a day the traveler moved to another city", async () => {
     // Rome chosen in the form: Florence is not one of the traveler's bases, but they chose it.
     const rome = { ...aiPlan({ anchors: ["rome"] }), planId: "Rr9Yy8Xx7W" };

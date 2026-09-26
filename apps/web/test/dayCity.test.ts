@@ -389,6 +389,13 @@ describe("what the page says about a day planned again", () => {
         false,
       ],
       [{ kind: "device", cause: null }, "Planned again on this device", false],
+      // A stop changed on the day since, as the trip's source line says it.
+      [{ kind: "api", source: "ai", edited: true }, "Planned again with AI, edited", true],
+      [
+        { kind: "device", cause: "offline", edited: true },
+        "Planned again on this device, offline, edited",
+        false,
+      ],
     ];
     for (const [made, claim, ai] of cases) expect(dayClaim(made)).toEqual({ claim, ai });
   });

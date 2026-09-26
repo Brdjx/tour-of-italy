@@ -41,10 +41,13 @@ export type DayReply =
   | { kind: "answer"; response: PlanDayResponse }
   | { kind: "failed"; cause: FallbackCause };
 
-/** How a day planned again was made, shown under the day's heading (dayClaim). */
+/**
+ * How a day planned again was made, shown under the day's heading (dayClaim). `edited` once the
+ * traveler has swapped, removed or moved a stop on that day since.
+ */
 export type DayMade =
-  | { kind: "api"; source: PlanSource; fallbackReason?: FallbackReason }
-  | { kind: "device"; cause: FallbackCause | null };
+  | { kind: "api"; source: PlanSource; fallbackReason?: FallbackReason; edited?: true }
+  | { kind: "device"; cause: FallbackCause | null; edited?: true };
 
 /** The day to apply, or why none can be. */
 export type DayResolution =
@@ -286,8 +289,18 @@ function sameCityText(days: readonly number[]): string {
     : `same city as days\u00a0${first} and\u00a0${second}`;
 }
 
-/** "Planned again with AI" and the rest: how a day planned again was made, in the source line's words. */
+/**
+ * "Planned again with AI" and the rest: how a day planned again was made, in the source line's
+ * words, with ", edited" once the traveler has changed a stop on it since.
+ */
+// Decision: ", edited" as the trip's source line says it (lib/sourceText.ts). Without it the day
+// kept saying "Planned again with AI" over a stop the traveler had swapped in themselves.
 export function dayClaim(made: DayMade): { claim: string; ai: boolean } {
+  const { claim, ai } = madeClaim(made);
+  return { claim: made.edited ? `${claim}, edited` : claim, ai };
+}
+
+function madeClaim(made: DayMade): { claim: string; ai: boolean } {
   if (made.kind === "device") {
     const claim = made.cause ? DEVICE_DAY_CLAIM[made.cause] : "Planned again on this device";
     return { claim, ai: false };

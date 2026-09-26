@@ -213,10 +213,19 @@ function apply(
     ...state,
     itinerary: rebuilt,
     errors,
+    dayMade: editedDay(state.dayMade, dayIndex),
     history,
     changed: result.changed,
     message: `${result.text}${problem}`,
   };
+}
+
+/**
+ * The record of how each day was made, with day `dayIndex` marked as changed by the traveler
+ * since, when it was planned again: its line then ends ", edited", as the trip's source line does.
+ */
+function editedDay(made: readonly (DayMade | null)[], dayIndex: number): (DayMade | null)[] {
+  return made.map((how, index) => (index === dayIndex && how ? { ...how, edited: true } : how));
 }
 
 /**

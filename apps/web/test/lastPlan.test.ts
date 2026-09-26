@@ -75,7 +75,7 @@ describe("saving and reading the last plan", () => {
     const plan = fixturePlan();
     const dayMade = [
       null,
-      { kind: "api", source: "ai" } as const,
+      { kind: "api", source: "ai", edited: true } as const,
       { kind: "device", cause: "offline" } as const,
     ];
     saveLastPlan(store, plan, "api", NOW, { edited: true, dayMade });

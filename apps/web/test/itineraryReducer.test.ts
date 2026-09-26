@@ -420,11 +420,15 @@ describe("a day planned again", () => {
       { type: "move", day: 2, stop: 0, direction: "down" },
       ctx,
     );
-    expect(swapped.dayMade[2]).toEqual({ kind: "api", source: "ai" });
+    // A stop changed on that day since: the day's line says so, as the trip's does.
+    expect(swapped.dayMade[2]).toEqual({ kind: "api", source: "ai", edited: true });
     expect(itineraryReducer(swapped, { type: "undo" }, ctx).dayMade[2]).toEqual({
       kind: "api",
       source: "ai",
     });
+    // An edit on another day leaves the record as it was.
+    const elsewhere = itineraryReducer(moved, { type: "remove", day: 0, stop: 0 }, ctx);
+    expect(elsewhere.dayMade).toEqual(moved.dayMade);
     const next = itineraryReducer(
       swapped,
       { type: "plan", itinerary: fixturePlan(), origin: "api" },

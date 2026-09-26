@@ -40,8 +40,13 @@ const DayMadeSchema = z
       kind: z.literal("api"),
       source: z.enum(PLAN_SOURCES),
       fallbackReason: z.enum(FALLBACK_REASONS).optional(),
+      edited: z.literal(true).optional(),
     }),
-    z.strictObject({ kind: z.literal("device"), cause: z.enum(CAUSES).nullable() }),
+    z.strictObject({
+      kind: z.literal("device"),
+      cause: z.enum(CAUSES).nullable(),
+      edited: z.literal(true).optional(),
+    }),
   ])
   .nullable();
 
