@@ -14,12 +14,15 @@ import { replanDay } from "../plan/replanDay";
 import { type PlanRouteDeps, parseMode, sessionFor, traceFields } from "./plan";
 
 // POST /api/plan/day: one day of a trip the page already has, planned again at a base the
-// traveler picked (another city, or the day's own for a new version of it). Registered like
-// POST /api/plan: the same origin check and rate limit (one budget per client for both, since
-// both spend model calls), JSON only, the same body cap, a strict body checked against the data,
-// the request checked with the plan route's schema. A base the day cannot take is refused (422)
-// with the reason the page shows beside it (dayBaseOptions); anything else answers with a day,
-// from the AI day cache, the model, or the rules. Model failures never surface.
+// traveler picked (another city, or the day's own for a new version of it), alone or as one day
+// of a route (a city a day, planned by the page one request at a time, in day order, each with the
+// route and the days planned before it). Registered like POST /api/plan: the same origin check
+// and rate limit (one budget per client, since both spend model calls), JSON only, the same body
+// cap, a strict body checked against the data, the request checked with the plan route's schema.
+// A base the day cannot take is refused (422) with the planner's reason (checkDayBase: nothing
+// fits there, or the trip would gain an error); anything else answers with a day, from the AI day
+// cache, the model, or the rules. Model failures never surface. One model call path per request,
+// within the plan deadline, so a route of three days is three requests.
 
 export interface PlanDayRouteDeps extends Omit<PlanRouteDeps, "cache"> {
   dayCache: LruCache<CachedDay>; // the day cache's memory layer; its shared layer is `store`

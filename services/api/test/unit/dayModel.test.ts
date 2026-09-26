@@ -216,6 +216,8 @@ describe("the day cache", () => {
       { ...parts, input: { ...input, anchorId: "venice" } },
       { ...parts, input: { ...input, day: 1 } },
       { ...parts, input: { ...input, avoid: ["place_026"] } },
+      { ...parts, input: { ...input, route: ["rome", "rome", "florence"] } },
+      { ...parts, input: { ...input, route: ["rome", "venice", "florence"] } },
       { ...parts, input: { ...input, request: { ...input.request, pace: "packed" as const } } },
       { ...parts, input: dayInput(plannedTrip({ startDate: "2026-10-17" }), 2, "florence") },
       {

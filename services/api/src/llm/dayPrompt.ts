@@ -18,7 +18,7 @@ import { candidateLine, mealsOpen, OVER_BUDGET_NOTE, weekdayName } from "./promp
 // changed by this file, so its eval recordings stay valid. Bump DAY_PROMPT_VERSION on any change
 // to the wording here: it is part of the day cache key and of the day's meta.
 
-export const DAY_PROMPT_VERSION = "day-v1";
+export const DAY_PROMPT_VERSION = "day-v2";
 
 const mealWindow = (meal: keyof typeof MEALS) =>
   `${formatClock(MEALS[meal].earliestStart)} and ${formatClock(MEALS[meal].latestStart)}`;
@@ -69,6 +69,9 @@ export function buildDayRepairMessage(
 const idList = (ids: readonly string[]) => (ids.length === 0 ? "none" : ids.join(", "));
 
 /** The day, its base, its transfer, and the other days' bases. */
+// Decision: day-v2 says, for a day of a route, which later days are still to be planned. Their
+// places are not used yet, so "they stay as they are" would be wrong for them. A day planned alone
+// gets the day-v1 line, word for word.
 function daySection(input: DayInput, shortlist: Shortlist, ctx: PlannerContext): string[] {
   const { day, days, anchorId } = input;
   const date = shortlist.dates[day] ?? "";
@@ -78,12 +81,18 @@ function daySection(input: DayInput, shortlist: Shortlist, ctx: PlannerContext):
   const others = days
     .map((other, index) => ({ other, index }))
     .filter(({ index }) => index !== day)
-    .map(({ other, index }) => `Day ${index + 1} at ${other.anchorId}`);
+    .map(({ other, index }) => {
+      const text = `Day ${index + 1} at ${other.anchorId}`;
+      if (input.route === null) return text;
+      const waiting = index > day && other.placeIds.length === 0;
+      return `${text} (${waiting ? "planned after this one" : "stays as it is"})`;
+    });
+  const label = input.route === null ? "Other days (they stay as they are)" : "Other days";
   return [
     `Day to plan: Day ${day + 1} of ${days.length}, ${date} (${weekdayName(date)})`,
     `Base: ${anchorId} (${oneLine(anchor?.name ?? anchorId)}, ${oneLine(anchor?.region ?? "")})`,
     `Transfer: ${transfer}`,
-    `Other days (they stay as they are): ${others.join(", ")}`,
+    `${label}: ${others.join(", ")}`,
   ];
 }
 

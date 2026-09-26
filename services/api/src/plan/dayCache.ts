@@ -35,8 +35,9 @@ const DayCacheRecordSchema = z.strictObject({
 /**
  * The cache key for a day: SHA-256 of "day", the day prompt's version, the model client's
  * identity, the deployed commit, the data's fingerprint, the request's key (planRequestKey), each
- * other day's base and place ids in order, the day's index, its new base, and the places it
- * avoids (sorted). A change to any of them is another day.
+ * other day's base and place ids in order, the day's index, its new base, the places it avoids
+ * (sorted), and the route it belongs to (none for a day alone). A change to any of them is
+ * another day.
  */
 // Decision: the day's own current places are not in the key. The prompt never shows them (a new
 // base has none of them, and a new version of the day at its base leaves out the ones it avoids),
@@ -64,6 +65,7 @@ export function dayCacheKey(parts: {
     String(input.day),
     input.anchorId,
     JSON.stringify([...input.avoid].sort()),
+    JSON.stringify(input.route),
   ].join("\n");
   return createHash("sha256").update(text).digest("hex");
 }

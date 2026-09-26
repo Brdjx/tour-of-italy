@@ -26,7 +26,7 @@ function message(day = 2, anchorId = "florence", avoid: string[] = [], trip = ro
 
 describe("the day system prompt", () => {
   it("has its own version, apart from the whole-trip prompt's", () => {
-    expect(DAY_PROMPT_VERSION).toBe("day-v1");
+    expect(DAY_PROMPT_VERSION).toBe("day-v2");
     expect(DAY_PROMPT_VERSION).not.toBe(PROMPT_VERSION);
     expect(DAY_SYSTEM_PROMPT).not.toBe(SYSTEM_PROMPT);
   });
@@ -55,6 +55,24 @@ describe("buildDayUserMessage", () => {
     expect(text).toContain("Base: florence (Florence, Tuscany)");
     expect(text).toContain("Transfer: 130 minutes of travel from rome before the first stop");
     expect(text).toContain("Other days (they stay as they are): Day 1 at rome, Day 2 at rome");
+  });
+
+  it("says, for a day of a route, which later days are still to be planned", () => {
+    const days = rome.days.map((d, index) => ({
+      anchorId: ["rome", "florence", "venice"][index] as string,
+      placeIds: index === 0 ? d.stops.map((s) => s.placeId) : [],
+    }));
+    const input = { ...dayInput(rome, 1, "florence"), days, route: ["rome", "florence", "venice"] };
+    const text = buildDayUserMessage(input, buildDayShortlist(input, ctx), ctx);
+
+    expect(text).toContain("Transfer: 130 minutes of travel from rome before the first stop");
+    expect(text).toContain(
+      "Other days: Day 1 at rome (stays as it is), Day 3 at venice (planned after this one)",
+    );
+    const used = rome.days[0]?.stops.map((s) => s.placeId).join(", ");
+    expect(text).toContain(`Already used on other days (not offered, never use): ${used}`);
+    // The scripted model reads the route's bases back from it.
+    expect(parseDayOffer(text).bases).toEqual(["rome", "florence", "venice"]);
   });
 
   it("says there is no transfer on day 1, or when the day keeps its base", () => {

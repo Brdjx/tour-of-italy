@@ -1,4 +1,5 @@
 import {
+  type DaySelection,
   type Itinerary,
   planDeterministic,
   type TripRequest,
@@ -54,6 +55,26 @@ export function dayInput(
     day,
     anchorId,
     avoid,
+    route: null,
+  };
+}
+
+/**
+ * The body of POST /api/plan/day for day `day` of a route, as the page sends it: the trip as ids
+ * with the route's cities in, the days planned so far, and the days still to plan empty.
+ */
+export function routeBody(
+  request: TripRequest,
+  days: readonly DaySelection[],
+  day: number,
+  route: readonly string[],
+): Record<string, unknown> {
+  return {
+    request,
+    days: days.map((d) => ({ anchorId: d.anchorId, ids: [...d.placeIds] })),
+    day,
+    anchorId: route[day],
+    route: [...route],
   };
 }
 
