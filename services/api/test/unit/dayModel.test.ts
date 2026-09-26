@@ -218,6 +218,16 @@ describe("the day cache", () => {
       { ...parts, input: { ...input, avoid: ["place_026"] } },
       { ...parts, input: { ...input, request: { ...input.request, pace: "packed" as const } } },
       { ...parts, input: dayInput(plannedTrip({ startDate: "2026-10-17" }), 2, "florence") },
+      {
+        ...parts,
+        input: {
+          ...input,
+          days: withDay(input.days, 0, {
+            anchorId: "rome",
+            placeIds: input.days[0]?.placeIds.slice(1) ?? [],
+          }),
+        },
+      },
     ];
     for (const other of changed) expect(dayCacheKey(other)).not.toBe(base);
     // The day's own current places are not part of it, and neither is the order of the avoided.
@@ -281,6 +291,11 @@ describe("the day cache", () => {
 
     const other = setup(store);
     expect(await readCachedDay("n", notes, other.deps, fields)).toBeUndefined();
+    // A table item under the key is not read either.
+    const text = JSON.stringify({ v: 1, kind: "day", expiresAt: NOW / 1000 + 60, result });
+    await store?.putNew(cacheKey("t"), text, NOW / 1000 + 60, new AbortController().signal);
+    expect(await readCachedDay("t", input, setup(store).deps, fields)).toEqual(result);
+    expect(await readCachedDay("t", notes, setup(store).deps, fields)).toBeUndefined();
   });
 
   it("works with no table at all, and records a table that fails", async () => {

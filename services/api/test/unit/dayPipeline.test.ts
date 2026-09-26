@@ -114,6 +114,24 @@ describe("tidyDay", () => {
     ]);
   });
 
+  it("drops a repeat of a later day's place from this day, never from the later day", () => {
+    // tidySelection alone keeps the first copy in the trip, which here is this day's.
+    const first = dayInput(
+      rome,
+      0,
+      "rome",
+      rome.days[0]?.stops.map((s) => s.placeId),
+    );
+    const list = buildDayShortlist(first, ctx);
+    const own = list.options[0]?.candidates.map((c) => c.place.id) ?? [];
+    const later = rome.days[2]?.stops[0]?.placeId as string;
+    const tidied = tidyDay(answer([own[0] as string, later]), first, list, ctx);
+
+    expect(tidied.ids).toEqual([own[0]]);
+    expect(tidied.changes).toEqual([{ rule: "duplicate", day: 0, placeId: later }]);
+    expect(tidied.trip.selection.days[2]?.placeIds).toEqual(first.days[2]?.placeIds);
+  });
+
   it("drops a place at the same spot as one on another day", () => {
     const trevi = dayInput(rome, 1, "rome");
     trevi.days[0] = { anchorId: "rome", placeIds: ["place_018"] };

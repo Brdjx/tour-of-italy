@@ -250,6 +250,13 @@ describe("dayBaseOptions", () => {
     expect(newTripErrors(req, days, 2, repeat, ctx).map((e) => e.code)).toContain(
       "DUPLICATE_PLACE",
     );
+    // Even one the day had before: a re-plan that keeps it is not a clean day.
+    const kept = withDay(days, 2, {
+      anchorId: "rome",
+      placeIds: [...(days[2]?.placeIds ?? []), days[0]?.placeIds[0] as string],
+    });
+    const again = kept[2] as DaySelection;
+    expect(newTripErrors(req, kept, 2, again, ctx).map((e) => e.code)).toContain("DUPLICATE_PLACE");
   });
 
   it("throws on a day out of range or an unknown base", () => {
