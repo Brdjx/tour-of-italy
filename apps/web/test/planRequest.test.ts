@@ -5,8 +5,8 @@ import { fallbackCause, planLocally, requestPlan, shouldPlanLocally } from "../l
 import { readyMessage } from "../lib/usePlanTrip";
 import { aiPlan, baseRequest, ctx, must } from "./fixtures";
 
-// Brief section 7: when the API cannot answer and the places are loaded, the browser plans with
-// the same rules and says so. A bad request is never papered over with a local plan.
+// When the API cannot answer and the places are loaded, the browser plans with the same rules and
+// says so (docs/decisions.md, Web and PWA). A bad request is never papered over with a local plan.
 
 const failing = (error: unknown) =>
   vi.fn(async (_request: TripRequest) => {

@@ -7,7 +7,7 @@ import { longestOpenRange } from "../../src/time";
 import { place, readDataBytes, realResult } from "../helpers";
 
 // Invariants over the real dataset. If any of these break, the planner could schedule a place at
-// an impossible spot, time, or length. Specific records pin the policies in the brief.
+// an impossible spot, time, or length. Specific records pin the policies in docs/data-issues.md.
 
 const DATASET_SHA256 = "e81d04d73dcd793ec18795bdc0f47672a946f93d7170badcfaa8e1f2b715938a";
 

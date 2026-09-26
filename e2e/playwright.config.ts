@@ -30,7 +30,7 @@ const DEVICE_ONLY = [/\.desktop\.spec\.ts$/, /\.pwa\.spec\.ts$/, /\.smoke\.spec\
 const deviceDefaults = { serviceWorkers: "block", timezoneId: TIME_ZONE } as const;
 
 /**
- * The layout brief section 7 requires on each screen: two panes (form beside the plan) on iPad
+ * The layout the tests expect on each screen: two panes (form beside the plan) on iPad
  * landscape and desktop, one pane with an "Edit trip" button on phones and iPad portrait. Tests
  * read it through the `twoPane` fixture.
  */
@@ -48,7 +48,7 @@ function device(name: string, descriptor: (typeof devices)[string], layout: Layo
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } };
 
 const localProjects: Project[] = [
-  // Brief section 7: the phones, tablets and desktop the app is designed for.
+  // The phones, tablets and desktop the app is designed for (docs/testing.md).
   device("webkit-iphone-se", devices["iPhone SE (3rd gen)"], "one-pane"),
   device("webkit-iphone-15-pro", devices["iPhone 15 Pro"], "one-pane"),
   device("webkit-ipad-pro-11", devices["iPad Pro 11"], "one-pane"),

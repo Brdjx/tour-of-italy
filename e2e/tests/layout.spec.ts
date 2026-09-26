@@ -4,7 +4,7 @@ import { expect, test } from "../support/fixtures";
 import { openPlanner, planTrip, readStops } from "../support/plan";
 
 // The responsive layout on each device: what must stay on screen, and how the form and the plan
-// share the screen before and after planning (brief section 7).
+// share the screen before and after planning.
 
 /** Elements in the timetable that run a CSS animation, as "class animation-name". */
 async function timetableAnimations(page: Page): Promise<string[]> {

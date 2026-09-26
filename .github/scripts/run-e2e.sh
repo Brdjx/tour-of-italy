@@ -20,8 +20,8 @@ if ! jq -e --arg name "$script" '.scripts[$name] // empty' package.json >/dev/nu
 fi
 
 pnpm install --frozen-lockfile
-# Decision: Chromium and WebKit cover the device projects in the brief (Pixel, desktop, iPhone,
-# iPad); the smoke project needs Chromium only. --with-deps installs the system libraries the
-# browsers need on the runner.
+# Decision: Chromium and WebKit cover the device projects in e2e/playwright.config.ts (Pixel,
+# desktop, iPhone, iPad); the smoke project needs Chromium only. --with-deps installs the system
+# libraries the browsers need on the runner.
 pnpm exec playwright install --with-deps "${browsers[@]}"
 pnpm run "$script"

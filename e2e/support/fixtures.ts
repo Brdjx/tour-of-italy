@@ -9,7 +9,7 @@ import { FIXED_NOW } from "./env";
 //   (the page is served with the production CSP) or unexpected console error, on every page the
 //   test opens
 // - `press`, which taps on touch devices and clicks elsewhere, so phone projects test taps
-// - `twoPane`, the layout the brief requires on this project's screen (see playwright.config.ts)
+// - `twoPane`, the layout this project's screen gets (see playwright.config.ts)
 
 /** Records CSP violations into window.__cspViolations, from the first script on. */
 function recordCspViolations(): void {

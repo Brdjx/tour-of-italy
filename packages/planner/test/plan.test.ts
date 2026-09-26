@@ -106,8 +106,8 @@ describe("requests that used to break planners", () => {
   });
 
   it("never plans both Trevi Fountain listings, even when both are asked for, and says why", () => {
-    // The brief: two listings of one spot never share a trip. The review found both planned
-    // back to back with only a SAME_LOCATION note.
+    // Two listings of one spot never share a trip (docs/decisions.md, Data). The review found
+    // both planned back to back with only a SAME_LOCATION note.
     const itinerary = plan({ mustInclude: ["place_018", "place_077"], anchors: ["rome"] });
     const ids = placeIds(itinerary);
     expect(ids.filter((id) => id === "place_018" || id === "place_077")).toHaveLength(1);

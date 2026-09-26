@@ -90,8 +90,9 @@ export function readClause(
   if (onlyDays) {
     const conflicts =
       listed !== null && WEEKDAYS.some((d) => !onlyDays.includes(d) && listed[d].length > 0);
-    // Decision: "Tours run weekday mornings only" keeps only the weekday part. The brief keeps the
-    // Parma tour's times unknown, so "mornings" is shown in the note but not turned into hours.
+    // Decision: "Tours run weekday mornings only" keeps only the weekday part. The Parma tour's
+    // times stay unknown (docs/data-issues.md), so "mornings" is shown in the note but not turned
+    // into hours.
     const action = `Open only ${daysText(onlyDays)}; times of day stay as listed or unknown`;
     const rule: DateRule = { kind: "weekdays", days: onlyDays, source: clause };
     add(rule, restrictionIssue(clause, target, conflicts, action));

@@ -60,8 +60,8 @@ export default defineConfig({
       // rather than being part of it; their own tests run in `pnpm test` without a floor.
       exclude: ["services/api/src/local.ts", "services/api/src/lambda.ts", "packages/evals/src/**"],
       // Decision: floors per area, so one well-covered package cannot hide a poorly covered one.
-      // The brief's minimums are planner 90, api 85 and web lib 90 (lines); each floor here is the
-      // measured figure on 2026-09-24 rounded down, which is higher, so coverage can only ratchet up.
+      // Each floor here is the measured figure on 2026-09-24 rounded down, so coverage can only
+      // ratchet up (docs/testing.md, Coverage floors).
       thresholds: {
         "packages/planner/src/**/*.ts": { lines: 99, statements: 98, branches: 94, functions: 99 },
         "services/api/src/**/*.ts": { lines: 99, statements: 98, branches: 92, functions: 98 },
