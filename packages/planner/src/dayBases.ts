@@ -1,8 +1,10 @@
 import type { PlannerContext } from "./context";
 import { newTripErrors, tripErrors } from "./dayChecks";
 import { type DayRefusal, dayTravel, planRoute, type ReplanWhy, type RoutePlan } from "./dayRoute";
+import { mealFacts } from "./mealSupply";
 import { dayMustIncludes, planDay, type ReplanOptions } from "./planDay";
 import { requireIndex } from "./stopEdits";
+import { addDays } from "./time";
 import { formatDuration } from "./travel";
 import type { DaySelection } from "./trip";
 import type { TripRequest, Violation } from "./types";
@@ -40,7 +42,8 @@ export interface DayBaseOption {
   refusalDay?: number; // the day (0-based) the refusal is about, from routeOptions; when not allowed
   transferInMin: number; // travel into this day from the day before's base, 0 when none
   transferOutMin: number; // travel from this base to the next day's base, 0 when none
-  warnings: string[]; // the facts: this day's travel, then what happens to the other days
+  warnings: string[]; // the facts: this day's travel, its meals (`meals`), then the other days
+  meals: string[]; // the meals no place of the city can take that date (mealFacts), also in warnings
   replans: number[]; // the other days (0-based) this choice plans again, in order
   others: OtherDayNote[]; // the other days this choice touches, in order; their notes end `warnings`
 }
@@ -131,7 +134,8 @@ function routeOption(plan: RoutePlan, dayIndex: number, current: boolean): DayBa
     allowed: plan.allowed,
     transferInMin: day.travelIn?.minutes ?? 0,
     transferOutMin: day.travelOut?.minutes ?? 0,
-    warnings: [...day.warnings, ...others.map((other) => other.note)],
+    warnings: [...day.warnings, ...day.meals, ...others.map((other) => other.note)],
+    meals: day.meals,
     replans: plan.replan.filter((index) => index !== dayIndex),
     others,
   };
@@ -162,6 +166,9 @@ function checkWith(
   const arrangement = days.map((day, index) => (index === dayIndex ? anchorId : day.anchorId));
   const current = days[dayIndex]?.anchorId === anchorId;
   const travel = dayTravel(request, arrangement, dayIndex, ctx);
+  const date = addDays(request.startDate, dayIndex);
+  const from = travel.travelIn?.fromName ?? null;
+  const meals = mealFacts(request, anchorId, date, travel.startMin, from, ctx);
   const option: DayBaseOption = {
     anchorId,
     name: anchor.name,
@@ -169,7 +176,8 @@ function checkWith(
     allowed: true,
     transferInMin: travel.travelIn?.minutes ?? 0,
     transferOutMin: travel.travelOut?.minutes ?? 0,
-    warnings: travel.warnings,
+    warnings: [...travel.warnings, ...meals],
+    meals,
     replans: [],
     others: [],
   };

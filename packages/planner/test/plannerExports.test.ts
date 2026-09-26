@@ -98,6 +98,12 @@ const PLANNER_CORE_FUNCTIONS = [
   "routeOptions",
   "dayTravel",
   "withReplannedDays",
+  // mealSupply.ts (why a day has no lunch or dinner, and the cities that leave a day with none:
+  // the page names the cause on the day and warns before a city is chosen)
+  "dayMealGaps",
+  "mealGaps",
+  "mealPlaces",
+  "mealFacts",
 ] as const;
 
 // Decision: read the namespace through Object.entries, the static way to list what it exports.

@@ -1,7 +1,9 @@
 import { MEALS, PACE } from "./config";
 import type { PlannerContext } from "./context";
 import { errorKey, tripErrors } from "./dayChecks";
+import { mealFacts } from "./mealSupply";
 import { planDay } from "./planDay";
+import { addDays } from "./time";
 import { formatDuration, travelLeg } from "./travel";
 import type { DaySelection } from "./trip";
 import type { TripRequest } from "./types";
@@ -65,6 +67,7 @@ export interface RouteDay extends DayTravel {
   name: string;
   changes: boolean; // a different city from the trip's now
   replan: ReplanWhy | null; // planned again, and why; null when the day keeps its stops
+  meals: string[]; // the meals no place of the city can take that date: "No dinner in Bologna on Mondays."
   note: string | null; // what happens to the day: "Day 3 will be planned again: ..."
   refusal: RouteRefusal | null; // set on the day a refused route fails
 }
@@ -135,8 +138,9 @@ function routeNames(route: readonly string[], ctx: PlannerContext): string {
 
 /**
  * What setting day by day cities `route` means for the trip `days`: every day's city, travel and
- * start, which days are planned again and why, the facts to show, and a refusal with its way out
- * when the route cannot be planned. Deterministic, and fast enough to run on every tap (a few
+ * start, which days are planned again and why, the facts to show (the travel, and each meal no
+ * place of the day's city can take that date, mealFacts), and a refusal with its way out when the
+ * route cannot be planned. Deterministic, and fast enough to run on every tap (a few
  * milliseconds). Throws RangeError when the route is not a known base for every day.
  *
  * A day is planned again when its city changes, when its travel in changes and its stops no
@@ -231,6 +235,8 @@ export function planRoute(
     const reason = why.get(index) ?? null;
     const name = ctx.anchorById.get(anchorId)?.name ?? anchorId;
     const note = dayNote(index, name, reason, travel, wasIn, holding.get(index), ctx);
+    const date = addDays(request.startDate, index);
+    const from = travel.travelIn?.fromName ?? null;
     return {
       day: index,
       anchorId,
@@ -238,6 +244,7 @@ export function planRoute(
       changes: changes[index] === true,
       replan: reason,
       ...travel,
+      meals: mealFacts(request, anchorId, date, travel.startMin, from, ctx),
       note,
       refusal:
         refusal?.day === index

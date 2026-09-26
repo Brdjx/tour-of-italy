@@ -157,6 +157,7 @@ describe("dayBaseOptions", () => {
       transferInMin: 0,
       transferOutMin: 0,
       warnings: [],
+      meals: [],
       replans: [],
       others: [],
     });
@@ -204,6 +205,7 @@ describe("dayBaseOptions", () => {
         "Leaves about 7 h before dinner.",
         "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
       ],
+      meals: [],
       replans: [2],
       others: [
         {
