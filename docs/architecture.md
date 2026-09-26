@@ -65,8 +65,16 @@ POST /api/plan
   -> ids or bases outside the shortlist become errors
   -> scheduleTrip times the ids: travel, opening hours, meal windows, day window
   -> validateItinerary, the independent check
-       no errors, nothing tidied  -> reasons and summary sanitized -> source "ai"
-       no errors, tidied          -> source "ai_repaired", the log lists what was tidied
+       no errors                  -> add each lunch or dinner a day lacks where the rules'
+                                     meal fill seats a place the model was offered without
+                                     moving a stop (mealAdd.ts); a day's meals stay only if
+                                     the plan, timed and checked again, has no new error or
+                                     warning but the added place's own
+       no errors, nothing tidied
+       or added                   -> reasons and summary sanitized -> source "ai"
+       no errors, tidied or a
+       meal added                 -> source "ai_repaired", the log lists what was tidied and
+                                     each meal_added
        errors, time left          -> one repair turn with the exact violations left, what
                                      tidying removed and why, and the free candidates for
                                      an empty day
@@ -82,7 +90,7 @@ POST /api/plan
   -> response: itinerary, warnings (exactly the validator's), source, meta, planId
 ```
 
-Code: `services/api/src/routes/plan.ts` (the route), `plan/planCache.ts` (the cache), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. Each model call gets at most 15 s (`LLM_TIMEOUT_MS`) and never more than what is left of the deadline after the reserve: the first call gets the full 15 s, and a repair after a first answer at 15 s still gets 7.5 s. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
+Code: `services/api/src/routes/plan.ts` (the route), `plan/planCache.ts` (the cache), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/mealAdd.ts` (the meals code adds after the check, decision 17), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. Each model call gets at most 15 s (`LLM_TIMEOUT_MS`) and never more than what is left of the deadline after the reserve: the first call gets the full 15 s, and a repair after a first answer at 15 s still gets 7.5 s. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
 
 ## Day re-plan
 
@@ -111,17 +119,20 @@ POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid?, 
   -> ids outside the shortlist are errors; scheduleTrip and validateItinerary on the whole
        trip; any error on this day, or one the trip did not have, fails it, and so does
        leaving out a must-include the rules-only day holds
+  -> no errors: the lunch or dinner the day lacks added where a meal place it was offered fits
+       without moving a stop (mealAdd.ts), kept only if the day still passes; "ai_repaired"
   -> one repair turn with the violations and what tidying removed, else the rules-only day
   -> response: { day, dayPlan (timed, why lines marked ai or rule), source, meta }
 ```
 
-The page applies the days with the planner's `withReplannedDays`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its verdict, the transfers in and out, the facts and the other days it would plan again. Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`, `dayRoute.ts`, `dayChecks.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
+The page applies the days with the planner's `withReplannedDays`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its verdict, the transfers in and out, the facts (the travel, and each meal no place of the city can take that date: "No dinner in Bologna on Mondays.") and the other days it would plan again. `dayMealGaps` gives each lunch or dinner a planned day lacks its cause, none open or not planned, with the places of the base and why each cannot take it (`packages/planner/src/mealSupply.ts`, decision 17). Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`, `dayRoute.ts`, `dayChecks.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made, and Copy link says so.
 
 A route (decision 16) is a city for every day, set by hand, in any order and back again. The planner judges it before anything is planned, fast enough for every tap:
 
 ```
 planRoute(request, days, route)                       packages/planner/src/dayRoute.ts, about 1 ms
-  -> per day: city, changes, travel in and out, start, time before dinner, facts, note
+  -> per day: city, changes, travel in and out, start, time before dinner, facts, note, and
+       each meal no place of the city can take that date after its travel (mealSupply.ts)
   -> days planned again: city changed; travel changed and the validator says the kept stops no
        longer fit; the first day of a must-include's city when its day moves
   -> checked by planning them with the rules in day order (planDay), then the validator on the

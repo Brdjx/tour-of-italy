@@ -53,7 +53,7 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | Command | What it runs | Time |
 |---|---|---|
 | `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
-| `pnpm test` | 3,417 unit and integration tests in 208 files (Vitest) | under 1 min |
+| `pnpm test` | 3,457 unit and integration tests in 212 files (Vitest) | under 1 min |
 | `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
@@ -72,18 +72,19 @@ Install the browsers once before the first E2E run: `pnpm exec playwright instal
 
 Live evals on 16 cases, replayed through the current code. Full report: [packages/evals/results/latest.md](packages/evals/results/latest.md).
 
-| Planner | Plans | Valid as written | Valid after tidying | Fell back | Model time, median / slowest | Cost per plan | Days missing a lunch or dinner |
-|---|---|---|---|---|---|---|---|
-| Claude Sonnet 5 (default) | 48 | 4% (2/48) | 100% (48/48) | 0% (0/48) | 8.1 s / 10.5 s | $0.024 | 26% |
-| Claude Haiku 4.5 | 32 | 22% (7/32) | 72% (23/32) | 6% (2/32) | 5.8 s / 14.4 s | $0.013 | 72% |
-| Rules-only | 16 | n/a | n/a | n/a | no model call | $0 | 19% |
+| Planner | Plans | Valid as written | Valid after tidying | Fell back | Model time, median / slowest | Cost per plan | Days missing a lunch or dinner | Before code added meals |
+|---|---|---|---|---|---|---|---|---|
+| Claude Sonnet 5 (default) | 48 | 2% (1/48) | 100% (48/48) | 0% (0/48) | 8.1 s / 10.5 s | $0.024 | 20% | 26% |
+| Claude Haiku 4.5 | 32 | 6% (2/32) | 72% (23/32) | 6% (2/32) | 5.8 s / 14.4 s | $0.013 | 24% | 72% |
+| Rules-only | 16 | n/a | n/a | n/a | no model call | $0 | 19% | n/a |
 
 - Recorded on the evening of 2026-09-25 (the report shows the UTC date, 2026-09-26), prompt v3, production settings: 15 s per call, a 24 s deadline, at most one repair. Sonnet 5 ran each case 3 times, Haiku 4.5 twice.
 - Every plan a traveler gets passes the validator: final valid is 100% in every row, and CI replays these recordings on every push and fails otherwise.
-- Valid as written is low because code, not the model, times each stop. The model sees each place's opening hours but not the time its order gives each stop, so a place often lands at an hour it is closed (`CLOSED_AT_TIME`) or outside the day's window (`OUTSIDE_DAY_WINDOW`). The tidy step reorders or drops it before the check. The evals still count that as the model's mistake.
+- Valid as written is low because code, not the model, times each stop. The model sees each place's opening hours but not the time its order gives each stop, so a place often lands at an hour it is closed (`CLOSED_AT_TIME`) or outside the day's window (`OUTSIDE_DAY_WINDOW`). The tidy step reorders or drops it before the check. The evals still count that as the model's mistake, and an answer code gave a meal is not as written either: 1 of Sonnet 5's plans and 5 of Haiku 4.5's passed the check untouched and then had a meal added.
 - Valid after tidying: the first answer became the plan, with no repair turn and no fallback. Haiku 4.5 needed a repair on 9 plans, and 2 still fell back to the rules-only plan.
 - Cases meeting every expectation, in the full report: Sonnet 5 0 of 16, Haiku 4.5 4, rules-only 10. Most cases forbid a stop at a closed hour and judge the answer as written, so a stop the tidy step fixed still fails its case. Two cases want the summary to say a request was not possible. Every answer said so, but the summary guard dropped that sentence each time: it drops any sentence with a capitalized word the place data never uses, such as Eiffel or Amalfi.
-- AI plans skip more meals than the rules-only planner: 26% of Sonnet 5's days lack a lunch or a dinner, against 19%. Haiku 4.5 is faster at the median but misses a meal on most days, so Sonnet 5 stays the default.
+- The model leaves out more meals than the rules-only planner: as the answers passed the check, 26% of Sonnet 5's days and 72% of Haiku 4.5's lacked a lunch or a dinner, against 19%. Code then adds the meal a day lacks where the rules-only planner's meal fill seats a place the model was offered without moving any of its stops ([decision 17](docs/decisions.md#17-a-missing-meal-says-why-a-city-warns-before-and-code-adds-the-meal-the-ai-left-out)): 10 meals for Sonnet 5 and 47 for Haiku 4.5, leaving 20% and 24%. On one of the days still missing a meal (Haiku's) no place of the city was open for it; on every other a place could have served it, most often one already on another day of the trip.
+- Sonnet 5 stays the default: Haiku 4.5 is faster at the median, but it needed a repair on 9 of its 32 plans and fell back on 2, and it leaves out most meals itself.
 - Costs are estimates from list prices checked on 2026-09-24 ($2 and $10 per million input and output tokens for Sonnet 5, $1 and $5 for Haiku 4.5). The whole run cost about $1.60.
 
 ## What it does
@@ -105,8 +106,11 @@ TripRequest (checked with Zod)
      an order the scheduler cannot time, visits the hours cannot hold) -> ids outside the
      shortlist are errors
   -> scheduler assigns every time -> independent validator
-       no errors, nothing tidied    -> source "ai"
-       no errors, tidied            -> source "ai_repaired"
+       no errors                    -> add the lunch or dinner a day lacks where a place the
+                                       model was offered fits, moving none of its stops
+       no errors, nothing changed   -> source "ai"
+       no errors, tidied or a meal
+       added                        -> source "ai_repaired"
        errors                       -> one repair turn with the exact violations left
                                        -> tidied and validated again -> source "ai_repaired"
        still invalid, timeout,
@@ -114,7 +118,7 @@ TripRequest (checked with Zod)
   -> response: itinerary, warnings, source, meta (fallback reason, attempts, latency)
 ```
 
-The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. Before the check, code tidies what the model cannot see because code assigns the times: it drops a place on its closed day, a repeat, and visits over the pace's limit, reorders a day the scheduler cannot time, and drops the latest visits a day's hours still cannot hold, keeping the model's bases, its must-includes and the day's meals. A plan with any error never reaches the traveler: the model gets one chance to fix what is left, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
+The model proposes and code decides. Claude only chooses and orders place ids from a shortlist the code built; it never writes a time, a travel estimate or an opening hour. The scheduler times the chosen ids with the same rules the rules-only planner uses, and a validator that never calls the scheduler checks the result. Before the check, code tidies what the model cannot see because code assigns the times: it drops a place on its closed day, a repeat, and visits over the pace's limit, reorders a day the scheduler cannot time, and drops the latest visits a day's hours still cannot hold, keeping the model's bases, its must-includes and the day's meals. After the check, code adds a lunch or dinner a day lacks where the rules-only planner's meal fill seats a place the model was offered without moving any of its stops, and the plan is labelled fixed; where no place of the city is open for that meal (Bologna's dinner on a Monday), nothing is added. A plan with any error never reaches the traveler: the model gets one chance to fix what is left, and every other outcome falls back to the rules-only plan, which the page labels. The same planner package runs in the browser, so edits and share links are checked with the same rules, and the page plans on the device when the API cannot answer. More in [docs/architecture.md](docs/architecture.md); the planner's rules, and what each one buys, are in [docs/planner.md](docs/planner.md).
 
 ## Messy data
 
