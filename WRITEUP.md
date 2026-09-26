@@ -32,7 +32,7 @@ Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
 - Only 2% were valid exactly as the model wrote them. The model never sees the time each stop lands at, so code tidies the plan first, and the tests still count that as the model's mistake.
 - The model leaves out meals: 26% of Sonnet's days lacked a lunch or dinner as it answered, against 19% for the rules. Code now adds the meal where one fits, which brings Sonnet to 20%; on most of the rest, the places that could serve it are already on other days. Claude Haiku 4.5 was faster at the median but left out a meal on 72% of days (24% after code's additions), so Sonnet stays the default.
 - Changing cities after a plan, 54 live days (single days and routes of up to three cities): no repeated place, no fallback, 3.3 to 5.5 seconds a day.
-- 3,490 unit and integration tests and 372 browser tests run on every push, and a failure blocks the deploy.
+- 3,490 unit and integration tests and 72 desktop browser tests run on every push, and a failure blocks the deploy. The full 372 browser tests, on phones, tablets and desktop, run locally in about 5 minutes; CI's slower runners took up to 34 minutes and timed out on tablets, so they stay local.
 
 ## Choices I made
 
