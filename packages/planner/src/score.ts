@@ -1,5 +1,10 @@
 import { compareText } from "./anchors";
-import { MIN_SUGGEST_RATING, OUTING_DISTANCE_CAP_KM, SCORE_WEIGHTS } from "./config";
+import {
+  FLAGSHIP_PLACES,
+  MIN_SUGGEST_RATING,
+  OUTING_DISTANCE_CAP_KM,
+  SCORE_WEIGHTS,
+} from "./config";
 import { isOuting } from "./constraints";
 import { haversineKm, type LatLng } from "./normalize/geo";
 import { hoursOn, weekdayOf } from "./time";
@@ -12,6 +17,8 @@ import type { Place, PlaceType, TripRequest } from "./types";
 //         + rating * ((rating ?? MIN_SUGGEST_RATING) / 5)
 //         + iconic                         if tagged iconic
 //         + localFavorite                  if tagged local-favorite
+//         + flagship                       if on the reviewed flagship list (FLAGSHIP_PLACES)
+//                                          and not a must-include
 //         - hoursUnknownPenalty            if hours are unknown on that date
 //         - distancePenaltyPerKm * km      from where the traveler is (for an outing, at
 //                                          most OUTING_DISTANCE_CAP_KM)
@@ -34,6 +41,7 @@ export interface ScoreParts {
   rating: number;
   iconic: number;
   localFavorite: number;
+  flagship: number;
   hoursUnknown: number; // zero or negative
   distance: number; // zero or negative
   repeatType: number; // zero or negative
@@ -68,13 +76,28 @@ export function scoreParts(
   const rating = w.rating * ((place.rating ?? DEFAULT_RATING) / 5);
   const iconic = place.tags.includes(ICONIC_TAG) ? w.iconic : 0;
   const localFavorite = place.tags.includes(LOCAL_FAVORITE_TAG) ? w.localFavorite : 0;
+  const asked = request.mustInclude.includes(place.id);
+  // Decision: no flagship bonus for a place the traveler asked for. It is chosen already, and the
+  // AI path's tidy step orders the model's places as must-includes (orderDay.ts), where the bonus
+  // can only reorder a day, never add to it. With it, a model's day that ran the Vatican Museums
+  // past closing was reordered instead of moving them to another day, and from 0.1 they ran
+  // through lunch and the lunch-only market the model chose was left out.
+  const flagship = Object.hasOwn(FLAGSHIP_PLACES, place.id) && !asked ? w.flagship : 0;
   const hoursUnknown = hoursUnknownOn(place, situation.date) ? -w.hoursUnknownPenalty : 0;
   const km = situation.from ? travelKm(place, haversineKm(situation.from, place)) : 0;
   const distance = km === 0 ? 0 : -w.distancePenaltyPerKm * km; // never -0
   const repeatType = situation.previousType === place.type ? -w.repeatTypePenalty : 0;
-  const mustInclude = request.mustInclude.includes(place.id) ? w.mustInclude : 0;
+  const mustInclude = asked ? w.mustInclude : 0;
   const sum =
-    interest + rating + iconic + localFavorite + hoursUnknown + distance + repeatType + mustInclude;
+    interest +
+    rating +
+    iconic +
+    localFavorite +
+    flagship +
+    hoursUnknown +
+    distance +
+    repeatType +
+    mustInclude;
   // Decision: round to 6 decimals so two places that tie on paper also tie in floating point and
   // fall back to id order, whatever order the terms were added in.
   const total = Math.round(sum * 1e6) / 1e6;
@@ -83,6 +106,7 @@ export function scoreParts(
     rating,
     iconic,
     localFavorite,
+    flagship,
     hoursUnknown,
     distance,
     repeatType,

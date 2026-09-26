@@ -147,11 +147,23 @@ export const LONG_TRANSFER_MIN = 180;
 // interests, 13 Roman local favorites (a book market, a gelato shop) outscored the Colosseum and
 // the Vatican Museums, which then never made a Rome trip. Headline sights now lead unless the
 // traveler's interests say otherwise (an interest match is worth up to 3).
+// Decision: flagship 0.06, the largest bonus that stays under the bar (docs/planner.md). With no
+// interests it lifts the Vatican Museums from 2.16 to 2.22, level with the Borghese Gallery and
+// above the Colosseum and the Pantheon (2.19). Over three seeds, Rome trips where they are open,
+// within budget, and not asked for include them 79.6% of the time (mixed), not 75.5%, and 75.0%
+// over a holiday, not 63.5%; no sweep metric moves by a fifth of the bar (the most: 0.02 fewer
+// visits on day 1). At 0.07 the book market as a must-include loses its day's lunch in 33% of
+// trips, not 10%. From 0.08 plain Rome trips, which already had the Vatican Museums in 99.6% of
+// trips, are reshuffled: every packed one starting on a Sunday, and 31 of 52 starting on a Monday,
+// misses a dinner. From 0.15 the Vatican Museums open day 1 of most of them and the Campo de'
+// Fiori market leaves Monday-start trips (67% to 0). At 0.5 the share would be 89.6%, with those
+// same losses.
 export const SCORE_WEIGHTS = {
   interestMatch: 3, // times the share of the traveler's interests the place matches
   rating: 1.5, // times rating / 5 (a missing rating counts as MIN_SUGGEST_RATING)
   iconic: 0.75, // bonus for the iconic tag: the sights a first visit is built around
   localFavorite: 0.25, // bonus for the local-favorite tag
+  flagship: 0.06, // bonus for a reviewed flagship place (FLAGSHIP_PLACES): the owner's picks
   hoursUnknownPenalty: 1.5, // hours not confirmed on that date
   distancePenaltyPerKm: 0.05, // per km from the previous stop
   repeatTypePenalty: 0.75, // same type as the previous stop

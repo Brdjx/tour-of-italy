@@ -147,6 +147,21 @@ export const EXTRA_MEAL_PLACES: Record<string, { meals: Meal[]; reason: string }
   place_100: { meals: ["dinner"], reason: "An aperitivo walk with food, eaten as dinner" },
 };
 
+// ---------- Flagship places ----------
+
+/**
+ * Places the owner wants a trip to favour, reviewed by hand. Each gets SCORE_WEIGHTS.flagship
+ * (score.ts), a small lead over sights like it; a traveler's interests and must-includes still
+ * decide first. Add an id here to favour another place, and measure it (docs/planner.md).
+ */
+// Decision: the owner's call (2026-09-25): give the Vatican Museums extra emphasis, so more Rome
+// trips include them. A reviewed list, not a tag: tags come from the source and say what a place
+// is ("iconic" is on 31 places), while this is an editorial pick of a few ids that a data refresh
+// must not add to or drop, kept with its reason like the meal places above.
+export const FLAGSHIP_PLACES: Record<string, { reason: string }> = {
+  place_010: { reason: "The Vatican Museums and the Sistine Chapel, the owner's pick for Rome" },
+};
+
 // ---------- Location ----------
 
 /**

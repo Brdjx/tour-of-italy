@@ -1,6 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MIN_SUGGEST_RATING, OUTING_DISTANCE_CAP_KM, SCORE_WEIGHTS } from "../src/config";
+import {
+  FLAGSHIP_PLACES,
+  MIN_SUGGEST_RATING,
+  OUTING_DISTANCE_CAP_KM,
+  SCORE_WEIGHTS,
+} from "../src/config";
 import { placesOfAnchor } from "../src/context";
 import {
   compareScored,
@@ -47,6 +52,55 @@ describe("score terms", () => {
       expect(colosseum).toBeGreaterThan(favorite);
       expect(vatican).toBeGreaterThan(favorite);
     }
+  });
+
+  it("adds the flagship bonus to the Vatican Museums as its own part, and to no other place", () => {
+    // The owner's call: extra emphasis for the Vatican, by a reviewed list rather than a tag.
+    const vatican = scoreParts(realPlace("place_010"), none);
+    expect(vatican.flagship).toBe(SCORE_WEIGHTS.flagship);
+    expect(vatican.total).toBeCloseTo(1.41 + 0.75 + 0.06, 6);
+    for (const place of realContext().places) {
+      if (place.id === "place_010") continue;
+      expect(scoreParts(place, none).flagship, place.id).toBe(0);
+    }
+  });
+
+  it("names only real places as flagships, each with its reason", () => {
+    expect(Object.keys(FLAGSHIP_PLACES)).toEqual(["place_010"]);
+    for (const [id, entry] of Object.entries(FLAGSHIP_PLACES)) {
+      expect(realContext().placesById.has(id), id).toBe(true);
+      expect(entry.reason.length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it("ranks the Vatican Museums above the Colosseum and the Pantheon when no interests are chosen", () => {
+    // Before the bonus they came fifth in Rome, behind Gelato at Giolitti, the Borghese Gallery,
+    // the Colosseum, and the Pantheon. Level with the Borghese Gallery now, they follow it by id.
+    const rome = placesOfAnchor(realContext(), "rome");
+    const order = rankPlaces(rome, none).map((s) => s.place.id);
+    expect(order.slice(0, 5)).toEqual([
+      "place_011",
+      "place_007",
+      "place_010",
+      "place_001",
+      "place_005",
+    ]);
+  });
+
+  it("gives no flagship bonus to a must-include, whose order the bonus could only change", () => {
+    // The tidy step orders a model's day with every place as a must-include (orderDay.ts).
+    const asked = scoreParts(realPlace("place_010"), { interests: [], mustInclude: ["place_010"] });
+    expect(asked.flagship).toBe(0);
+    expect(asked.mustInclude).toBe(SCORE_WEIGHTS.mustInclude);
+  });
+
+  it("never lets the flagship bonus outweigh an interest match or a must-include", () => {
+    // A quarter share of the traveler's interests is worth 0.75, far more than the bonus.
+    expect(SCORE_WEIGHTS.flagship).toBeGreaterThan(0);
+    expect(SCORE_WEIGHTS.flagship).toBeLessThan(SCORE_WEIGHTS.interestMatch / 4);
+    const request = { interests: [], mustInclude: ["place_007"] };
+    const borghese = scorePlace(realPlace("place_007"), request);
+    expect(borghese).toBeGreaterThan(scorePlace(realPlace("place_010"), request));
   });
 
   it("counts each interest once, so repeating an interest cannot inflate the match", () => {
