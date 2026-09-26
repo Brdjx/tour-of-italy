@@ -74,6 +74,7 @@ export function measure(overrides: Partial<PlanMeasure> = {}): PlanMeasure {
       anchors: 1,
       days: 3,
       daysMissingMeal: 0,
+      daysNoneOpen: 0,
     },
     mustInclude: { placed: 0, placeable: 0 },
     latencyMs: null,
@@ -82,6 +83,8 @@ export function measure(overrides: Partial<PlanMeasure> = {}): PlanMeasure {
     costUsd: null,
     stale: false,
     checks: [],
+    mealsAdded: 0,
+    daysMissingMealBefore: 0,
     ...overrides,
   };
 }

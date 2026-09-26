@@ -4,7 +4,13 @@ import { materializeSelection } from "@italy/api/plan/materialize";
 import { type PlannerContext, planDeterministic, type TripRequest } from "@italy/planner";
 import type { EvalCase } from "./cases";
 import { type CheckResult, checkExpectations } from "./expectations";
-import { firstAnswerMustInclude, type PlanMeasure, planMustInclude, planShape } from "./metrics";
+import {
+  daysMissingMealBefore,
+  firstAnswerMustInclude,
+  type PlanMeasure,
+  planMustInclude,
+  planShape,
+} from "./metrics";
 import type { PlanAttempt } from "./pipeline";
 import { estimateCostUsd } from "./pricing";
 import type { CallRecord } from "./recording";
@@ -81,10 +87,22 @@ export function measurePipelinePlan(input: PipelineMeasureInput, ctx: PlannerCon
   if (!attempt.ok) {
     const checks: CheckResult[] = [];
     const fallbackReason = attempt.error;
-    return { ...base, source: "error", fallbackReason, firstPassValid: false, shape: null, checks };
+    const none = { mealsAdded: 0, daysMissingMealBefore: null };
+    return {
+      ...base,
+      ...none,
+      source: "error",
+      fallbackReason,
+      firstPassValid: false,
+      shape: null,
+      checks,
+    };
   }
   const { itinerary, trace } = attempt.outcome;
   const shape = planShape(itinerary, ctx);
+  // A rules-only plan never keeps what code added to an answer, even when the trace has it.
+  const ai = itinerary.source === "ai" || itinerary.source === "ai_repaired";
+  const added = ai ? trace.tidied.filter((change) => change.rule === "meal_added") : [];
   const written = writtenCodes(calls, itinerary.request, shortlist, ctx);
   const checks =
     caseDef === undefined
@@ -106,6 +124,8 @@ export function measurePipelinePlan(input: PipelineMeasureInput, ctx: PlannerCon
     firstPassValid: itinerary.source === "ai",
     shape,
     checks,
+    mealsAdded: added.length,
+    daysMissingMealBefore: daysMissingMealBefore(itinerary, added, ctx),
   };
 }
 
@@ -142,5 +162,7 @@ export function measureBaseline(
     costUsd: 0,
     stale: false,
     checks,
+    mealsAdded: 0,
+    daysMissingMealBefore: null,
   };
 }

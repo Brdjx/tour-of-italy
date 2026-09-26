@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PlanShape } from "../src/metrics";
 import type { ReplayedGroup } from "../src/replayRun";
 import { renderReport } from "../src/report";
 import { summarize } from "../src/summary";
@@ -18,6 +19,11 @@ function group(kind: ReplayedGroup["kind"], overrides: Partial<ReplayedGroup> = 
       inputTokens: 5000,
       outputTokens: 800,
       costUsd: 0.018,
+      // Two days missed a meal as the model wrote them: code added three meals and fed one of
+      // them; the other had no place open.
+      shape: { ...(measure().shape as PlanShape), daysMissingMeal: 1, daysNoneOpen: 1 },
+      mealsAdded: 3,
+      daysMissingMealBefore: 2,
     }),
     measure({
       caseId: "splurge",
@@ -99,7 +105,13 @@ describe("latest.md", () => {
     );
     expect(rowOf(md, "Slowest model time")).toBe("| Slowest model time | 12.0 s | n/a |");
     expect(rowOf(md, "Days missing a lunch or dinner")).toBe(
-      "| Days missing a lunch or dinner | 0% | 0% |",
+      "| Days missing a lunch or dinner | 17% (1/6): 1 none open, 0 not planned | 0% (0/6): 0 none open, 0 not planned |",
+    );
+    expect(rowOf(md, "Days missing a meal before code added one")).toBe(
+      "| Days missing a meal before code added one | 33% (2/6) | n/a |",
+    );
+    expect(rowOf(md, "Lunches and dinners code added")).toBe(
+      "| Lunches and dinners code added | 3 | n/a |",
     );
   });
 

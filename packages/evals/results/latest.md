@@ -21,7 +21,9 @@ Live model answers, replayed through the current code. Model time, tokens, and c
 | Visits per day | 2.7 (57% of pace cap) | 3.3 (67% of pace cap) | 4.0 (84% of pace cap) |
 | Travel per day | 81 min | 92 min | 104 min |
 | Transfer time per trip | 56 min | 8 min | 23 min |
-| Days missing a lunch or dinner | 24% | 20% | 19% |
+| Days missing a lunch or dinner | 24% (23/96): 1 none open, 22 not planned | 20% (29/144): 0 none open, 29 not planned | 19% (9/48): 0 none open, 9 not planned |
+| Days missing a meal before code added one | 72% (69/96) | 26% (38/144) | n/a |
+| Lunches and dinners code added | 47 | 10 | n/a |
 | Model time p50 / p95 | 5.8 s / 13.1 s | 8.1 s / 9.9 s | n/a |
 | Slowest model time | 14.4 s | 10.5 s | n/a |
 | Tokens in / out per plan | 9,562 / 610 | 8,208 / 771 | n/a |
@@ -78,11 +80,12 @@ None.
 
 ## How to read this
 
-- First-pass valid: the model's first answer became the plan exactly as written, with nothing tidied and no repair. Valid after tidying: the first answer became the plan, tidied or not, with no repair turn and no fallback. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.
+- First-pass valid: the model's first answer became the plan exactly as written, with nothing tidied, no meal added and no repair. Valid after tidying: the first answer became the plan, tidied or not, with no repair turn and no fallback. Final valid: the plan the traveler gets has no validator errors. Only final valid blocks CI.
 - Preference match: share of non-meal stops with at least one requested interest. Must-includes placed: in the model's first answer (in the plan, for the baseline), since the final plan always has them.
 - A check that cannot apply is not run, and a case passed without it says so: the rules-only planner writes no summary, so its summary checks are never run, while a model column must pass them.
 - Travel per day: legs between stops and back to the base. Transfer time: moving between bases.
-- Days missing a lunch or dinner: days the validator warns have no lunch or no dinner stop (MEAL_MISSING), over all days of all plans. An outing that runs through a meal counts as that meal.
+- Days missing a lunch or dinner: days the validator warns have no lunch or no dinner stop (MEAL_MISSING), over all days of all plans. An outing that runs through a meal counts as that meal. None open: no place of the city that the traveler does not avoid could take the meal that date (in this data, Bologna's lunch on Sundays and dinner on Mondays), so only another city could feed the day; not planned: a place could.
+- Days missing a meal before code added one: the same count on each answer as it passed the check. Code then adds a lunch or dinner a day lacks where the rules-only planner's meal fill seats a place the model was offered without moving any of its stops, and the plan becomes ai_repaired (decision 17). Lunches and dinners code added: how many, over all plans.
 - Model time: the recorded call times of a plan, failed and timed-out calls included, summed. p50 is the median plan, p95 the nearest-rank 95th percentile, slowest the one slowest plan. The end-to-end latency of a live run is in its results file.
 - Costs are estimates from prices checked on 2026-09-24. Check https://platform.claude.com/docs/en/about-claude/pricing before quoting them.
 - Regenerate with `pnpm eval:replay` (offline). Record live answers with `pnpm eval --model <id>`.

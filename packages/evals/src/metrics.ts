@@ -3,9 +3,11 @@ import type { Shortlist } from "@italy/api/plan/candidates";
 import {
   type Itinerary,
   ItinerarySchema,
+  mealGaps,
   PACE,
   type PlannerContext,
   type PlanSource,
+  scheduleTrip,
   validateItinerary,
   validationErrors,
 } from "@italy/planner";
@@ -26,6 +28,7 @@ export interface PlanShape {
   anchors: number; // distinct bases
   days: number;
   daysMissingMeal: number; // days with no lunch or no dinner, as the validator's MEAL_MISSING says
+  daysNoneOpen: number; // of those, days where no place could take any meal they lack (mealGaps)
 }
 
 export interface MustIncludeCount {
@@ -40,7 +43,7 @@ export interface PlanMeasure {
   source: PlanSource | "error"; // "error" when the pipeline threw (never expected)
   fallbackReason: string | null; // why the rules-only plan was used; null when it was not a fallback
   answered: boolean; // the model returned at least one answer
-  firstPassValid: boolean; // the first answer became the plan as written: nothing tidied, no repair
+  firstPassValid: boolean; // the first answer became the plan as written: nothing tidied or added, no repair
   repairTried: boolean; // the pipeline asked for a repair
   calls: number; // model calls, retries included
   shape: PlanShape | null; // null when the pipeline threw
@@ -51,6 +54,8 @@ export interface PlanMeasure {
   costUsd: number | null;
   stale: boolean; // replayed against a candidate list that has changed since recording
   checks: CheckResult[];
+  mealsAdded: number; // lunches and dinners code added to the model's answer (mealAdd.ts)
+  daysMissingMealBefore: number | null; // days missing a meal before those were added; null: no plan
 }
 
 /** No validator errors and the response schema holds: the only way a plan may reach a traveler. */
@@ -91,6 +96,38 @@ export function daysMissingMeal(itinerary: Itinerary, ctx: PlannerContext): numb
   return days.size;
 }
 
+/**
+ * Days missing a meal where no place could take any meal they lack: every one of their missing
+ * meals is "none open" (mealGaps, packages/planner/src/mealSupply.ts). The rest of the days
+ * missing a meal are "not planned": a place could have taken it.
+ */
+export function daysNoneOpen(itinerary: Itinerary, ctx: PlannerContext): number {
+  const noneOpen = new Map<number, boolean>();
+  for (const gap of mealGaps(itinerary, ctx)) {
+    noneOpen.set(gap.day, (noneOpen.get(gap.day) ?? true) && gap.cause === "none_open");
+  }
+  return [...noneOpen.values()].filter(Boolean).length;
+}
+
+/**
+ * Days missing a meal in the plan as it was before code added the meals `added` names (the trace's
+ * meal_added changes): the same days with those places taken out and timed again.
+ */
+export function daysMissingMealBefore(
+  itinerary: Itinerary,
+  added: readonly { day: number; placeId?: string | undefined }[],
+  ctx: PlannerContext,
+): number {
+  if (added.length === 0) return daysMissingMeal(itinerary, ctx);
+  const out = new Set(added.map((change) => `${change.day}|${change.placeId}`));
+  const days = itinerary.days.map((day, index) => ({
+    anchorId: day.anchorId,
+    placeIds: day.stops.map((stop) => stop.placeId).filter((id) => !out.has(`${index}|${id}`)),
+  }));
+  const before = { ...itinerary, days: scheduleTrip(itinerary.request, days, ctx).days };
+  return daysMissingMeal(before, ctx);
+}
+
 export function planShape(itinerary: Itinerary, ctx: PlannerContext): PlanShape {
   const days = itinerary.days.length || 1;
   let visits = 0;
@@ -116,6 +153,7 @@ export function planShape(itinerary: Itinerary, ctx: PlannerContext): PlanShape 
     anchors: new Set(itinerary.days.map((day) => day.anchorId)).size,
     days: itinerary.days.length,
     daysMissingMeal: daysMissingMeal(itinerary, ctx),
+    daysNoneOpen: daysNoneOpen(itinerary, ctx),
   };
 }
 

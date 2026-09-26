@@ -3,6 +3,8 @@ import { type Itinerary, TripRequestSchema } from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import {
   daysMissingMeal,
+  daysMissingMealBefore,
+  daysNoneOpen,
   firstAnswerMustInclude,
   isFinalValid,
   mean,
@@ -98,6 +100,27 @@ describe("plan shape", () => {
     const day = noDinner.days[0];
     if (day) day.stops = day.stops.filter((s) => s.role !== "dinner");
     expect(daysMissingMeal(noDinner, ctx)).toBe(warned.has(0) ? gaps : gaps + 1);
+  });
+
+  it("splits the days missing a meal by cause: none open, or a place could have taken it", () => {
+    // Saturday 10 to Monday 12 October 2026 in Bologna: no lunch place opens on the Sunday and no
+    // dinner place on the Monday, so those two days miss a meal nothing could have given them.
+    const bologna = plan({ anchors: ["bologna"], startDate: "2026-10-10" });
+    expect(daysNoneOpen(bologna, ctx)).toBe(2);
+    const shape = planShape(bologna, ctx);
+    expect(shape.daysNoneOpen).toBeLessThanOrEqual(shape.daysMissingMeal);
+    // Day 1 of the hand-built plan lacks a dinner Rome could have served.
+    expect(daysNoneOpen(handBuilt(), ctx)).toBe(0);
+  });
+
+  it("counts the days missing a meal before code added one, with those meals taken out", () => {
+    const fed = plan({ interests: ["food"] });
+    const day = fed.days[0];
+    const dinner = day?.stops.find((stop) => stop.role === "dinner");
+    expect(dinner).toBeDefined();
+    const added = [{ day: 0, placeId: dinner?.placeId }];
+    expect(daysMissingMealBefore(fed, [], ctx)).toBe(daysMissingMeal(fed, ctx));
+    expect(daysMissingMealBefore(fed, added, ctx)).toBe(daysMissingMeal(fed, ctx) + 1);
   });
 
   it("calls a real rules-only plan valid and a broken one invalid", () => {
@@ -243,9 +266,15 @@ describe("summary", () => {
       days,
       daysMissingMeal,
     });
-    const pooled = summarize([measure({ shape: shape(3, 3) }), measure({ shape: shape(4, 0) })]);
+    const pooled = summarize([
+      measure({ shape: { ...shape(3, 3), daysNoneOpen: 1 }, mealsAdded: 2 }),
+      measure({ shape: shape(4, 0), daysMissingMealBefore: 2, mealsAdded: 3 }),
+    ]);
     expect(pooled.mealGapRate).toBeCloseTo(3 / 7, 10);
+    expect(pooled).toMatchObject({ days: 7, mealGapDays: 3, noneOpenDays: 1, mealsAdded: 5 });
+    expect(pooled.mealGapBeforeDays).toBe(2);
     expect(summarize([measure({ shape: null })]).mealGapRate).toBeNull();
+    expect(summarize([measure({ daysMissingMealBefore: null })]).mealGapBeforeDays).toBeNull();
   });
 
   it("pools must-includes across plans and ignores plans without an answer", () => {

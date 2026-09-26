@@ -27,6 +27,11 @@ export interface Summary {
   travelMinPerDay: number | null;
   transferMinPerTrip: number | null;
   mealGapRate: number | null; // days missing a lunch or a dinner over all days, all plans together
+  days: number; // every day of every plan measured
+  mealGapDays: number; // days missing a lunch or a dinner
+  noneOpenDays: number; // of those, days no place could have fed (the rest: not planned)
+  mealGapBeforeDays: number | null; // days missing a meal before code added any; null for the baseline
+  mealsAdded: number; // lunches and dinners code added to the model's answers
   latencyP50Ms: number | null;
   latencyP95Ms: number | null;
   latencyMaxMs: number | null;
@@ -93,6 +98,9 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
       (m.source === "ai" || m.source === "ai_repaired"),
   );
   const passedCases = cases.filter((c) => c.passedRuns === c.runs);
+  const days = shapes.reduce((sum, s) => sum + s.days, 0);
+  const mealGapDays = shapes.reduce((sum, s) => sum + s.daysMissingMeal, 0);
+  const before = present(measures.map((m) => m.daysMissingMealBefore));
   return {
     plans: measures.length,
     finalValidRate: rate(measures.filter((m) => m.shape?.finalValid).length, measures.length),
@@ -112,10 +120,12 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
     paceFill: mean(shapes.map((s) => s.visitsPerDay / s.paceCap)),
     travelMinPerDay: mean(shapes.map((s) => s.travelMinPerDay)),
     transferMinPerTrip: mean(shapes.map((s) => s.transferMinPerTrip)),
-    mealGapRate: rate(
-      shapes.reduce((sum, s) => sum + s.daysMissingMeal, 0),
-      shapes.reduce((sum, s) => sum + s.days, 0),
-    ),
+    mealGapRate: rate(mealGapDays, days),
+    days,
+    mealGapDays,
+    noneOpenDays: shapes.reduce((sum, s) => sum + s.daysNoneOpen, 0),
+    mealGapBeforeDays: before.length === 0 ? null : before.reduce((sum, n) => sum + n, 0),
+    mealsAdded: measures.reduce((sum, m) => sum + m.mealsAdded, 0),
     latencyP50Ms: percentile(latencies, 50),
     latencyP95Ms: percentile(latencies, 95),
     latencyMaxMs: percentile(latencies, 100),
