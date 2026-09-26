@@ -1,15 +1,16 @@
 import { dayOrigin } from "./anchors";
 import { MAX_TRAVEL_MINUTES } from "./config";
-import { isCandidate, sharesLocation } from "./constraints";
+import { isCandidate, servesMeal, sharesLocation } from "./constraints";
 import { type PlannerContext, placesOfAnchor } from "./context";
 import { mayVisit } from "./dayLimits";
+import { mealsMissing } from "./mealSupply";
 import { compareViolations, planWarnings } from "./plan";
 import { scheduleDay } from "./schedule";
 import { compareScored, scorePlace } from "./score";
 import { idsOf, replaceStop, requireIndex } from "./stopEdits";
 import { isValidIsoDate } from "./time";
 import { attachReasons, scheduleTrip } from "./trip";
-import type { DayPlan, Itinerary, Place, Stop, TripRequest, Violation } from "./types";
+import type { DayPlan, Itinerary, Meal, Place, Stop, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
 import { isError, isWarning, makeViolation } from "./violations";
 
@@ -26,6 +27,7 @@ export interface Alternative {
   score: number; // how well it fits where the replaced stop was, higher first
   day: DayPlan; // the rebuilt day with the swap applied
   stop: Stop; // the new stop as timed in that day
+  meal: Meal | null; // the lunch or dinner the day lacked and has after the swap, if any
 }
 
 /**
@@ -202,14 +204,20 @@ function withoutRemovedMustIncludes(
 }
 
 /**
- * Places that can replace stop `stopIndex` of day `dayIndex`, best first, at most `limit`.
- * A candidate is in the day's base, not used elsewhere in the trip, not sharing a location with
- * a used place, not excluded, suggestable, and within budget. It is kept only when the rebuilt
- * day has no error from scheduleDay, every stop keeps its role (a lunch is swapped for a lunch),
- * and the validator finds no error on the edited day and no new error elsewhere. Returns [] for
- * an index or base that does not exist, or a day whose date or transfer is not valid. Like
- * validateItinerary, it expects a value of the Itinerary type (parse with ItinerarySchema first).
+ * Places that can replace stop `stopIndex` of day `dayIndex`, best first, at most `limit`: those
+ * that give the day a lunch or dinner it lacks first, then by score. A candidate is in the day's
+ * base, not used elsewhere in the trip, not sharing a location with a used place, not excluded,
+ * suggestable, and within budget. It is kept only when the rebuilt day has no error from
+ * scheduleDay, every stop keeps its role (a lunch is swapped for a lunch) except that a visit may
+ * become a lunch or dinner the day lacks, and the validator finds no error on the edited day and
+ * no new error elsewhere. Returns [] for an index or base that does not exist, or a day whose date
+ * or transfer is not valid. Like validateItinerary, it expects a value of the Itinerary type
+ * (parse with ItinerarySchema first).
  */
+// Decision: a place to eat may replace a visit when it gives the day the lunch or dinner it lacks
+// (decision 17), and those come first. Found in review (2026-09-26): a day with no dinner said to
+// swap a stop near dinner time for a place to eat, but a meal place could only replace a meal, so
+// over 404 rules-planned days with one meal taken off, no swap ever gave the meal back.
 export function alternativesFor(
   itinerary: Itinerary,
   dayIndex: number,
@@ -224,6 +232,7 @@ export function alternativesFor(
     return [];
   }
   const { request } = itinerary;
+  const lacking = mealsMissing(day, ctx);
   const used = usedPlaces(itinerary, ctx, dayIndex, stopIndex);
   const baseline = new Set(validateItinerary(itinerary, ctx).filter(isError).map(errorKey));
   const previous = stopIndex === 0 ? undefined : placeOf(ctx, day.stops[stopIndex - 1]);
@@ -236,18 +245,31 @@ export function alternativesFor(
   for (const place of placesOfAnchor(ctx, anchor.id)) {
     if (place.id === current.placeId || !isCandidate(place, request, anchor.id, ctx)) continue;
     if (used.some((other) => other.id === place.id || sharesLocation(other, place))) continue;
-    // A meal place replaces a visit only when the traveler asked for it, as in the planner.
-    if (current.role === "visit" && !mayVisit(place, request.mustInclude)) continue;
+    // A meal place replaces a visit only when the traveler asked for it, as in the planner, or
+    // as a lunch or dinner the day lacks.
+    const asMeal = current.role === "visit" && !mayVisit(place, request.mustInclude);
+    if (asMeal && !lacking.some((meal) => servesMeal(place, meal))) continue;
     const ids = replaceStop(day, stopIndex, place.id);
     const rebuilt = rebuildDay(itinerary, dayIndex, ids, ctx, false);
     const newDay = rebuilt.itinerary.days[dayIndex] as DayPlan;
-    if (rebuilt.violations.some(isError) || !sameRoles(newDay.stops, day.stops)) continue;
+    const stop = newDay.stops[stopIndex] as Stop;
+    const roles = asMeal
+      ? lacking.includes(stop.role as Meal) && sameRoles(newDay.stops, day.stops, stopIndex)
+      : sameRoles(newDay.stops, day.stops);
+    if (rebuilt.violations.some(isError) || !roles) continue;
     const errors = rebuilt.validation.filter(isError);
     if (errors.some((error) => error.day === dayIndex || !baseline.has(errorKey(error)))) continue;
     const score = scorePlace(place, request, situation);
-    found.push({ place, score, day: newDay, stop: newDay.stops[stopIndex] as Stop });
+    const has = mealsMissing(newDay, ctx);
+    const meal = lacking.find((one) => !has.includes(one)) ?? null;
+    found.push({ place, score, day: newDay, stop, meal });
   }
-  return found.sort(compareScored).slice(0, Math.floor(limit));
+  return found.sort(compareAlternatives).slice(0, Math.floor(limit));
+}
+
+/** Those that give the day a meal it lacks first, then the best scored. */
+function compareAlternatives(a: Alternative, b: Alternative): number {
+  return Number(b.meal !== null) - Number(a.meal !== null) || compareScored(a, b);
 }
 
 /** Every place in the trip except the stop being replaced. */
@@ -272,8 +294,12 @@ function placeOf(ctx: PlannerContext, stop: Stop | undefined): Place | undefined
   return stop ? ctx.placesById.get(stop.placeId) : undefined;
 }
 
-function sameRoles(a: readonly Stop[], b: readonly Stop[]): boolean {
-  return a.length === b.length && a.every((stop, index) => stop.role === b[index]?.role);
+/** True when both days have the same roles in the same order, apart from stop `except`. */
+function sameRoles(a: readonly Stop[], b: readonly Stop[], except = -1): boolean {
+  return (
+    a.length === b.length &&
+    a.every((stop, index) => index === except || stop.role === b[index]?.role)
+  );
 }
 
 function errorKey(violation: Violation): string {

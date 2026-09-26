@@ -8,7 +8,7 @@ import {
 } from "../src/alternatives";
 import { isCandidate, sharesLocation } from "../src/constraints";
 import { planDeterministic } from "../src/plan";
-import type { Itinerary, TripRequest } from "../src/types";
+import type { DayPlan, Itinerary, TripRequest } from "../src/types";
 import { validateItinerary } from "../src/validate";
 import { makeRequest, realContext } from "./plannerFixtures";
 
@@ -122,6 +122,63 @@ describe("alternativesFor", () => {
         }
       });
     });
+  });
+});
+
+describe("alternativesFor on a day without a meal", () => {
+  // The traveler takes dinner off a Rome day; the chip says to swap a stop near dinner time for a
+  // place to eat (decision 17). Review (2026-09-26) found no swap could: a meal place only ever
+  // replaced a meal.
+  const plan = planFor({ interests: ["art", "food"], anchors: ["rome"] });
+  const d = plan.days.findIndex((day) => day.stops.some((stop) => stop.role === "dinner"));
+  const day = plan.days[d];
+  if (!day) throw new Error("no day with a dinner");
+  const dinner = day.stops.findIndex((stop) => stop.role === "dinner");
+  const edited = rescheduleDay(plan, d, removeStop(day, dinner), ctx).itinerary;
+  const roles = (edited.days[d]?.stops ?? []).map((stop) => stop.role);
+  const lastVisit = roles.lastIndexOf("visit");
+
+  it("offers a place to eat for a visit near dinner time, first, as the day's dinner", () => {
+    const warned = (it: Itinerary) =>
+      it.warnings.some((w) => w.code === "MEAL_MISSING" && w.day === d && /dinner/.test(w.detail));
+    expect(warned(edited)).toBe(true);
+
+    const offered = alternativesFor(edited, d, lastVisit, ctx);
+
+    expect(offered[0]).toMatchObject({ meal: "dinner", stop: { role: "dinner" } });
+    const meals = offered.filter((alt) => alt.meal !== null);
+    expect(meals.length).toBeGreaterThan(0);
+    for (const alt of meals) {
+      expect(alt.place.meals).toContain("dinner");
+      expect(alt.day.stops.map((stop) => stop.role)).toEqual(
+        roles.map((role, i) => (i === lastVisit ? "dinner" : role)),
+      );
+      const swapped = rescheduleDay(
+        edited,
+        d,
+        replaceStop(edited.days[d] as DayPlan, lastVisit, alt.place.id),
+        ctx,
+      );
+      expect(errorsOf(validateItinerary(swapped.itinerary, ctx))).toEqual([]);
+      expect(warned(swapped.itinerary)).toBe(false);
+    }
+    // After them, the visits that keep the day as it is, as before.
+    for (const alt of offered.slice(meals.length)) {
+      expect(alt).toMatchObject({ meal: null, stop: { role: "visit" } });
+    }
+  });
+
+  it("never offers a place to eat for a visit when the day has its meals, or for the first stop", () => {
+    for (const [s, stop] of day.stops.entries()) {
+      if (stop.role !== "visit") continue;
+      for (const alt of alternativesFor(plan, d, s, ctx, 50)) {
+        expect(alt.meal).toBeNull();
+        expect(alt.place.mealCapable).toBe(false);
+      }
+    }
+    // The morning's first visit cannot become the dinner without the day's lunch moving too.
+    expect(edited.days[d]?.stops[0]?.role).toBe("visit");
+    for (const alt of alternativesFor(edited, d, 0, ctx, 50)) expect(alt.meal).toBeNull();
   });
 });
 
