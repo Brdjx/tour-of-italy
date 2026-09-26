@@ -38,9 +38,10 @@ export interface DayTidied {
 // Decision: repeats of other days are dropped here, before tidySelection. Its own rule keeps a
 // repeat on a day it would otherwise empty and takes the place off the day that had it first,
 // which here would change a day the traveler did not ask to change. The other days hold no id of
-// this day's shortlist, so tidySelection leaves them as they are (not offered, so never reordered,
-// trimmed, or given a moved place); they are put back from the input all the same, and any change
-// it records on them is not this day's.
+// this day's shortlist, so tidySelection leaves them as they are (not offered, so never reordered
+// or trimmed; a later day of a route, still empty, may be given a place this day drops, asDrop);
+// they are put back from the input all the same, and any change it records on them is not this
+// day's.
 export function tidyDay(
   answer: LlmDayAnswer,
   input: DayInput,
@@ -65,7 +66,7 @@ export function tidyDay(
   const selection = tripSelection(input, ids, answer.reasons);
   const tidied = tidySelection(selection, input.request, shortlist, ctx);
   const tidiedDay = tidied.selection.days[day] ?? { placeIds: [], reasons: [] };
-  const changes = [...own, ...tidied.changes.filter((change) => change.day === day)];
+  const changes = [...own, ...tidied.changes.filter((change) => change.day === day).map(asDrop)];
   const trip = tripSelection(input, tidiedDay.placeIds, tidiedDay.reasons);
   return {
     ids: [...tidiedDay.placeIds],
@@ -73,6 +74,19 @@ export function tidyDay(
     changes,
     trip: { selection: trip, changes },
   };
+}
+
+/**
+ * A place the trip's tidy step moved to another day, recorded as the drop that took it off this
+ * day: the other days are put back as sent, so for this day the place is gone, not moved.
+ */
+// Decision: found in the live route check (2026-09-26). A later day of a route waits its turn
+// empty, at a base this day may share, so step 8 of the tidy step can move a place this day drops
+// onto it. The answer keeps this day only, so the trace and the repair notes name the drop.
+function asDrop(change: TidyChange): TidyChange {
+  if (change.rule !== "moved_day" || change.cause === undefined) return change;
+  const { toDay: _toDay, cause, ...rest } = change;
+  return { ...rest, rule: cause };
 }
 
 /** The trip as a model selection, with this day's ids and reasons and the other days as sent. */

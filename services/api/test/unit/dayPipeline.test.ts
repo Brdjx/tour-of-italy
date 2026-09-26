@@ -132,6 +132,32 @@ describe("tidyDay", () => {
     expect(tidied.trip.selection.days[2]?.placeIds).toEqual(first.days[2]?.placeIds);
   });
 
+  it("records a place moved to a later day of the route, still empty, as the drop it is", () => {
+    // Florence for all three days: days 2 and 3 wait their turn, empty, while day 1 plans.
+    const waiting = {
+      ...dayInput(rome, 0, "florence"),
+      days: [0, 1, 2].map(() => ({ anchorId: "florence", placeIds: [] })),
+      route: ["florence", "florence", "florence"],
+    };
+    const list = buildDayShortlist(waiting, ctx);
+    const visits = (list.options[0]?.candidates ?? [])
+      .filter((c) => !c.meal)
+      .map((c) => c.place.id)
+      .slice(0, 9);
+    const tidied = tidyDay(answer(visits), waiting, list, ctx);
+
+    expect(tidied.changes.some((change) => change.rule === "moved_day")).toBe(false);
+    const dropped = tidied.changes.filter((change) => change.placeId !== undefined);
+    expect(dropped.length).toBeGreaterThan(0);
+    for (const change of dropped) {
+      expect(change).not.toHaveProperty("toDay");
+      expect(tidied.ids).not.toContain(change.placeId);
+    }
+    tidied.trip.selection.days.forEach((day, index) => {
+      if (index !== 0) expect(day.placeIds).toEqual([]);
+    });
+  });
+
   it("drops a place at the same spot as one on another day", () => {
     const trevi = dayInput(rome, 1, "rome");
     trevi.days[0] = { anchorId: "rome", placeIds: ["place_018"] };
