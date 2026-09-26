@@ -90,6 +90,41 @@ def resource_block(template: str, name: str) -> str:
     return "\n".join(lines)
 
 
+# A throttle under the HTTP API's RouteSettings for a route no function event declares fails the
+# SAM deploy part way, after deploy.yml has started changing AWS. Each "METHOD /path" key must
+# match an HttpApi event's Method and Path (POST /api/plan, POST /api/plan/day, POST /api/trips).
+ROUTE_KEY = re.compile(r'^(\s+)"([A-Z]+) (/[^"]*)":\s*$')
+EVENT_ROUTE = re.compile(r"Path:\s*(\S+)\s*\n\s*Method:\s*(\S+)")
+
+
+def route_setting_keys(template: str) -> set[str]:
+    """The "METHOD /path" keys one level under RouteSettings."""
+    keys: set[str] = set()
+    parent = None
+    for line in template.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if line.strip() == "RouteSettings:":
+            parent = indent
+            continue
+        if parent is None:
+            continue
+        if indent <= parent:
+            parent = None
+            continue
+        match = ROUTE_KEY.match(line)
+        if match:
+            keys.add(f"{match.group(2)} {match.group(3)}")
+    return keys
+
+
+def route_errors(template: str, path: Path) -> list[str]:
+    declared = {f"{method} {route}" for route, method in EVENT_ROUTE.findall(template)}
+    missing = sorted(route_setting_keys(template) - declared)
+    return [f"{path}: RouteSettings throttles {key}, which no HttpApi event declares" for key in missing]
+
+
 def check_sam(root: Path) -> list[str]:
     path = root / "infra/sam/template.yaml"
     if not path.is_file():
@@ -108,6 +143,7 @@ def check_sam(root: Path) -> list[str]:
         errors.append(f"{path}: no function environment variable GIT_SHA set from GitSha")
     if not TRIPS_TABLE_ENV.search(template):
         errors.append(f"{path}: no function environment variable TRIPS_TABLE set from TripsTable")
+    errors.extend(route_errors(template, path))
     table = resource_block(template, "TripsTable")
     for wanted, setting in TRIPS_TABLE_SETTINGS.items():
         if not setting.search(table):

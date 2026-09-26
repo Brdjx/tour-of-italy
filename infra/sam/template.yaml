@@ -171,13 +171,20 @@ Resources:
           GIT_SHA: !Ref GitSha
           TRIPS_TABLE: !Ref TripsTable
       Events:
-        # Routes of their own, so POST /api/plan and POST /api/trips get tighter throttles than
-        # the read routes. GET /api/trips/{id} stays on the proxy route with the reads.
+        # Routes of their own, so POST /api/plan, POST /api/plan/day and POST /api/trips get
+        # tighter throttles than the read routes. GET /api/trips/{id} stays on the proxy route
+        # with the reads.
         Plan:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
             Path: /api/plan
+            Method: POST
+        PlanDay:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/plan/day
             Method: POST
         SaveTrip:
           Type: HttpApi
@@ -204,6 +211,10 @@ Resources:
       # always leaves instances for the read routes. Those answer in milliseconds, and every page
       # load needs two of them, so they get 50 per second with a burst of 100. The WAF adds a
       # per-IP limit on plan calls at the edge (/api/plan on the site, /plan on the API host).
+      # Decision: re-planning one day (POST /api/plan/day) holds an instance for seconds too, so it
+      # gets 1 per second with a burst of 3. With the plan route's burst of 6, a flood on both
+      # still stays under the reserved concurrency of 10 and leaves an instance for the reads. A
+      # day's model call is smaller than a trip's, and the page asks for one day at a time.
       # Decision: saving a trip (POST /api/trips) gets 2 per second with a burst of 10. A save is
       # one press of Copy link, so real use is far below that, and it caps what a flood can write
       # (each saved trip is kept a year) at about 170,000 items a day, without taking the read
@@ -214,6 +225,9 @@ Resources:
       RouteSettings:
         "POST /api/plan":
           ThrottlingBurstLimit: 6
+          ThrottlingRateLimit: 1
+        "POST /api/plan/day":
+          ThrottlingBurstLimit: 3
           ThrottlingRateLimit: 1
         "POST /api/trips":
           ThrottlingBurstLimit: 10

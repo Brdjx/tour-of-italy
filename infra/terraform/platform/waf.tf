@@ -1,5 +1,5 @@
 # One web ACL in front of both distributions (the site and the API host). Rate rules run first
-# (cheapest, and they are the main cost control for the Claude-backed plan endpoint), then AWS
+# (cheapest, and they are the main cost control for the Claude-backed plan endpoints), then AWS
 # managed rule groups.
 
 locals {
@@ -20,10 +20,16 @@ locals {
   # sends the raw path). The plan route is exact and strict (Hono, no trailing slash), so every
   # request it serves has a path whose last segment decodes to "plan", whatever precedes it.
   # Other paths ending in /plan serve nothing on either host, so counting them costs nothing.
+  #
+  # Decision: plus ENDS_WITH /plan/day, for POST /api/plan/day (one day of a trip planned again,
+  # also a model call). The two prefixes already cover it (/api/plan/day, /plan/day), but its last
+  # segment is "day", so a spelling that starts with a back-reference (/%2e%2e/api/plan/day) would
+  # match none of the three and fall back to the global limit.
   plan_path_matches = [
     { search_string = "/api/plan", positional_constraint = "STARTS_WITH" },
     { search_string = "/plan", positional_constraint = "STARTS_WITH" },
     { search_string = "/plan", positional_constraint = "ENDS_WITH" },
+    { search_string = "/plan/day", positional_constraint = "ENDS_WITH" },
   ]
 
   rate_limited_body = jsonencode({

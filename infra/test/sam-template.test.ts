@@ -91,6 +91,19 @@ describe("SAM template: timeouts and capacity", () => {
     expect(plan.ThrottlingRateLimit as number).toBeLessThan(reads.ThrottlingRateLimit as number);
   });
 
+  it("throttles day re-plans on their own route, so plans and days together stay below reserved concurrency", () => {
+    const routes = resource("HttpApi").RouteSettings as Record<string, Props>;
+    const reads = resource("HttpApi").DefaultRouteSettings as Props;
+    const plan = routes["POST /api/plan"] as Props;
+    const day = routes["POST /api/plan/day"] as Props;
+    expect(day).toEqual({ ThrottlingBurstLimit: 3, ThrottlingRateLimit: 1 });
+    expect(day.ThrottlingRateLimit as number).toBeLessThan(reads.ThrottlingRateLimit as number);
+    // A flood of both model routes at once still leaves an instance for page loads.
+    expect(
+      (plan.ThrottlingBurstLimit as number) + (day.ThrottlingBurstLimit as number),
+    ).toBeLessThan(fn.ReservedConcurrentExecutions as number);
+  });
+
   it("throttles saving trips on its own route, so a flood of saves cannot fill the table or starve reads", () => {
     const routes = resource("HttpApi").RouteSettings as Record<string, Props>;
     const reads = resource("HttpApi").DefaultRouteSettings as Props;
@@ -278,7 +291,7 @@ describe("SAM template: contract with CI and the platform", () => {
     expect(template.Outputs.HttpApiId?.Value).toEqual({ Ref: "HttpApi" });
   });
 
-  it("routes only /api/* to the function, with the plan and save routes separate for their throttles", () => {
+  it("routes only /api/* to the function, with the plan, day and save routes separate for their throttles", () => {
     const events = fn.Events as Record<string, { Type: string; Properties: Props }>;
     const routes = Object.values(events).map(
       (event) => `${event.Type} ${event.Properties.Method} ${event.Properties.Path}`,
@@ -286,6 +299,7 @@ describe("SAM template: contract with CI and the platform", () => {
     expect(routes.sort()).toEqual([
       "HttpApi ANY /api/{proxy+}",
       "HttpApi POST /api/plan",
+      "HttpApi POST /api/plan/day",
       "HttpApi POST /api/trips",
     ]);
     // A route setting for a route that does not exist fails the deploy.

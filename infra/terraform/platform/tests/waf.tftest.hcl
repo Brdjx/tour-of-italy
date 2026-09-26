@@ -102,17 +102,18 @@ run "plan_rate_limit_counts_paths_that_start_with_a_back_reference" {
 
   # WAF keeps a back-reference at the start of the path (NORMALIZE_PATH), so /%2e%2e/api/plan is
   # inspected as /../api/plan, while the function resolves it to /api/plan (the API host adds
-  # /api in front first; the site sends /api/../../api/plan as is). Only a suffix match on the
-  # exact, strict plan route counts those. Exactly one such member: the whole rule set is
-  # listed, so a broader suffix (for example "plan") fails here too.
+  # /api in front first; the site sends /api/../../api/plan as is). Only a suffix match on each
+  # exact, strict model route (POST /api/plan and POST /api/plan/day) counts those. Exactly one
+  # such member each: the whole rule set is listed, so a broader suffix (for example "plan" or
+  # "day") fails here too.
   assert {
     condition = toset([
       for s in one([
         for r in aws_wafv2_web_acl.edge.rule : r.statement[0].rate_based_statement[0].scope_down_statement[0].or_statement[0].statement
         if r.name == "plan-rate-per-ip"
       ]) : "${s.byte_match_statement[0].positional_constraint} ${s.byte_match_statement[0].search_string}"
-    ]) == toset(["STARTS_WITH /api/plan", "STARTS_WITH /plan", "ENDS_WITH /plan"])
-    error_message = "The plan rate rule must match /api/plan and /plan as prefixes and /plan as a suffix, and nothing else."
+    ]) == toset(["STARTS_WITH /api/plan", "STARTS_WITH /plan", "ENDS_WITH /plan", "ENDS_WITH /plan/day"])
+    error_message = "The plan rate rule must match /api/plan and /plan as prefixes and /plan and /plan/day as suffixes, and nothing else."
   }
 }
 
