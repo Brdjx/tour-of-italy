@@ -4,11 +4,12 @@ import { expect, test } from "../support/fixtures";
 import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
 
 // Accessibility and layout on every device project, in light and dark: no serious or critical
-// axe violation, no horizontal scroll or zoom-out, every visible control at least 44x44 px, and
-// field text at least 16 px (support/audit.ts). Each state
-// is one a traveler actually reaches: the form, a plan, a map stop's popup, the full-screen map
-// and a popup on it, the swap sheet, a rule-breaking edit, the form reopened over a plan, the
-// data notes, an error, and the 404 page.
+// axe violation, no horizontal scroll or zoom-out, every control a traveler can press at least
+// 44x44 px (a link in a sentence aside, as WCAG allows), and field text at least 16 px
+// (support/audit.ts). Each state is one a traveler actually reaches: the form, a plan, a map
+// stop's popup, the full-screen map and a popup on it, the swap sheet, a rule-breaking edit, the
+// form reopened over a plan with More options over it, the data notes with every photo credit, a
+// place's sheet, the places failing to load, and the 404 page.
 
 /** How long the edit toast stays up (components/StatusRegion.tsx). */
 const TOAST_MS = 5000;
@@ -87,7 +88,6 @@ for (const scheme of ["light", "dark"] as const) {
       page,
       press,
       touch,
-      twoPane,
     }) => {
       await openPlanner(page);
       await auditState(page, "form");
@@ -106,19 +106,27 @@ for (const scheme of ["light", "dark"] as const) {
       await breakARule(page, press);
       await auditState(page, "edit that breaks a rule");
 
-      // Two-pane screens show the form beside the plan all along, so it was audited above.
-      if (!twoPane) {
-        await press(page.getByTestId("edit-trip-button"));
-        await expect(page.getByTestId("back-to-plan")).toBeVisible();
-        await auditState(page, "form reopened over a plan");
-      }
+      await press(page.getByTestId("edit-trip-button"));
+      await expect(page.getByTestId("back-to-plan")).toBeVisible();
+      await auditState(page, "form reopened over a plan");
+
+      // More options stacks over the Edit trip sheet.
+      await press(page.getByTestId("more-options-button"));
+      await expect(page.getByTestId("more-options-done")).toBeVisible();
+      await auditState(page, "more options over the form");
     });
 
     test("the data notes, an error, and the 404 page pass the audits", async ({ page, press }) => {
       await openPlanner(page);
       await press(page.getByTestId("data-notes-link"));
-      await expect(page.getByTestId("about-sheet")).toBeVisible();
+      const about = page.getByTestId("about-sheet");
+      await expect(about).toBeVisible();
       await auditState(page, "data notes open");
+      // Every photo's credit, a long list of links in lines of text.
+      const credits = about.getByTestId("about-credit-list");
+      await press(about.locator("summary").filter({ hasText: "Show every photo's credit" }));
+      await expect(credits).toBeVisible();
+      await auditState(page, "every photo credit shown");
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("about-sheet")).toBeHidden();
 
@@ -130,7 +138,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       await page.route("**/api/places", (route) => route.abort("connectionreset"));
       await page.reload();
-      await expect(page.getByTestId("error-state")).toBeVisible();
+      await expect(page.getByTestId("options-error")).toBeVisible();
       await auditState(page, "places failed to load");
 
       await page.goto("/no-such-page/");

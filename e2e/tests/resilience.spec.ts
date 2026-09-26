@@ -3,6 +3,7 @@ import { expect, test } from "../support/fixtures";
 import {
   BADGE,
   expectTimesInOrder,
+  openMoreOptions,
   openPlanner,
   placeFromAnotherBase,
   placeIds,
@@ -19,6 +20,7 @@ import {
 // "Offline" is only ever claimed when the request never reached the server.
 
 const PLAN_ROUTE = "**/api/plan*";
+const PLACES_ROUTE = "**/api/places";
 
 /** The API's own deadline for a plan (PLAN_DEADLINE_MS in playwright.config.ts). */
 const API_DEADLINE_MS = 24_000;
@@ -157,7 +159,6 @@ test.describe("when the planner service fails", () => {
   test("keeps the previous plan on screen and says which field to fix when the API refuses a request", async ({
     page,
     press,
-    twoPane,
   }) => {
     await openPlanner(page);
     await planTrip(page, press);
@@ -168,7 +169,7 @@ test.describe("when the planner service fails", () => {
       const request = { ...route.request().postDataJSON(), startDate: "2026-02-30" };
       return route.continue({ postData: JSON.stringify(request) });
     });
-    await reopenForm(page, press, twoPane);
+    await reopenForm(page, press);
     // Other options: the page would show the plan it already has for these, with no request.
     // The pill's words take the press; its radio is visually hidden under them.
     await press(page.getByTestId("pace-field").getByText("Packed", { exact: true }));
@@ -182,19 +183,45 @@ test.describe("when the planner service fails", () => {
     expect(await readStops(page)).toEqual(before);
   });
 
-  test("shows a retry when the places cannot load, and the form appears once they do", async ({
+  test("keeps planning with the date and pace when the places cannot load, and Try again brings the options back", async ({
     page,
     press,
   }) => {
-    await page.route("**/api/places", (route) => route.abort("connectionreset"));
+    await page.route(PLACES_ROUTE, (route) => route.abort("connectionreset"));
     await page.goto("/");
-    const error = page.getByTestId("error-state");
-    await expect(error).toContainText("The planner is unavailable. Try again in a moment.");
-    await expect(page.getByTestId("plan-button")).toHaveCount(0);
+    const missing = page.getByTestId("options-error");
+    await expect(missing).toContainText(
+      "Interests and places could not load. You can still plan with the date and pace.",
+    );
+    await expect(page.getByTestId("plan-button")).toBeEnabled();
 
-    await page.unroute("**/api/places");
+    await page.unroute(PLACES_ROUTE);
+    await press(missing.getByTestId("options-retry"));
+    await expect(missing).toHaveCount(0);
+    await expect(page.getByTestId("data-notes-link")).toBeVisible();
+    const options = await openMoreOptions(page, press);
+    await expect(options.getByTestId("skip-field").getByRole("combobox")).toBeVisible();
+  });
+
+  test("a plan that arrives while the places cannot load waits for them, and shows once Try again loads them", async ({
+    page,
+    press,
+  }) => {
+    await page.route(PLACES_ROUTE, (route) => route.abort("connectionreset"));
+    await page.goto("/");
+    await expect(page.getByTestId("options-error")).toBeVisible();
+    await press(page.getByTestId("plan-button"));
+
+    // The page cannot check or show the plan without the places, and says what to do.
+    const error = page.getByTestId("error-state");
+    await expect(error).toContainText("Your plan is ready, but the place details did not load");
+    await expect(page.getByTestId("plan-view")).toHaveCount(0);
+
+    await page.unroute(PLACES_ROUTE);
     await press(error.getByTestId("retry-button"));
-    await expect(page.getByTestId("plan-button")).toBeVisible();
+    await expect(page.getByTestId("plan-view")).toBeVisible();
     await expect(page.getByTestId("error-state")).toHaveCount(0);
+    await expect(page.getByTestId("source-badge")).toContainText(BADGE.ai);
+    for (const stops of await readTrip(page, press)) expectTimesInOrder(stops);
   });
 });

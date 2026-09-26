@@ -30,11 +30,12 @@ const DEVICE_ONLY = [/\.desktop\.spec\.ts$/, /\.pwa\.spec\.ts$/, /\.smoke\.spec\
 const deviceDefaults = { serviceWorkers: "block", timezoneId: TIME_ZONE } as const;
 
 /**
- * The layout brief section 7 requires on each screen: two panes (form beside the plan) on iPad
- * landscape and desktop, one pane with an "Edit trip" button on phones and iPad portrait. Tests
- * read it through the `twoPane` fixture.
+ * Where each screen puts the day's map (apps/web/app/styles/map.css): beside the day's board from
+ * 1024 px (iPad landscape, desktop), under it below that (phones, iPad portrait). Every screen is
+ * one column with the form in the Edit trip sheet once there is a plan. Tests read it through the
+ * `mapBeside` fixture.
  */
-type Layout = "one-pane" | "two-pane";
+type Layout = "map-below" | "map-beside";
 
 function device(name: string, descriptor: (typeof devices)[string], layout: Layout): Project {
   return {
@@ -49,22 +50,22 @@ const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height:
 
 const localProjects: Project[] = [
   // Brief section 7: the phones, tablets and desktop the app is designed for.
-  device("webkit-iphone-se", devices["iPhone SE (3rd gen)"], "one-pane"),
-  device("webkit-iphone-15-pro", devices["iPhone 15 Pro"], "one-pane"),
-  device("webkit-ipad-pro-11", devices["iPad Pro 11"], "one-pane"),
-  device("webkit-ipad-pro-11-landscape", devices["iPad Pro 11 landscape"], "two-pane"),
-  device("chromium-pixel-7", devices["Pixel 7"], "one-pane"),
+  device("webkit-iphone-se", devices["iPhone SE (3rd gen)"], "map-below"),
+  device("webkit-iphone-15-pro", devices["iPhone 15 Pro"], "map-below"),
+  device("webkit-ipad-pro-11", devices["iPad Pro 11"], "map-below"),
+  device("webkit-ipad-pro-11-landscape", devices["iPad Pro 11 landscape"], "map-beside"),
+  device("chromium-pixel-7", devices["Pixel 7"], "map-below"),
   {
     name: "chromium-desktop",
     testIgnore: [/\.pwa\.spec\.ts$/, /\.smoke\.spec\.ts$/],
-    metadata: { layout: "two-pane" satisfies Layout },
+    metadata: { layout: "map-beside" satisfies Layout },
     use: { ...desktop, ...deviceDefaults },
   },
   {
     // Chromium only: Playwright can inspect and route service worker traffic only there.
     name: "pwa-chromium",
     testMatch: /\.pwa\.spec\.ts$/,
-    metadata: { layout: "two-pane" satisfies Layout },
+    metadata: { layout: "map-beside" satisfies Layout },
     use: { ...desktop, serviceWorkers: "allow", timezoneId: TIME_ZONE },
   },
 ];

@@ -3,17 +3,56 @@ import { horizontalOverflow } from "../support/audit";
 import { expect, test } from "../support/fixtures";
 import { openPlanner, planTrip, readStops } from "../support/plan";
 
-// The responsive layout on each device: what must stay on screen, and how the form and the plan
-// share the screen before and after planning (brief section 7).
+// The responsive layout on each device: what must stay on screen, where the form goes once there
+// is a plan, where the day's map sits, and motion under reduced motion.
 
-/** Elements in the timetable that run a CSS animation, as "class animation-name". */
-async function timetableAnimations(page: Page): Promise<string[]> {
-  return page.getByTestId("day-timetable").evaluate((timetable) =>
-    [...timetable.querySelectorAll<HTMLElement>("*")]
-      .map((element) => ({ element, name: getComputedStyle(element).animationName }))
-      .filter(({ name }) => name !== "none" && name !== "")
-      .map(({ element, name }) => `${element.className} ${name}`),
+/** Properties that move something on screen, which reduced motion must never animate. */
+const MOTION = new Set([
+  "transform",
+  "translate",
+  "rotate",
+  "scale",
+  "top",
+  "right",
+  "bottom",
+  "left",
+]);
+
+/**
+ * The plan's CSS animations (running, or holding their end), each as "class name: properties",
+ * and those among them that move something. Under reduced motion the design keeps a short
+ * crossfade in place of a movement, and colour changes (an edited row's gold) stay: neither moves.
+ */
+async function planAnimations(page: Page): Promise<{ all: string[]; moving: string[] }> {
+  const found = await page.getByTestId("plan-view").evaluate((plan) =>
+    [plan, ...plan.querySelectorAll("*")].flatMap((element) =>
+      element.getAnimations().map((animation) => {
+        const name =
+          animation instanceof CSSAnimation
+            ? animation.animationName
+            : animation instanceof CSSTransition
+              ? `transition of ${animation.transitionProperty}`
+              : animation.id;
+        const frames = (animation.effect as KeyframeEffect | null)?.getKeyframes() ?? [];
+        const properties = [
+          ...new Set(
+            frames.flatMap((frame) =>
+              Object.keys(frame).filter(
+                (key) => !["offset", "computedOffset", "easing", "composite"].includes(key),
+              ),
+            ),
+          ),
+        ];
+        return { label: `${element.getAttribute("class") ?? element.tagName} ${name}`, properties };
+      }),
+    ),
   );
+  return {
+    all: found.map(({ label, properties }) => `${label}: ${properties.join(" ")}`),
+    moving: found
+      .filter(({ properties }) => properties.some((property) => MOTION.has(property)))
+      .map(({ label, properties }) => `${label}: ${properties.join(" ")}`),
+  };
 }
 
 test.describe("layout", () => {
@@ -40,10 +79,9 @@ test.describe("layout", () => {
     expect(tabs?.y ?? 999, "the day tabs are not pinned to the top").toBeLessThan(80);
   });
 
-  test("never loses the two panes on iPad landscape and desktop, or the Edit trip button on phones and iPad portrait", async ({
+  test("opens the form in the Edit trip sheet on every screen, focus follows it both ways, and the plan stays", async ({
     page,
     press,
-    twoPane,
   }) => {
     await openPlanner(page);
     await planTrip(page, press);
@@ -51,29 +89,38 @@ test.describe("layout", () => {
     const form = page.getByTestId("trip-form");
     const edit = page.getByTestId("edit-trip-button");
 
-    if (twoPane) {
-      await expect(edit).toBeHidden();
-      await expect(form).toBeVisible();
-      const formBox = await form.boundingBox();
-      const planBox = await page.getByTestId("plan-view").boundingBox();
-      if (!formBox || !planBox) throw new Error("the form or the plan has no size");
-      expect(formBox.x + formBox.width, "the form is not left of the plan").toBeLessThanOrEqual(
-        planBox.x,
-      );
-      const sideBySide =
-        formBox.y < planBox.y + planBox.height && planBox.y < formBox.y + formBox.height;
-      expect(sideBySide, "the form and the plan are stacked, not side by side").toBe(true);
-    } else {
-      // The plan takes the screen, the form opens on request and focus follows it both ways.
-      await expect(form).toBeHidden();
-      await press(edit);
-      await expect(page.getByTestId("form-heading")).toBeFocused();
-      await expect(form).toBeVisible();
-      await press(page.getByTestId("back-to-plan"));
-      await expect(form).toBeHidden();
-      await expect(edit).toBeFocused();
-    }
+    // One column on every screen: the plan takes it, and the form waits in the sheet.
+    await expect(form).toBeHidden();
+    await press(edit);
+    await expect(page.getByTestId("form-heading")).toBeFocused();
+    await expect(form).toBeVisible();
+    await press(page.getByTestId("back-to-plan"));
+    await expect(form).toBeHidden();
+    await expect(edit).toBeFocused();
     expect(await readStops(page)).toEqual(before);
+  });
+
+  test("keeps the day's map beside the board on iPad landscape and desktop, and under it on phones and iPad portrait", async ({
+    page,
+    press,
+    mapBeside,
+  }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
+    const board = await page.getByTestId("day-timetable").boundingBox();
+    const map = await page.getByTestId("day-map").boundingBox();
+    if (!board || !map) throw new Error("the board or the map has no size");
+    if (mapBeside) {
+      expect(map.x, "the map is not right of the board").toBeGreaterThanOrEqual(
+        board.x + board.width,
+      );
+      expect(map.y, "the map does not start beside the board").toBeLessThan(board.y + board.height);
+    } else {
+      expect(map.y, "the map is not under the board").toBeGreaterThanOrEqual(
+        board.y + board.height,
+      );
+      expect(map.x, "the map is not in the board's column").toBeLessThan(board.x + board.width);
+    }
   });
 
   test("never lets a block wider than the screen pass the overflow audit, even where the browser zooms out to fit it", async ({
@@ -93,22 +140,24 @@ test.describe("layout", () => {
     );
   });
 
-  test("stops every timetable animation for a traveler who asked for reduced motion", async ({
+  test("moves nothing in the plan for a traveler who asked for reduced motion", async ({
     page,
     press,
   }) => {
     await openPlanner(page);
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await planTrip(page, press);
-    // The same rows with motion allowed, so this test cannot pass by finding nothing to stop.
-    expect(await timetableAnimations(page), "no draw-in animation to stop").not.toEqual([]);
+    // The same plan with motion allowed, so this test cannot pass by finding nothing to stop.
+    expect((await planAnimations(page)).moving, "no draw-in movement to stop").not.toEqual([]);
     await page.emulateMedia({ reducedMotion: "reduce" });
-    expect(await timetableAnimations(page), "rows draw in under reduced motion").toEqual([]);
+    const arrival = await planAnimations(page);
+    expect(arrival.all, "no crossfade in place of the draw-in").not.toEqual([]);
+    expect(arrival.moving, "rows move in under reduced motion").toEqual([]);
 
     await press(page.getByTestId("stop-row").first().getByTestId("move-down"));
     await expect(page.getByTestId("undo-button")).toBeVisible();
-    expect(await timetableAnimations(page), "an edit flashes under reduced motion").toEqual([]);
+    expect((await planAnimations(page)).moving, "an edit moves under reduced motion").toEqual([]);
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    expect(await timetableAnimations(page), "no edit highlight to stop").not.toEqual([]);
+    expect((await planAnimations(page)).moving, "no edit movement to stop").not.toEqual([]);
   });
 });

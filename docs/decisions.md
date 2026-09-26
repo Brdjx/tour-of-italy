@@ -254,7 +254,7 @@ Revisit if: the model's answers should vary between asks (a "plan again" that sk
 - **Planner properties run 500 times with a fixed seed** in every run and 5,000 with `pnpm test:props`; a failure prints its seed.
 - **Plans are memoized per test file**, so each property keeps its own name at a third of the CPU.
 - **Performance is asserted at 5 times the budget**, which catches a blow-up without flaking.
-- **E2E reports but does not block during the redesign** (owner's call, 2026-09-24). The job still runs on every push; it leaves `ci-ok` until the specs are rewritten for the new page (task T62).
+- **E2E blocks CI again** (T62, 2026-09-25). During the redesign it reported without blocking (owner's call, 2026-09-24), from a workflow of its own after a timed-out run held back a deploy. With the specs rewritten for the one-column page it is a job in `ci.yml` again, `ci-ok` waits for it, and its 30 minute limit is well over a green run on the runner (14 to 18 minutes).
 - **E2E runs under the production CSP and routing** through `e2e/serve.mjs`, with a fixed clock, one rate-limit bucket per test, and specs routed to projects by file name instead of being skipped.
 - **Service workers are blocked on device projects** and tested in their own project.
 - **Any console error fails an E2E test**, except the browser's own line for an injected failed load.

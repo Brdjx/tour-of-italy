@@ -142,7 +142,6 @@ test.describe("share links", () => {
   test("a link that names a place its own settings skip leaves it out, and planning again still skips it", async ({
     page,
     press,
-    twoPane,
   }) => {
     await openPlanner(page);
     await planTrip(page, press);
@@ -156,7 +155,7 @@ test.describe("share links", () => {
     expect((await readTrip(other, press)).flatMap(placeIds)).not.toContain(skipped);
 
     // The link's skip list reaches the form, so a new plan from it skips the place too.
-    await reopenForm(other, press, twoPane);
+    await reopenForm(other, press);
     await planTrip(other, press);
     expect((await readTrip(other, press)).flatMap(placeIds)).not.toContain(skipped);
   });

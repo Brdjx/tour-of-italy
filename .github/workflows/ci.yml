@@ -84,6 +84,39 @@ jobs:
           TZ: ${{ matrix.tz }}
         run: pnpm exec vitest run --project planner
 
+  e2e:
+    # Brief section 6: E2E is its own job, and ci-ok waits for it, so no commit that breaks a user
+    # flow deploys.
+    # Decision: 30 minutes. Locally the whole suite (312 tests, 4 workers) runs in 4 to 5 minutes.
+    # On this runner, also with 4 workers, each test takes 2.3 to 4.5 times as long (the tests that
+    # passed both locally and in the E2E runs for 6038aa2, b89f4d6 and 02ef29b; the last was the
+    # slowest). So a green run should be 12 to 16 minutes of tests after about 2 minutes of
+    # install, browsers and build. 30 leaves room for retries and a slow runner. A run that still
+    # hits it is cancelled, which fails ci-ok like any other failure.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: bash .github/scripts/run-e2e.sh test:e2e
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            **/playwright-report/
+            **/test-results/
+            !**/node_modules/**
+          if-no-files-found: ignore
+          retention-days: 7
+
   iac:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -212,8 +245,7 @@ jobs:
     # job still runs and fails, instead of being skipped (a skipped job reports success to branch
     # protection).
     if: ${{ always() }}
-    # e2e runs in its own workflow (.github/workflows/e2e.yml) until T62 makes it a gate again.
-    needs: [verify, planner-tz, iac, secrets, plan]
+    needs: [verify, planner-tz, e2e, iac, secrets, plan]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}

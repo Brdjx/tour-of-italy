@@ -9,6 +9,7 @@ import { plansAnnounced, readStops } from "../support/plan";
 interface Focused {
   testId: string | null;
   tag: string;
+  text: string;
   inView: boolean;
   inSheet: boolean;
 }
@@ -20,19 +21,31 @@ async function focused(page: Page): Promise<Focused> {
     return {
       testId: element?.getAttribute("data-testid") ?? null,
       tag: element?.tagName ?? "NONE",
+      text: (element?.textContent ?? "").trim(),
       inView: Boolean(box && box.bottom > 0 && box.top < window.innerHeight && box.height > 0),
       inSheet: Boolean(element?.closest('[data-testid="alternatives-sheet"]')),
     };
   });
 }
 
-/** Presses Tab until the focused element has `testId`, and fails after `limit` presses. */
-async function tabTo(page: Page, testId: string, limit = 120, key = "Tab"): Promise<void> {
+/** Presses Tab until the focused element passes `found`, and fails after `limit` presses. */
+async function tabUntil(
+  page: Page,
+  found: (now: Focused) => boolean,
+  what: string,
+  limit: number,
+  key: string,
+): Promise<void> {
   for (let presses = 0; presses < limit; presses++) {
     await page.keyboard.press(key);
-    if ((await focused(page)).testId === testId) return;
+    if (found(await focused(page))) return;
   }
-  throw new Error(`${key} never reached ${testId} in ${limit} presses`);
+  throw new Error(`${key} never reached ${what} in ${limit} presses`);
+}
+
+/** Presses Tab until the focused element has `testId`, and fails after `limit` presses. */
+async function tabTo(page: Page, testId: string, limit = 120, key = "Tab"): Promise<void> {
+  await tabUntil(page, (now) => now.testId === testId, testId, limit, key);
 }
 
 /** Whether the focused element, or the part of it named by `selector`, draws the focus ring. */
@@ -59,16 +72,27 @@ test("plans, switches days, swaps, reorders, removes and undoes with the keyboar
   await page.goto("/");
   await expect(page.getByTestId("plan-button")).toBeVisible();
 
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Skip to your plan" })).toBeFocused();
   await tabTo(page, "plan-button");
   const before = await plansAnnounced(page);
   await page.keyboard.press("Enter");
   await expect.poll(() => plansAnnounced(page)).toBe(before + 1);
   await expect(page.locator("#day-heading-0")).toBeFocused();
 
+  // With a plan on screen, "Skip to your plan" leads the page: back past the trip header from
+  // the day heading, and from it the next Tab lands in the plan, on the day tabs.
+  await tabUntil(page, (now) => now.text === "Skip to your plan", "the skip link", 8, "Shift+Tab");
+  await expectFocusKept(page, "the skip link");
+  // Nothing comes before it: one more Shift+Tab leaves the page, and Tab from there is the link.
+  await page.keyboard.press("Shift+Tab");
+  expect((await focused(page)).tag, "a control comes before the skip link").toBe("BODY");
+  await page.keyboard.press("Tab");
+  expect((await focused(page)).text, "the first Tab is not the skip link").toBe(
+    "Skip to your plan",
+  );
+  await page.keyboard.press("Enter");
+  await tabTo(page, "day-tab-1", 1);
+
   // Day tabs: one tab stop, arrows move between days.
-  await tabTo(page, "day-tab-1", 10, "Shift+Tab");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("day-tab-2")).toBeFocused();
   await expect(page.getByTestId("day-tab-2")).toHaveAttribute("aria-selected", "true");
