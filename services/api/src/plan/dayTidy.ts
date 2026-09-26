@@ -19,7 +19,7 @@ import { type Tidied, type TidyChange, tidySelection } from "./tidy";
 // whole-trip one (tidy.ts), run on the trip with this day in it and the other days as they are,
 // after one step of its own: a place another day has, or one at the same spot, is taken out
 // first. The check is the whole-trip check narrowed to this day: every id offered, and no error
-// the trip did not already have (newTripErrors, packages/planner/src/dayBases.ts).
+// the trip did not already have (newTripErrors, packages/planner/src/dayChecks.ts).
 
 /** A tidied day answer: its ids and reasons, what was changed, and the trip it sits in. */
 export interface DayTidied {

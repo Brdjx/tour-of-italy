@@ -37,7 +37,7 @@ export interface DayInput {
 // puts a place on two days or in another day's base, and the page never empties a day, so such a
 // body is a bug or a crafted request; the day's re-plan would otherwise have to guess which copy
 // counts. Other rule breaks (a stop the traveler moved past its closing time) are allowed: they
-// stay the trip's own, and the new day may not add any (dayBases.ts, newTripErrors).
+// stay the trip's own, and the new day may not add any (dayChecks.ts, newTripErrors).
 // Decision: `avoid` is optional and holds at most a day's worth of ids. The page sends the day's
 // current places when the traveler asks for a new version of it at the same city, so the new
 // version is not the same day again (and is cached apart from it).

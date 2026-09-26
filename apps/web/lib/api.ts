@@ -173,13 +173,18 @@ export function postPlan(request: TripRequest, options: PlanCallOptions = {}): P
   });
 }
 
-/** What POST /api/plan/day takes: the trip as ids, the day, its new base, places to leave out. */
+/**
+ * What POST /api/plan/day takes: the trip as ids, the day, its new base, places to leave out, and
+ * for a day of a route the route (a base id a day). With a route, every day is at its route city,
+ * the days planned before this one have their stops, and later days may be empty (routeStartDays).
+ */
 export interface PlanDayBody {
   request: TripRequest; // the plan's own request, notes and all
   days: { anchorId: string; ids: string[] }[];
   day: number; // 0-based
-  anchorId: string; // another city, or the day's own for new ideas
-  avoid?: string[]; // the day's places, for new ideas at the same city
+  anchorId: string; // another city, or the day's own for new ideas; route[day] with a route
+  avoid?: string[]; // the day's places, for new ideas at the same city; never with a route
+  route?: string[]; // the route this day belongs to, from planRoute
 }
 
 /** POST /api/plan/day. The reply must be one planned day or this throws a schema ApiError. */
