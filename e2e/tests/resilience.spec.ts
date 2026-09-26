@@ -6,6 +6,7 @@ import {
   expectTimesInOrder,
   openMoreOptions,
   openPlanner,
+  PAGE_PLAN_DEADLINE_MS,
   placeFromAnotherBase,
   placeIds,
   plansAnnounced,
@@ -25,8 +26,6 @@ const PLACES_ROUTE = "**/api/places";
 
 /** The API's own deadline for a plan (PLAN_DEADLINE_MS in playwright.config.ts). */
 const API_DEADLINE_MS = 24_000;
-/** The page's deadline for a plan request (TIMEOUTS.plan in apps/web/lib/api.ts). */
-const CLIENT_DEADLINE_MS = 28_000;
 /**
  * How far off the next plan must be when the page's request is let through to the API: a refusal
  * with Retry-After 4 leaves more than 3 s. In 64 runs with 12 workers and the CPU loaded, the API
@@ -83,7 +82,7 @@ test.describe("when the planner service fails", () => {
     await expect(page.getByTestId("plan-button")).toHaveAttribute("aria-busy", "true");
     expect(await plansAnnounced(page), "gave up before the service's own deadline").toBe(0);
 
-    await page.clock.runFor(CLIENT_DEADLINE_MS - API_DEADLINE_MS);
+    await page.clock.runFor(PAGE_PLAN_DEADLINE_MS - API_DEADLINE_MS);
     await expect(page.getByTestId("source-badge")).toContainText(
       `${BADGE.onDevice}: the server timed out`,
     );
@@ -182,14 +181,18 @@ test.describe("when the planner service fails", () => {
     // request lost that race in 4 of 32 runs with 12 workers (26 September 2026): the loop took
     // up to 6.7 s, the refusal said 1 to 2 s, and the API answered the page 0.3 to 1.7 s later.
     let refusedFor = 0;
+    let letThrough = () => {};
+    const sent = new Promise<void>((resolve) => (letThrough = resolve));
     await page.route(PLAN_ROUTE, async (route) => {
       try {
         refusedFor = await spendUntilRefused(spend, REFUSED_FOR_S);
       } finally {
+        letThrough();
         await route.continue();
       }
     });
-    await planTrip(page, press);
+    // The wait for the plan starts once the request is let through (see planTrip).
+    await planTrip(page, press, { sent });
     expect(
       refusedFor,
       "no long enough refusal came before the page's request",

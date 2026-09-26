@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { expect } from "./fixtures";
+import { expect, test } from "./fixtures";
 
 // Page helpers for the planner: open it, plan a trip, read the timetable back as data.
 
@@ -58,14 +58,30 @@ export async function plansAnnounced(page: Page): Promise<number> {
   });
 }
 
+/** The page's deadline for a plan request (TIMEOUTS.plan in apps/web/lib/api.ts). */
+export const PAGE_PLAN_DEADLINE_MS = 28_000;
+
 /**
  * Presses "Plan my trip" and waits for the new plan. On phones the previous plan stays on screen
  * while the form is open, so waiting for a plan to be visible is not enough: this waits for the
  * page to announce one more plan than before.
+ *
+ * A test that holds the page's plan request in a route passes `sent`, a promise that settles when
+ * the route lets the request go. The wait for the plan starts then.
  */
-export async function planTrip(page: Page, press: Press) {
+export async function planTrip(page: Page, press: Press, { sent }: { sent?: Promise<void> } = {}) {
   const before = await plansAnnounced(page);
   await press(page.getByTestId("plan-button"));
+  // Decision: a hold is the test's time, not the page's, so it does not count against the 10 s
+  // for the plan. Counted, it failed the rate limit test on one of four WebKit projects with 12
+  // workers on an 8-core laptop (26 September 2026), with the page still waiting on its request.
+  // In the next such run the hold took 0.1 to 12.5 s and the plan came 1.6 to 4.2 s after it.
+  // A hold longer than the page's own deadline could not pass anyway: the page gives up first.
+  if (sent) {
+    await test.step("the held plan request is let through", () => sent, {
+      timeout: PAGE_PLAN_DEADLINE_MS,
+    });
+  }
   // Decision: a read every 100 ms. The default backs off to a read a second, which found a plan
   // ready in 0.25 to 0.7 s on a laptop up to a second late, in nearly every test.
   await expect
