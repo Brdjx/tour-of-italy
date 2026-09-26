@@ -219,7 +219,11 @@ export function planRoute(
       }
       break;
     }
-    if (refusal !== null) rulesDays = null;
+    if (refusal === null) {
+      rulesDays = releaseIdle(request, days, route, why, holding, had, placed, rulesDays, ctx);
+    } else {
+      rulesDays = null;
+    }
   }
   const plannedDays = route.map((anchorId, index): RouteDay => {
     const travel = dayTravel(request, route, index, ctx);
@@ -265,6 +269,48 @@ export function routeStartDays(days: readonly DaySelection[], plan: RoutePlan): 
       ? { anchorId: plan.route[index] ?? day.anchorId, placeIds: [] }
       : { anchorId: day.anchorId, placeIds: [...day.placeIds] },
   );
+}
+
+/**
+ * The route's trip with every day that was to be planned again only to hold a must-include, and
+ * does not hold it after all, kept as it was, when the trip is as good without planning it: no
+ * day empty, no error it did not have, and every must-include still in. Updates `why` and
+ * `holding` for each day it keeps. `planned` is the trip the passes ended on.
+ */
+// Decision: found in review (2026-09-26). With Bologna for three days, Via Drapperie on day 1 and
+// the route Rome, Bologna, Bologna, the first pass plans day 2 again for its travel and, as the
+// validator placed the lost Via Drapperie on day 3 while day 2 still had its stops, day 3 to hold
+// it. Planned in day order, day 2 takes it first, and day 3 lost its stops for nothing under a
+// note that said it held the place (6 of 5,582 such days in a sweep). Each such day is tried
+// once, so this ends; a day the trip still needs is kept in the run.
+function releaseIdle(
+  request: TripRequest,
+  days: readonly DaySelection[],
+  route: readonly string[],
+  why: Map<number, ReplanWhy>,
+  holding: Map<number, string>,
+  had: ReadonlySet<string>,
+  placed: readonly { id: string }[],
+  planned: DaySelection[],
+  ctx: PlannerContext,
+): DaySelection[] {
+  let best = planned;
+  for (const [index, id] of [...holding]) {
+    if (best[index]?.placeIds.includes(id)) continue;
+    const trial = new Map(why);
+    trial.delete(index);
+    const tried = simulate(request, days, route, trial, ctx);
+    if (typeof tried === "number") continue;
+    const fresh = tripErrors(request, tried, ctx).some(
+      (error) => (error.day !== undefined && trial.has(error.day)) || !had.has(errorKey(error)),
+    );
+    const lost = placed.some((must) => !tried.some((day) => day.placeIds.includes(must.id)));
+    if (fresh || lost) continue;
+    why.delete(index);
+    holding.delete(index);
+    best = tried;
+  }
+  return best;
 }
 
 /**

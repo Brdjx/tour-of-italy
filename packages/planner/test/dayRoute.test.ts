@@ -264,6 +264,27 @@ describe("planRoute", () => {
     expectPlannedWell(must.req, must.days, plan);
   });
 
+  it("keeps a day that was to hold a place asked for when a day planned before it takes it", () => {
+    // Bologna from a Monday, relaxed, with Via Drapperie on day 1, which goes to Rome. The first
+    // pass plans day 2 again for its travel and, as the validator found day 3 room for the place
+    // while day 2 still had its stops, day 3 to hold it; planned in day order, day 2 takes it.
+    const must = trip({
+      mustInclude: ["place_046"],
+      pace: "relaxed",
+      anchors: ["bologna"],
+      interests: ["historic", "food"],
+    });
+    expect(must.days[0]?.placeIds).toContain("place_046");
+    const plan = planRoute(must.req, must.days, ["rome", "bologna", "bologna"], ctx);
+
+    expect(plan.allowed).toBe(true);
+    expect(plan.replan).toEqual([0, 1]);
+    expect(plan.days[2]).toMatchObject({ replan: null, note: null });
+    expect(plan.rulesDays?.[1]?.placeIds).toContain("place_046");
+    expect(plan.rulesDays?.[2]).toEqual(must.days[2]);
+    expectPlannedWell(must.req, must.days, plan);
+  });
+
   it("refuses a route with no day in the city of a place asked for, and says how to fix it", () => {
     const must = trip({ mustInclude: ["place_001"] });
     const plan = planRoute(must.req, must.days, ["florence", "florence", "florence"], ctx);
