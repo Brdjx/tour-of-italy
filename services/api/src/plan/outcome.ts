@@ -3,6 +3,7 @@ import {
   type Itinerary,
   type ItineraryMeta,
   ItinerarySchema,
+  MAX_ANCHORS_PER_TRIP,
   type PlannerContext,
   type PlanSource,
   planDeterministic,
@@ -85,11 +86,13 @@ export class PlanGuardError extends Error {
   override name = "PlanGuardError";
 }
 
-/** Zero validator errors and a valid response shape. */
+/**
+ * Zero validator errors and a valid response shape, for a whole trip: at most
+ * MAX_ANCHORS_PER_TRIP bases, as the whole-trip planners make them (materialize.ts).
+ */
 export function passesGuard(itinerary: Itinerary, ctx: PlannerContext): boolean {
-  return (
-    validationErrors(itinerary, ctx).length === 0 && ItinerarySchema.safeParse(itinerary).success
-  );
+  const errors = validationErrors(itinerary, ctx, { maxBases: MAX_ANCHORS_PER_TRIP });
+  return errors.length === 0 && ItinerarySchema.safeParse(itinerary).success;
 }
 
 interface GuardDeps {

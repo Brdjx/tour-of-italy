@@ -52,6 +52,12 @@ export function candidates(
   if (request.anchors !== "auto" && !request.anchors.includes(anchor.id)) {
     return `its base, ${anchor.name}, is not one of the bases you chose`;
   }
+  // Decision: MAX_ANCHORS_PER_TRIP, the planners' limit, not the validator's one a day. The
+  // question is whether a planner could have placed the place, and neither whole-trip planner
+  // adds a third base. A route the traveler sets by hand is judged the same way and stays right
+  // with two changes of base: a base the route has is judged on its own days, with their real
+  // windows (so Rome, Florence, Rome weighs days 1 and 3 for a Rome place), and a route that
+  // would lose a must-include is refused before it is planned (dayRoute.ts).
   const bases = new Set(days.map((day) => day.plan.anchorId));
   if (bases.size >= MAX_ANCHORS_PER_TRIP) {
     return `its base, ${anchor.name}, is not in this trip, which already has ${bases.size} bases`;

@@ -107,7 +107,7 @@ export const VIOLATION_CODES = [
   "WRONG_DAY_COUNT", // error: not TRIP_DAYS days
   "WRONG_DATE", // error: a day's date is not startDate plus its index
   "UNKNOWN_ANCHOR", // error: day base is not a known base
-  "TOO_MANY_ANCHORS", // error: more distinct bases than MAX_ANCHORS_PER_TRIP
+  "TOO_MANY_ANCHORS", // error: more distinct bases than the validator allows (validate.ts)
   "UNKNOWN_PLACE", // error: place id not in the dataset
   "DUPLICATE_PLACE", // error: same place twice in the trip
   "EXCLUDED_PLACE", // error: place the traveler excluded

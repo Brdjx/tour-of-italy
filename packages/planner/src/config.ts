@@ -134,8 +134,21 @@ export const MIN_PLACES_FOR_BASE = 5;
 // data (Siena, Pienza, Parma, Lake Como, Padua).
 export const DAY_TRIP_MAX_KM = 120;
 
-/** At most this many bases in one trip. Three bases in three days is mostly transit. */
+/**
+ * At most this many bases in a trip the planner arranges: the whole-trip planners (planAnchors.ts,
+ * the AI prompt) and the bases the form offers. Three bases in three days is mostly transit.
+ */
 export const MAX_ANCHORS_PER_TRIP = 2;
+
+/**
+ * At most this many bases in any trip the validator passes: one a day. A route the traveler sets
+ * day by day (dayRoute.ts) may give every day its own city, in any order.
+ */
+// Decision: the traveler's choice, not the planner's. The owner asked (2026-09-26) to see a city a
+// day even when it costs travel ("3 days in Italy"), so a hand-set route may use three bases and go
+// back (Rome, Florence, Rome), with the travel stated as facts. The planners still keep to
+// MAX_ANCHORS_PER_TRIP, and the API's whole-trip path asks the validator for that limit.
+export const MAX_BASES_PER_TRIP = TRIP_DAYS;
 
 /** A transfer longer than this adds a LONG_TRANSFER warning. */
 export const LONG_TRANSFER_MIN = 180;

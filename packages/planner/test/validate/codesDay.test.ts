@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TRIP_DAYS } from "../../src/config";
+import { MAX_ANCHORS_PER_TRIP, MAX_BASES_PER_TRIP, TRIP_DAYS } from "../../src/config";
 import { validateItinerary } from "../../src/validate";
 import { countVisits } from "../../src/validate/days";
 import { ctx, dayOf, errorCodes, key, miniTrip, stopOf, withCode } from "./fixtures";
@@ -29,17 +29,36 @@ describe("trip shape", () => {
     expect(errorCodes(plan)).toEqual(["WRONG_DAY_COUNT"]);
   });
 
-  it("rejects three bases in one trip (TOO_MANY_ANCHORS)", () => {
+  it("passes a base a day, and rejects three bases for a planner's trip (TOO_MANY_ANCHORS)", () => {
     const plan = miniTrip();
     const day = dayOf(plan, 1);
     day.anchorId = "venice";
     day.transferMin = 185;
     day.stops = [stop("place_066", 760, 820, 5, "visit")]; // Rialto Bridge 12:40
     dayOf(plan, 2).transferMin = 120; // Venice to Florence
-    expect(errorCodes(plan)).toEqual(["TOO_MANY_ANCHORS"]);
-    expect(withCode(plan, "TOO_MANY_ANCHORS")[0]?.detail).toContain(
-      "3 bases (Rome, Venice and Florence)",
+    // A route the traveler set: three cities in three days, with the long leg as a warning.
+    expect(errorCodes(plan)).toEqual([]);
+    expect(withCode(plan, "LONG_TRANSFER")[0]?.day).toBe(1);
+    // A whole-trip plan keeps to the planners' two bases.
+    const strict = validateItinerary(plan, ctx(), { maxBases: MAX_ANCHORS_PER_TRIP });
+    expect(strict.filter((v) => v.severity === "error").map((v) => v.code)).toEqual([
+      "TOO_MANY_ANCHORS",
+    ]);
+    expect(strict[0]?.detail).toBe(
+      "This plan uses 3 bases (Rome, Venice and Florence), but a trip has at most 2, so too much of it would be spent in transit.",
     );
+  });
+
+  it("rejects more bases than days (TOO_MANY_ANCHORS)", () => {
+    const plan = miniTrip();
+    dayOf(plan, 1).anchorId = "venice";
+    plan.days.push({ date: "2026-10-23", anchorId: "milan", transferMin: 135, stops: [] });
+    const found = validateItinerary(plan, ctx()).filter((v) => v.severity === "error");
+    expect(found.slice(0, 2).map((v) => v.code)).toEqual(["WRONG_DAY_COUNT", "TOO_MANY_ANCHORS"]);
+    expect(found[1]?.detail).toContain(
+      `4 bases (Rome, Venice, Florence and Milan), but a trip has at most ${MAX_BASES_PER_TRIP}`,
+    );
+    expect(MAX_BASES_PER_TRIP).toBe(TRIP_DAYS);
   });
 
   it("rejects a base id that does not exist (UNKNOWN_ANCHOR)", () => {

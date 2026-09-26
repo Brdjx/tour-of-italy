@@ -1,4 +1,4 @@
-import { MAX_ANCHORS_PER_TRIP, TRIP_DAYS } from "./config";
+import { MAX_BASES_PER_TRIP, TRIP_DAYS } from "./config";
 import type { PlannerContext } from "./context";
 import type { Itinerary, Violation } from "./types";
 import { buildDayFacts, checkDayHeader, type DayFacts } from "./validate/days";
@@ -17,6 +17,11 @@ import { isError, makeViolation } from "./violations";
 export { LATEST_MINUTE } from "./validate/days";
 export { VIOLATION_SEVERITY } from "./violations";
 
+/** Options for the validator. */
+export interface ValidateOptions {
+  maxBases?: number; // distinct bases a trip may use; MAX_BASES_PER_TRIP (one a day) by default
+}
+
 /**
  * Every violation in the itinerary, errors and warnings (codes and severities in
  * violations.ts). A plan with any error must never reach the traveler; warnings travel
@@ -26,9 +31,17 @@ export { VIOLATION_SEVERITY } from "./violations";
  * is not a Pace) can throw, so parse untrusted input (a shared link, a stored plan) with
  * ItinerarySchema first.
  */
-export function validateItinerary(itinerary: Itinerary, ctx: PlannerContext): Violation[] {
+// Decision: `maxBases` is the one rule that differs by who chose the bases. A route the traveler
+// sets may use a base a day (MAX_BASES_PER_TRIP); the API checks a whole-trip AI answer against
+// MAX_ANCHORS_PER_TRIP, the limit its prompt states, so that path is as it was.
+export function validateItinerary(
+  itinerary: Itinerary,
+  ctx: PlannerContext,
+  options: ValidateOptions = {},
+): Violation[] {
   const days = buildDayFacts(itinerary, ctx);
-  const out: Violation[] = [...checkTripShape(itinerary, days)];
+  const maxBases = options.maxBases ?? MAX_BASES_PER_TRIP;
+  const out: Violation[] = [...checkTripShape(itinerary, days, maxBases)];
   const trip = newTripState();
   for (const day of days) {
     out.push(...checkDayHeader(day, itinerary.request, ctx));
@@ -41,12 +54,20 @@ export function validateItinerary(itinerary: Itinerary, ctx: PlannerContext): Vi
 }
 
 /** Only the errors, for callers that decide whether a plan may be shown. */
-export function validationErrors(itinerary: Itinerary, ctx: PlannerContext): Violation[] {
-  return validateItinerary(itinerary, ctx).filter(isError);
+export function validationErrors(
+  itinerary: Itinerary,
+  ctx: PlannerContext,
+  options: ValidateOptions = {},
+): Violation[] {
+  return validateItinerary(itinerary, ctx, options).filter(isError);
 }
 
 /** Day count and the number of distinct bases. */
-function checkTripShape(itinerary: Itinerary, days: readonly DayFacts[]): Violation[] {
+function checkTripShape(
+  itinerary: Itinerary,
+  days: readonly DayFacts[],
+  maxBases: number,
+): Violation[] {
   const out: Violation[] = [];
   const count = itinerary.days.length;
   if (count !== TRIP_DAYS) {
@@ -60,8 +81,8 @@ function checkTripShape(itinerary: Itinerary, days: readonly DayFacts[]): Violat
     if (names.has(day.plan.anchorId)) continue;
     names.set(day.plan.anchorId, day.anchor?.name ?? "an unknown base");
   }
-  if (names.size > MAX_ANCHORS_PER_TRIP) {
-    const detail = `This plan uses ${names.size} bases (${listText([...names.values()])}), but a trip has at most ${MAX_ANCHORS_PER_TRIP}, so too much of it would be spent in transit.`;
+  if (names.size > maxBases) {
+    const detail = `This plan uses ${names.size} bases (${listText([...names.values()])}), but a trip has at most ${maxBases}, so too much of it would be spent in transit.`;
     out.push(makeViolation("TOO_MANY_ANCHORS", detail));
   }
   return out;

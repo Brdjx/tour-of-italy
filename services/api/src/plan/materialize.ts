@@ -3,6 +3,7 @@ import {
   type DayPlan,
   type Itinerary,
   type ItineraryMeta,
+  MAX_ANCHORS_PER_TRIP,
   type PlannerContext,
   scheduleTrip,
   type TripRequest,
@@ -93,7 +94,10 @@ export function materializeSelection(
     warnings: [],
     meta,
   };
-  const fromValidator = validateItinerary(itinerary, ctx);
+  // Decision: a whole-trip answer keeps to the prompt's limit of MAX_ANCHORS_PER_TRIP bases. The
+  // validator allows a base a day for routes the traveler sets (dayRoute.ts in the planner); a
+  // third base the model chose on its own is still TOO_MANY_ANCHORS, with the same detail.
+  const fromValidator = validateItinerary(itinerary, ctx, { maxBases: MAX_ANCHORS_PER_TRIP });
   const errors = dedupe([
     ...shortlistViolations(selection, shortlist, ctx),
     ...scheduled.violations.filter((v) => v.severity === "error"),

@@ -216,7 +216,7 @@ describe("stale links", () => {
     expect(decode(encode(tampered)).status).toBe("request");
   });
 
-  it("falls back to the trip settings for three bases in three days", () => {
+  it("opens a trip with a city a day as the plan", () => {
     const payload = payloadOf(fixturePlan());
     const bases = ["rome", "florence", "venice"];
     const tampered = {
@@ -228,7 +228,12 @@ describe("stale links", () => {
           .map((p) => p.id),
       })),
     };
-    expect(decode(encode(tampered)).status).toBe("request");
+    // A route the traveler set by hand may give every day its own city (decision 16).
+    const opened = decode(encode(tampered));
+    expect(opened.status).toBe("plan");
+    expect(opened.status === "plan" && opened.itinerary.days.map((day) => day.anchorId)).toEqual(
+      bases,
+    );
   });
 
   it("drops a must-see that the link's days leave out", () => {

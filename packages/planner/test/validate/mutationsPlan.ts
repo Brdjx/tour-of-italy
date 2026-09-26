@@ -95,10 +95,11 @@ export const PLAN_MUTATIONS: Mutation[] = [
     code: "WRONG_DAY_COUNT",
   },
   {
-    name: "send day 2 of a two-base trip to a third base",
+    name: "send day 2 of a two-base trip to a third base and add a day in a fourth",
     build: tripTuscany,
     corrupt: (p) => {
       dayOf(p, 1).anchorId = "rome";
+      p.days.push({ ...dayOf(p, 2), date: "2026-06-12", anchorId: "milan", stops: [] });
     },
     code: "TOO_MANY_ANCHORS",
   },
