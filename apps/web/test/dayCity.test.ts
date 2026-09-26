@@ -1,4 +1,9 @@
-import { type Itinerary, MAX_ANCHORS_PER_TRIP, validationErrors } from "@italy/planner";
+import {
+  type Itinerary,
+  MAX_ANCHORS_PER_TRIP,
+  validationErrors,
+  withReplannedDay,
+} from "@italy/planner";
 import { describe, expect, it, vi } from "vitest";
 import type { PlanCallOptions, PlanDayBody } from "../lib/api";
 import { ApiError } from "../lib/apiError";
@@ -15,6 +20,7 @@ import {
   requestDay,
   resolveDay,
   SHORT_REASONS,
+  shownWarnings,
   tripKey,
   tripSelection,
 } from "../lib/dayCity";
@@ -418,5 +424,27 @@ describe("what the page says about a day planned again", () => {
     made[2] = { kind: "api", source: "ai" };
     expect(replannedAiDays(plan, made)).toEqual([]);
     expect(response.dayPlan.stops.every((stop) => stop.reason === AI_DAY_REASON)).toBe(true);
+  });
+});
+
+describe("the notes the page shows for a day planned again", () => {
+  it("drops 'not one of your bases' on a day the traveler moved, and only there", () => {
+    // Rome chosen in the form, day 3 moved to Florence from Change city.
+    const rome = fixturePlan({ anchors: [ROME] });
+    const moved = withReplannedDay(rome, 2, dayAnswer(rome, 2, FLORENCE).dayPlan, ctx);
+    const noted = moved.warnings.filter((warning) => warning.code === "ANCHOR_NOT_CHOSEN");
+    expect(noted.map((warning) => warning.day)).toEqual([2]);
+
+    const made = noDaysMade();
+    // Not planned again from the sheet (the planner's own choice): the note stays.
+    expect(shownWarnings(moved.warnings, made)).toEqual(moved.warnings);
+    made[2] = { kind: "api", source: "ai" };
+    const shown = shownWarnings(moved.warnings, made);
+    expect(shown.some((warning) => warning.code === "ANCHOR_NOT_CHOSEN")).toBe(false);
+    expect(shown).toEqual(moved.warnings.filter((warning) => warning.code !== "ANCHOR_NOT_CHOSEN"));
+    // A note on another day, or on none, is kept.
+    const other = { ...must(noted[0]), day: 1 };
+    const trip = { ...must(noted[0]), day: undefined };
+    expect(shownWarnings([other, trip], made)).toEqual([other, trip]);
   });
 });

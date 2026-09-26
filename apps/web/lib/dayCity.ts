@@ -13,6 +13,7 @@ import {
   scheduleTrip,
   TRIP_DAYS,
   travelMode,
+  type Violation,
   withDay,
 } from "@italy/planner";
 import { type PlanCallOptions, type PlanDayBody, postPlanDay } from "./api";
@@ -334,6 +335,26 @@ export function dayMessage(day: number, name: string, moved: boolean, made: DayM
 /** A fresh record of how each day was made: none planned again yet. */
 export function noDaysMade(): (DayMade | null)[] {
   return Array.from({ length: TRIP_DAYS }, () => null);
+}
+
+/**
+ * The plan's warnings as the page shows them: without "not one of your bases" on a day the
+ * traveler planned again from Change city, since they picked that day's city themselves.
+ */
+// Decision: hidden on the page, not solved by adding the city to the request's bases. The note
+// explains why a planner left the bases in the form, and its next step (Edit the trip to change
+// your bases) would undo the traveler's own choice. Adding the city to the request would also
+// stop a saved trip matching the plan record (samePlanRequest compares bases), so every day would
+// lose its AI why lines, and the next Plan my trip would treat the city as chosen for every day.
+// A saved link does not record which day was moved, so it shows the note again when reopened.
+export function shownWarnings(
+  warnings: readonly Violation[],
+  made: readonly (DayMade | null)[],
+): Violation[] {
+  return warnings.filter(
+    (warning) =>
+      warning.code !== "ANCHOR_NOT_CHOSEN" || warning.day === undefined || !made[warning.day],
+  );
 }
 
 /**

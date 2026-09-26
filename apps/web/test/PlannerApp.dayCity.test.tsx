@@ -384,4 +384,19 @@ describe("Change city", () => {
     expect(screen.getByTestId("day-source").textContent).toBe("Planned again with AI");
     expect(screen.getByTestId("source-badge").textContent).toContain("edited");
   });
+
+  it("shows no 'not one of your bases' note on a day the traveler moved to another city", async () => {
+    // Rome chosen in the form: Florence is not one of the traveler's bases, but they chose it.
+    const rome = { ...aiPlan({ anchors: ["rome"] }), planId: "Rr9Yy8Xx7W" };
+    const postDay = vi.fn<PostDay>(async (body) => dayAnswer(rome, body.day, body.anchorId));
+    const { user } = setup({ postDay, post: async () => rome });
+    await planAndOpen(user, 3);
+    await user.click(screen.getByTestId("city-button"));
+    await user.click(option("florence"));
+    await waitFor(() => expect(screen.getByTestId("day-source")).toBeTruthy());
+    expect(screen.getByTestId("day-subtitle").textContent).toContain("Day 3 in Florence");
+    const labels = screen.queryAllByTestId("warning-chip").map((chip) => chip.textContent);
+    expect(labels.some((label) => label?.includes("Not one of your bases"))).toBe(false);
+    expect(screen.queryByText(/not one of the bases you chose/)).toBeNull();
+  });
 });

@@ -3,7 +3,7 @@
 import { type PlannerContext, summaryForTrip } from "@italy/planner";
 import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
-import { type CityChoice, cityChoices } from "../lib/dayCity";
+import { type CityChoice, cityChoices, shownWarnings } from "../lib/dayCity";
 import type { ItineraryState } from "../lib/itineraryReducer";
 import { buildTripView, type RowView } from "../lib/timetable";
 import { type DayCity, planningText, SLOW_DAY_TEXT } from "../lib/useDayCity";
@@ -49,9 +49,14 @@ export function PlanView(props: PlanViewProps) {
     shownDay.current = activeDay;
   }, [activeDay]);
   const itinerary = plan.itinerary;
+  // The warnings the page shows: none saying a day the traveler moved is off their bases.
+  const warnings = useMemo(
+    () => (itinerary ? shownWarnings(itinerary.warnings, plan.dayMade) : []),
+    [itinerary, plan.dayMade],
+  );
   const days = useMemo(
-    () => (itinerary ? buildTripView(itinerary, ctx, plan.errors) : []),
-    [itinerary, ctx, plan.errors],
+    () => (itinerary ? buildTripView({ ...itinerary, warnings }, ctx, plan.errors) : []),
+    [itinerary, warnings, ctx, plan.errors],
   );
   const summary = useMemo(
     () => (itinerary ? summaryForTrip(itinerary, ctx) : undefined),
@@ -82,7 +87,7 @@ export function PlanView(props: PlanViewProps) {
     day && pending?.day === day.index
       ? { text: planningText(pending), slow: pending.slow ? SLOW_DAY_TEXT : null }
       : null;
-  const tripNotes = tripViolations([...plan.errors, ...itinerary.warnings]);
+  const tripNotes = tripViolations([...plan.errors, ...warnings]);
   return (
     <section aria-labelledby="plan-title" className="plan" data-testid="plan-view">
       <h2 id="plan-title" className="sr-only">
