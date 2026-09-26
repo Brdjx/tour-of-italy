@@ -128,7 +128,7 @@ Statuses:
 | T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | done | 8cb7665; 25 rules removed, 7 files merged, judged on 3 seeds |
 | T60 | Simpler default view: filters behind More options, collapsed trip summary after planning | done | b43b600; one column on every screen, unit tests green |
 | T61 | Loading skeletons before search (meta, places, map) and after search (timetable while planning) | done | b43b600; PlannerApp.skeleton and planArrival tests |
-| T62 | Rewrite the E2E specs for the new page and make E2E a blocking check again | done | 7d46b6b, bfc652b and df27c6e: 62 failing tests fixed in the specs, none in the page; 312 of 312 passed in four full runs in a row; `e2e` is back in `ci.yml` with a 25 minute limit and in `ci-ok`'s needs |
+| T62 | Rewrite the E2E specs for the new page and make E2E a blocking check again | done | 7d46b6b, bfc652b and df27c6e: 62 failing tests fixed in the specs, none in the page; 312 of 312 passed in four full runs in a row; `e2e` is back in `ci.yml` with a 30 minute limit and in `ci-ok`'s needs |
 | T63 | TikTok Sans with every axis, with a metric-matched fallback | done | 06ceace |
 | T64 | Impeccable design skill and PRODUCT.md | done | da7098d |
 | T65 | Redesign: the departure board in the Goodpix language (tokens, type, board, motion) | done | cb38379; tokens, type roles, board, motion, highlights, icon; contrast tests green in both schemes |
