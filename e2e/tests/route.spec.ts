@@ -284,6 +284,49 @@ test.describe("setting a city for each day", () => {
     expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
   });
 
+  // The owner's report (decision 17, 2026-09-26): "I selected 2 different cities and ai missed a
+  // meal for day 3". Rome, Venice, Bologna from Saturday 10 October: day 3 is a Monday, when none
+  // of Bologna's dinner places opens, so the route says so before Bologna is chosen and the day
+  // says why once planned, with another city as the way out, never a swap.
+  test("warns before a city leaves a Monday with no dinner, and explains the day once planned", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    await page.getByTestId("start-date").fill("2026-10-10");
+    await planTrip(page, press);
+    const sheet = await openCitiesFor(page, press, 2);
+    await press(city(sheet, "venice"));
+    await press(routeDay(sheet, 3));
+    const bologna = city(sheet, "bologna");
+    await expect(bologna).toHaveAttribute("data-allowed", "true");
+    await expect(bologna.locator(".city-warning")).toHaveText([
+      "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
+      "No dinner in Bologna on Mondays.",
+    ]);
+    await press(bologna);
+    await expect(routeDay(sheet, 3).locator(".city-warning")).toHaveText([
+      "No dinner in Bologna on Mondays.",
+    ]);
+    await press(sheet.getByTestId("route-confirm"));
+    await routeDone(page, "Route changed: Rome, Venice, Bologna.");
+
+    await readDay(page, press, 3);
+    await expect(page.getByTestId("day-subtitle")).toContainText("Day 3 in Bologna");
+    await expect(page.getByTestId("transfer-left")).toHaveCount(0);
+    await press(page.getByTestId("warning-chip").filter({ hasText: "No dinner open" }));
+    const panel = page.locator('[data-testid="chip-explanation"]:not([hidden])');
+    await expect(panel).toContainText("Bologna's three dinner places are all closed on Mondays.");
+    await expect(panel.getByRole("listitem")).toHaveText([
+      "Osteria Francescana",
+      "Tagliatelle al Ragù at Trattoria Anna Maria",
+      "Enoteca Italiana, Bologna",
+    ]);
+    await expect(panel).not.toContainText(/swap/i);
+    await press(panel.getByTestId("chip-city"));
+    await expect(sheet.getByRole("heading", { name: "City for day 3" })).toBeFocused();
+  });
+
   // Decision: its own test, apart from new ideas. Together they read the trip four times on two
   // pages with a map each, which took up to 66 s on CI's WebKit tablets (11 s on a laptop) and
   // ran into the 60 s test limit.

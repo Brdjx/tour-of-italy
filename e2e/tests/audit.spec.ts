@@ -9,7 +9,8 @@ import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
 // (support/audit.ts). Each state is one a traveler actually reaches: the form, a plan, a map
 // stop's popup, the full-screen map and a popup on it, the swap sheet, the route sheet (a day's
 // cities, and the route with a change and its action), days of a route while they are planned
-// and once they are, a rule-breaking edit, the form reopened over a plan with More options over
+// and once they are, a city with no dinner open that day and the day's chip explained with its
+// places and its way out, a rule-breaking edit, the form reopened over a plan with More options over
 // it, the data notes with every photo credit, a place's sheet, the places failing to load, and
 // the 404 page.
 
@@ -157,6 +158,33 @@ for (const scheme of ["light", "dark"] as const) {
       await press(page.getByTestId("more-options-button"));
       await expect(page.getByTestId("more-options-done")).toBeVisible();
       await auditState(page, "more options over the form");
+    });
+
+    // Decision 17: a day with no dinner open, from the route's warning to the day's chip with
+    // its places and its way out. Its own test, so the long one above stays inside its limit.
+    test("a city with no dinner open that day, and the day's chip explained, pass the audits", async ({
+      page,
+      press,
+    }) => {
+      await openPlanner(page);
+      // Saturday 10 October: day 3 is a Monday, when none of Bologna's dinner places opens.
+      await page.getByTestId("start-date").fill("2026-10-10");
+      await planTrip(page, press);
+      await readDay(page, press, 3);
+      await press(page.getByTestId("city-button"));
+      const sheet = page.getByTestId("route-sheet");
+      const bologna = sheet.locator('[data-testid="city-option"][data-anchor-id="bologna"]');
+      await expect(bologna).toContainText("No dinner in Bologna on Mondays.");
+      await auditState(page, "a city with no dinner open that day");
+      await press(bologna);
+      await press(sheet.getByTestId("route-confirm"));
+      await expect(page.getByTestId("live-region")).toContainText("Day 3 now in Bologna.");
+      await page.clock.runFor(TOAST_MS);
+      await expect(page.getByTestId("toast")).toHaveCount(0);
+      await press(page.getByTestId("warning-chip").filter({ hasText: "No dinner open" }));
+      const open = page.locator('[data-testid="chip-explanation"]:not([hidden])');
+      await expect(open.getByTestId("chip-city")).toBeVisible();
+      await auditState(page, "a day's missing dinner explained");
     });
 
     test("the data notes, an error, and the 404 page pass the audits", async ({ page, press }) => {
