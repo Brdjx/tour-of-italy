@@ -137,7 +137,7 @@ pnpm test:props      # planner property tests at 5,000 runs
 pnpm test:e2e        # Playwright on six device profiles plus the installed app
 ```
 
-`pnpm test` runs 3,123 tests in 189 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
+`pnpm test` runs 3,130 tests in 190 files (2026-09-25). Tests are organized by what would break the product (an invalid plan, a hung model call, a leaked secret, runaway cost, a bad deploy), each with the guard in code and the tests that prove it. See [docs/testing.md](docs/testing.md).
 
 ## Deploy
 

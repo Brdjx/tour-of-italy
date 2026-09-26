@@ -34,7 +34,7 @@ Live evals on 16 cases, recorded and replayed through the current code on every 
 - Every plan a traveler gets passes the validator, in every row.
 - Valid as written is low by design: the model never sees the time its order gives each stop, so a place often lands at an hour it is closed. An early live eval fell back to rules-only on 35 of 45 plans. I moved that work into a tidy step that drops, reorders or moves the model's own choices and never adds one, then resized the shortlist and rewrote the prompt and repair message.
 - AI plans still miss a lunch or dinner more often than rules-only plans (26% of days against 19%). Haiku is faster at the median but misses a meal on most days, so Sonnet stays the default.
-- A rules-only plan takes 3.4 ms at the median. 3,123 unit and integration tests and 312 end-to-end tests run on every push, and both block the deploy.
+- A rules-only plan takes 3.4 ms at the median. 3,130 unit and integration tests and 312 end-to-end tests run on every push, and both block the deploy.
 
 ## How I used AI
 
@@ -51,9 +51,9 @@ Agents wrote it faster than I could type it; the design is mine, and I can build
 1. An eval of ordinary traveler notes against the rules-only plan. I cannot yet show AI plans are better.
 2. Close the meal gap: AI days miss a meal more often than rules-only days.
 3. Split `tidy.ts` by rule and remove rules by measurement, as I did for the planner.
-4. Alarms on AI quality in production, such as missed meals. (Model spend already has a workspace cap.)
-5. A routing API instead of straight-line bands.
-6. Accessibility and dietary data, which the dataset lacks.
+4. A "plan another version" button. The same options give the same cached plan, which is cheap and testable; variety should be something the traveler asks for, with each version cached on its own.
+5. Alarms on AI quality in production, such as missed meals. (Model spend already has a workspace cap.)
+6. A routing API instead of straight-line bands, and the accessibility and dietary data the dataset lacks.
 
 ## Time spent
 
