@@ -2,8 +2,8 @@
 # Run a Playwright suite through a root package.json script, once that script exists.
 #
 # Usage: run-e2e.sh <script> [browser...]
-#   e.g. run-e2e.sh test:e2e   or   run-e2e.sh test:e2e:smoke chromium
-#   Browsers default to chromium and webkit (every device project).
+#   e.g. run-e2e.sh test:e2e:ci chromium   or   run-e2e.sh test:e2e:smoke chromium
+#   Browsers default to chromium and webkit (every device project, as pnpm test:e2e runs).
 #
 # Decision: the E2E jobs are wired up before the suites exist. Until the root script is added
 # this prints a notice and passes, and the job starts running the suite the day it lands, with
@@ -21,7 +21,7 @@ fi
 
 pnpm install --frozen-lockfile
 # Decision: Chromium and WebKit cover the device projects in e2e/playwright.config.ts (Pixel,
-# desktop, iPhone, iPad); the smoke project needs Chromium only. --with-deps installs the system
-# libraries the browsers need on the runner.
+# desktop, iPhone, iPad); the CI guard (test:e2e:ci) and the smoke project need Chromium only.
+# --with-deps installs the system libraries the browsers need on the runner.
 pnpm exec playwright install --with-deps "${browsers[@]}"
 pnpm run "$script"

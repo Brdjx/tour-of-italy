@@ -86,15 +86,23 @@ jobs:
         run: pnpm exec vitest run --project planner
 
   e2e:
-    # E2E is its own job, and ci-ok waits for it, so no commit that breaks a user flow deploys
-    # (docs/testing.md, F12).
-    # Decision: 45 minutes. Locally the whole suite (312 tests, 4 workers) runs in 4 to 5 minutes.
-    # On this runner the first blocking run (4320c8d, 26 September 2026) took 26.3 minutes of
-    # tests, 12 of them timing out and retrying, after about 2 minutes of install, browsers and
-    # build. 45 leaves room for retries and a slow runner. A run that still hits it is cancelled,
-    # which fails ci-ok like any other failure.
+    # E2E is its own job, and ci-ok waits for it, so no commit that breaks a user flow on the
+    # desktop deploys (docs/testing.md, F12).
+    # Decision: CI runs the Chromium guard, pnpm test:e2e:ci (chromium-desktop, pwa-chromium and
+    # smoke: 72 tests). The full suite, 372 tests on eight projects with the WebKit phones and
+    # tablets, is the local gate (pnpm test:e2e, about 5 minutes on a laptop). On this 4-core
+    # runner the full suite took 23 to 34 minutes (runs 36251394496 and 36265600500, 26 September
+    # 2026): each WebKit project spent 15 to 27 minutes of test time, 4 to 8 times a laptop, a
+    # route test reached the 60 s limit on both iPads, and run 36249317699 failed on one that
+    # went over it on three WebKit projects. In the slowest run the guard's projects spent 14.4
+    # minutes of test time, about 3.6 minutes on 4 workers, after about 2 minutes of install and
+    # build. Chromium Pixel 7 would add 14.2 minutes of test time (about 9 minutes in all, no
+    # margin under 10), so it runs locally with WebKit.
+    # Decision: 15 minutes, two and a half times the slowest run of the guard's projects, for a
+    # retry and a slow runner. A run that still hits it is cancelled, which fails ci-ok like any
+    # other failure.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -104,7 +112,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: bash .github/scripts/run-e2e.sh test:e2e
+      # Chromium only: the guard has no WebKit project.
+      - run: bash .github/scripts/run-e2e.sh test:e2e:ci chromium
       - name: Upload Playwright report
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

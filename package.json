@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "test:e2e:ci": "playwright test -c e2e/playwright.config.ts --project chromium-desktop --project pwa-chromium --project smoke",
     "test:e2e:smoke": "playwright test -c e2e/playwright.config.ts --project smoke",
     "test:props": "FC_RUNS=5000 vitest run --project planner --testTimeout=300000 test/properties test/planSweep test/validate/mutationProps test/validate/robustness test/normalize/fuzz",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
