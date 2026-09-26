@@ -21,6 +21,7 @@ A plan that sends you to a museum on its closed day is worse than no plan, and t
 
 - **The data is cleaned in code** and never edited by hand. The 112 issues found are listed under "About this data". A note in the data can make hours stricter, never looser: a wrong "open" sends you to a closed door, a wrong "closed" only hides one option.
 - **The model proposes, code decides.** Claude chooses the places and their order, from a list code built of places open on those dates. Code works out every time and travel leg, and a separate checker tests the whole plan. If it fails, Claude gets one chance to fix it. After that, or if Claude is slow or down, a rules-only planner makes the plan. Every plan you see has passed the checker.
+- **Meals are checked too.** If the AI leaves out a lunch or dinner that a place could serve, code adds it, and the day says "fixed after a check". If no place is open for it, as for dinner in Bologna on Mondays, the page says so before you pick the city and again on the day.
 - **The page says how each plan was made:** with AI, with AI and fixed after a check, or by the rules.
 
 ## How well it works
@@ -28,10 +29,10 @@ A plan that sends you to a museum on its closed day is worse than no plan, and t
 Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
 
 - Claude Sonnet 5 plans passed the checker 48 times out of 48, with no fallback, in 8 seconds at the median, for about 2 cents each.
-- Only 4% were valid exactly as the model wrote them. The model never sees the time each stop lands at, so code tidies the plan first, and the tests still count that as the model's mistake.
-- The honest gap: AI days miss a lunch or dinner more often than rules-only days (26% against 19%). Claude Haiku 4.5 was faster at the median but missed a meal on 72% of days, so Sonnet stays the default.
+- Only 2% were valid exactly as the model wrote them. The model never sees the time each stop lands at, so code tidies the plan first, and the tests still count that as the model's mistake.
+- The model leaves out meals: 26% of Sonnet's days lacked a lunch or dinner as it answered, against 19% for the rules. Code now adds the meal where one fits, which brings Sonnet to 20%; on most of the rest, the places that could serve it are already on other days. Claude Haiku 4.5 was faster at the median but left out a meal on 72% of days (24% after code's additions), so Sonnet stays the default.
 - Changing cities after a plan, 54 live days (single days and routes of up to three cities): no repeated place, no fallback, 3.3 to 5.5 seconds a day.
-- 3,417 unit and integration tests and 354 browser tests run on every push, and a failure blocks the deploy.
+- 3,490 unit and integration tests and 372 browser tests run on every push, and a failure blocks the deploy.
 
 ## Choices I made
 
@@ -45,14 +46,14 @@ Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
 
 **In the product.** Claude Sonnet 5 picks and orders places and writes a reason for each stop and a summary. It never writes a time, and a place outside its list is an error. Each reason is checked against the stop as timed, so "a memorable dinner" on a lunch stop is replaced. Place summaries were written once by Claude and checked by code against each listing.
 
-**To build it.** Claude Code agents wrote nearly all of the code, tests and docs, working from my written plan and stopping at checkpoints for my review. The calls that shaped it were mine: "the model proposes, code decides" before any code; "code tidies, AI chooses" on 24 September, when the live model kept failing on things it could not see; a self-hosted map; and what to ship and what to cut. Since agents also wrote the tests, I relied on checks that do not just restate the code: live runs against the real model, property and mutation tests, review agents told to find faults, a record-by-record check of all 103 places, and using the site myself.
+**To build it.** Claude Code agents wrote nearly all of the code, tests and docs, working from my written plan and stopping at checkpoints for my review. The calls that shaped it were mine: "the model proposes, code decides" before any code; "code tidies, AI chooses" on 24 September, when the live model kept failing on things it could not see; a self-hosted map; and what to ship and what to cut. Since agents also wrote the tests, I relied on checks that do not just restate the code: live runs against the real model, property and mutation tests, review agents told to find faults, a record-by-record check of all 103 places, and using the site myself. That last one found things the rest missed: on 26 September my three-city trip had no dinner on a Monday in Bologna, and the page did not say why.
 
 Agents wrote it faster than I could type it; the design is mine, and I can build each part by hand. What speed cost: one file (`tidy.ts`) grew too large, and the browser tests fell behind a redesign until I rewrote them. This note was drafted with AI and edited by me.
 
 ## With more time
 
 1. Show that AI plans beat rules-only plans for real traveler notes. Today I cannot.
-2. Close the meal gap.
+2. Close the rest of the meal gap: let code give up a visit for a meal, which would bring both models to about 17%.
 3. Let Plan my trip suggest a city a day when asked. Today only the route view does that.
 4. Real routes and transit times instead of straight-line estimates.
 5. Alarms on AI quality in production, such as missed meals.
