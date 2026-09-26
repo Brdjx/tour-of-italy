@@ -1,8 +1,19 @@
-import { type Itinerary, TripRequestSchema } from "@italy/planner";
+import {
+  type DaySelection,
+  type Itinerary,
+  planDeterministic,
+  planRoute,
+  scheduleTrip,
+  TripRequestSchema,
+  validationErrors,
+  withReplannedDays,
+} from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { ErrorResponseSchema } from "../../src/contract";
 import { buildAppData, shippedData } from "../../src/data";
 import { createLlmProvider } from "../../src/llm/provider";
+import { buildShortlist } from "../../src/plan/candidates";
+import { materializeSelection } from "../../src/plan/materialize";
 import { finishPlan, newTrace, passesGuard } from "../../src/plan/outcome";
 import { makeApp, postPlan, START_DATE, testConfig, tripBody } from "../helpers/app";
 import { ScriptedClient, textResult } from "../helpers/fakeClients";
@@ -48,6 +59,53 @@ describe("final guard", () => {
     expect(outcome.itinerary.source).toBe("deterministic");
     expect(outcome.itinerary.meta.fallbackReason).toBe("llm_error");
     expectValidItinerary(outcome.itinerary);
+  });
+});
+
+describe("a whole trip keeps to two bases", () => {
+  // Rome, Florence, Venice as a route set by hand: valid for the validator, which allows a base a
+  // day, and still refused as a whole-trip answer, whose prompt allows two (decision 16).
+  const rome = planDeterministic(
+    TripRequestSchema.parse({ startDate: START_DATE, pace: "balanced", anchors: ["rome"] }),
+    ctx,
+  );
+  const days = rome.days.map((day) => ({
+    anchorId: day.anchorId,
+    placeIds: day.stops.map((stop) => stop.placeId),
+  }));
+  const plan = planRoute(rome.request, days, ["rome", "florence", "venice"], ctx);
+  const planned = plan.rulesDays as DaySelection[];
+  const timed = scheduleTrip(rome.request, planned, ctx).days;
+  const three = withReplannedDays(
+    rome,
+    timed.map((dayPlan, day) => ({ day, dayPlan })),
+    ctx,
+  );
+
+  it("fails the final guard with three bases the validator passes", () => {
+    expect(validationErrors(three, ctx)).toEqual([]);
+    expect(passesGuard(three, ctx)).toBe(false);
+  });
+
+  it("reports a model's three bases as TOO_MANY_ANCHORS", () => {
+    const request = TripRequestSchema.parse({ startDate: START_DATE, pace: "balanced" });
+    const selection = {
+      days: planned.map((day) => ({
+        anchorId: day.anchorId,
+        placeIds: [...day.placeIds],
+        reasons: [],
+      })),
+      summary: "",
+    };
+    const made = materializeSelection(
+      selection,
+      request,
+      buildShortlist(request, ctx),
+      ctx,
+      three.meta,
+    );
+
+    expect(made.errors.map((error) => error.code)).toContain("TOO_MANY_ANCHORS");
   });
 });
 

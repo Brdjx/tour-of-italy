@@ -310,6 +310,18 @@ describe("dayBaseOptions", () => {
     // The day planned now is still judged whole: an empty version of it is an error.
     const empty = { anchorId: "florence", placeIds: [] };
     expect(newTripErrors(req, after, 0, empty, ctx).map((e) => e.code)).toContain("EMPTY_DAY");
+    // Only a later day waits: an earlier empty day is judged now. Day 2 dropping the Colosseum
+    // with day 1 empty is the validator's error on day 1, where it fits.
+    const colosseumDay = days[0] as DaySelection;
+    expect(colosseumDay.placeIds).toContain("place_001");
+    const earlier = [{ anchorId: "rome", placeIds: [] }, colosseumDay, days[2] as DaySelection];
+    const dropped = {
+      anchorId: "rome",
+      placeIds: colosseumDay.placeIds.filter((id) => id !== "place_001"),
+    };
+    expect(newTripErrors(req, earlier, 1, dropped, ctx)).toContainEqual(
+      expect.objectContaining({ code: "MUST_INCLUDE_MISSING", day: 0, placeId: "place_001" }),
+    );
   });
 
   it("throws on a day out of range or an unknown base", () => {
