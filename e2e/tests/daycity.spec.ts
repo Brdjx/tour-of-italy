@@ -16,9 +16,10 @@ import {
 // Changing a day's city (F13), against the local API with the scripted model (fixture mode):
 // the city on a day's line opens Change city, choosing a city plans that day again through
 // POST /api/plan/day, and the result is one edit. The fixture plan for the pinned date is two
-// days in Rome and one in Florence, so day 2 can move to Florence at once and a third city is
-// refused with its reason. What would break the product: a place on two days, a day the page
-// did not check, an edit Undo cannot take back, or a saved link that loses the new day.
+// days in Rome and one in Florence, so day 2 can move to Florence at once, and a third city can
+// take it too: travel is the traveler's choice (decision 16). What would break the product: a
+// place on two days, a day the page did not check, an edit Undo cannot take back, or a saved link
+// that loses the new day.
 
 /** Opens Change city for a day (1-based) and returns the sheet. */
 async function openCityFor(page: Page, press: Press, day: number) {
@@ -50,14 +51,11 @@ test.describe("changing a day's city", () => {
     const current = sheet.getByTestId("city-current");
     await expect(current).toContainText("Rome");
     await expect(current).toContainText("This day");
-    // A third city would break the two-city limit: shown, dimmed in place, with its reason in
-    // full on the first such row and short after it, and no onward chevron.
+    // A third city can take the day too: it points onward, with its travel as a fact.
     const milan = sheet.locator('[data-testid="city-option"][data-anchor-id="milan"]');
-    await expect(milan).toHaveAttribute("aria-disabled", "true");
-    await expect(milan).toContainText("A trip can use at most 2 cities");
-    await expect(milan.locator(".city-option-chevron")).toHaveCount(0);
-    const venice = sheet.locator('[data-testid="city-option"][data-anchor-id="venice"]');
-    await expect(venice).toContainText("Would be a third city.");
+    await expect(milan).toHaveAttribute("data-allowed", "true");
+    await expect(milan.locator(".city-option-chevron")).toBeVisible();
+    await expect(milan).toContainText("from Rome");
     // Florence can take the day: it points onward, and its line says both sides of the day.
     const florence = sheet.locator('[data-testid="city-option"][data-anchor-id="florence"]');
     await expect(florence).toHaveAttribute("data-allowed", "true");
