@@ -82,6 +82,13 @@ test("plans, switches days, swaps, reorders, removes and undoes with the keyboar
   // the day heading, and from it the next Tab lands in the plan, on the day tabs.
   await tabUntil(page, (now) => now.text === "Skip to your plan", "the skip link", 8, "Shift+Tab");
   await expectFocusKept(page, "the skip link");
+  // Nothing comes before it: one more Shift+Tab leaves the page, and Tab from there is the link.
+  await page.keyboard.press("Shift+Tab");
+  expect((await focused(page)).tag, "a control comes before the skip link").toBe("BODY");
+  await page.keyboard.press("Tab");
+  expect((await focused(page)).text, "the first Tab is not the skip link").toBe(
+    "Skip to your plan",
+  );
   await page.keyboard.press("Enter");
   await tabTo(page, "day-tab-1", 1);
 
