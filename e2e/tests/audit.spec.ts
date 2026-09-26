@@ -4,12 +4,12 @@ import { expect, test } from "../support/fixtures";
 import { openPlanner, type Press, planTrip, readDay } from "../support/plan";
 
 // Accessibility and layout on every device project, in light and dark: no serious or critical
-// axe violation, no horizontal scroll or zoom-out, every visible control at least 44x44 px, and
-// field text at least 16 px (support/audit.ts). Each state
-// is one a traveler actually reaches: the form, a plan, a map stop's popup, the full-screen map
-// and a popup on it, the swap sheet, a rule-breaking edit, the form reopened over a plan with
-// More options over it, the data notes with every photo credit, a place's sheet, the places
-// failing to load, and the 404 page.
+// axe violation, no horizontal scroll or zoom-out, every control a traveler can press at least
+// 44x44 px (a link in a sentence aside, as WCAG allows), and field text at least 16 px
+// (support/audit.ts). Each state is one a traveler actually reaches: the form, a plan, a map
+// stop's popup, the full-screen map and a popup on it, the swap sheet, a rule-breaking edit, the
+// form reopened over a plan with More options over it, the data notes with every photo credit, a
+// place's sheet, the places failing to load, and the 404 page.
 
 /** How long the edit toast stays up (components/StatusRegion.tsx). */
 const TOAST_MS = 5000;
