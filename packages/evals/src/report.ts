@@ -48,10 +48,9 @@ function reasonsText(s: Summary): string {
 }
 
 /** "20% (29/144): 0 none open, 29 not planned". */
-function mealGapText(s: Summary): string {
-  if (s.days === 0) return NA;
-  const notPlanned = s.mealGapDays - s.noneOpenDays;
-  return `${ratio(s.mealGapDays, s.days)}: ${s.noneOpenDays} none open, ${notPlanned} not planned`;
+function mealGapText(days: number, gaps: number, noneOpen: number): string {
+  if (days === 0) return NA;
+  return `${ratio(gaps, days)}: ${noneOpen} none open, ${gaps - noneOpen} not planned`;
 }
 
 function casesPassedText(s: Summary): string {
@@ -77,11 +76,15 @@ const ROWS: Row[] = [
   ["Visits per day", (s) => `${decimal(s.visitsPerDay)} (${percent(s.paceFill)} of pace cap)`],
   ["Travel per day", (s) => minutes(s.travelMinPerDay)],
   ["Transfer time per trip", (s) => minutes(s.transferMinPerTrip)],
-  ["Days missing a lunch or dinner", (s) => mealGapText(s)],
+  ["Days missing a lunch or dinner", (s) => mealGapText(s.days, s.mealGapDays, s.noneOpenDays)],
   [
     "Days missing a meal before code added one",
     (s, r) =>
-      modelOnly(r, () => (s.mealGapBeforeDays === null ? NA : ratio(s.mealGapBeforeDays, s.days))),
+      modelOnly(r, () =>
+        s.mealGapBeforeDays === null
+          ? NA
+          : mealGapText(s.days, s.mealGapBeforeDays, s.noneOpenBeforeDays ?? 0),
+      ),
   ],
   ["Lunches and dinners code added", (s, r) => modelOnly(r, () => String(s.mealsAdded))],
   [
@@ -210,8 +213,8 @@ const NOTES = [
   "- Preference match: share of non-meal stops with at least one requested interest. Must-includes placed: in the model's first answer (in the plan, for the baseline), since the final plan always has them.",
   "- A check that cannot apply is not run, and a case passed without it says so: the rules-only planner writes no summary, so its summary checks are never run, while a model column must pass them.",
   "- Travel per day: legs between stops and back to the base. Transfer time: moving between bases.",
-  "- Days missing a lunch or dinner: days the validator warns have no lunch or no dinner stop (MEAL_MISSING), over all days of all plans. An outing that runs through a meal counts as that meal. None open: no place of the city that the traveler does not avoid could take the meal that date (in this data, Bologna's lunch on Sundays and dinner on Mondays), so only another city could feed the day; not planned: a place could.",
-  "- Days missing a meal before code added one: the same count on each answer as it passed the check. Code then adds a lunch or dinner a day lacks where the rules-only planner's meal fill seats a place the model was offered without moving any of its stops, and the plan becomes ai_repaired (decision 17). Lunches and dinners code added: how many, over all plans.",
+  "- Days missing a lunch or dinner: days the validator warns have no lunch or no dinner stop (MEAL_MISSING), over all days of all plans. An outing that runs through a meal counts as that meal. None open: no place to eat of the city that the traveler does not avoid could take the meal that date after the day's travel in (in this data, Bologna's lunch on Sundays and dinner on Mondays, and its Monday lunch after the train from Rome, Milan or Venice at a relaxed pace, or from Rome at a balanced one); not planned: one could.",
+  "- Days missing a meal before code added one: the same count, split the same way, on each answer as it passed the check. Code then adds a lunch or dinner a day lacks where the rules-only planner's meal fill seats a place the model was offered, keeping every stop of the answer in its order and role (their times may move), and the plan becomes ai_repaired (decision 17). Lunches and dinners code added: how many, over all plans.",
   "- Model time: the recorded call times of a plan, failed and timed-out calls included, summed. p50 is the median plan, p95 the nearest-rank 95th percentile, slowest the one slowest plan. The end-to-end latency of a live run is in its results file.",
   `- Costs are estimates from prices checked on ${PRICING_CHECKED_ON}. Check ${PRICING_SOURCE} before quoting them.`,
   "- Regenerate with `pnpm eval:replay` (offline). Record live answers with `pnpm eval --model <id>`.",

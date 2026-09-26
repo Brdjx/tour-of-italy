@@ -56,6 +56,7 @@ export interface PlanMeasure {
   checks: CheckResult[];
   mealsAdded: number; // lunches and dinners code added to the model's answer (mealAdd.ts)
   daysMissingMealBefore: number | null; // days missing a meal before those were added; null: no plan
+  daysNoneOpenBefore: number | null; // of those, the days no place could have fed; null: no plan
 }
 
 /** No validator errors and the response schema holds: the only way a plan may reach a traveler. */
@@ -109,23 +110,34 @@ export function daysNoneOpen(itinerary: Itinerary, ctx: PlannerContext): number 
   return [...noneOpen.values()].filter(Boolean).length;
 }
 
+/** A meal code added to an answer, as the trace's meal_added changes name it. */
+export type AddedMeal = { day: number; placeId?: string | undefined };
+
 /**
- * Days missing a meal in the plan as it was before code added the meals `added` names (the trace's
- * meal_added changes): the same days with those places taken out and timed again.
+ * The plan as it was before code added the meals `added` names: the same days with those places
+ * taken out and timed again. The plan itself when nothing was added.
  */
-export function daysMissingMealBefore(
+export function planBeforeMeals(
   itinerary: Itinerary,
-  added: readonly { day: number; placeId?: string | undefined }[],
+  added: readonly AddedMeal[],
   ctx: PlannerContext,
-): number {
-  if (added.length === 0) return daysMissingMeal(itinerary, ctx);
+): Itinerary {
+  if (added.length === 0) return itinerary;
   const out = new Set(added.map((change) => `${change.day}|${change.placeId}`));
   const days = itinerary.days.map((day, index) => ({
     anchorId: day.anchorId,
     placeIds: day.stops.map((stop) => stop.placeId).filter((id) => !out.has(`${index}|${id}`)),
   }));
-  const before = { ...itinerary, days: scheduleTrip(itinerary.request, days, ctx).days };
-  return daysMissingMeal(before, ctx);
+  return { ...itinerary, days: scheduleTrip(itinerary.request, days, ctx).days };
+}
+
+/** Days missing a meal in the plan before code added the meals `added` names (planBeforeMeals). */
+export function daysMissingMealBefore(
+  itinerary: Itinerary,
+  added: readonly AddedMeal[],
+  ctx: PlannerContext,
+): number {
+  return daysMissingMeal(planBeforeMeals(itinerary, added, ctx), ctx);
 }
 
 export function planShape(itinerary: Itinerary, ctx: PlannerContext): PlanShape {

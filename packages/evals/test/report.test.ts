@@ -24,6 +24,7 @@ function group(kind: ReplayedGroup["kind"], overrides: Partial<ReplayedGroup> = 
       shape: { ...(measure().shape as PlanShape), daysMissingMeal: 1, daysNoneOpen: 1 },
       mealsAdded: 3,
       daysMissingMealBefore: 2,
+      daysNoneOpenBefore: 1,
     }),
     measure({
       caseId: "splurge",
@@ -108,7 +109,7 @@ describe("latest.md", () => {
       "| Days missing a lunch or dinner | 17% (1/6): 1 none open, 0 not planned | 0% (0/6): 0 none open, 0 not planned |",
     );
     expect(rowOf(md, "Days missing a meal before code added one")).toBe(
-      "| Days missing a meal before code added one | 33% (2/6) | n/a |",
+      "| Days missing a meal before code added one | 33% (2/6): 1 none open, 1 not planned | n/a |",
     );
     expect(rowOf(md, "Lunches and dinners code added")).toBe(
       "| Lunches and dinners code added | 3 | n/a |",

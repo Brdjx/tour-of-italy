@@ -10,6 +10,7 @@ import {
   mean,
   type PlanShape,
   percentile,
+  planBeforeMeals,
   planShape,
   preferenceMatch,
   rate,
@@ -121,6 +122,11 @@ describe("plan shape", () => {
     const added = [{ day: 0, placeId: dinner?.placeId }];
     expect(daysMissingMealBefore(fed, [], ctx)).toBe(daysMissingMeal(fed, ctx));
     expect(daysMissingMealBefore(fed, added, ctx)).toBe(daysMissingMeal(fed, ctx) + 1);
+    expect(planBeforeMeals(fed, [], ctx)).toBe(fed);
+    const before = planBeforeMeals(fed, added, ctx);
+    expect(before.days[0]?.stops.map((stop) => stop.placeId)).not.toContain(dinner?.placeId);
+    // Rome serves dinner on that day, so the day it lacks is not planned.
+    expect(daysNoneOpen(before, ctx)).toBe(0);
   });
 
   it("calls a real rules-only plan valid and a broken one invalid", () => {
@@ -268,13 +274,23 @@ describe("summary", () => {
     });
     const pooled = summarize([
       measure({ shape: { ...shape(3, 3), daysNoneOpen: 1 }, mealsAdded: 2 }),
-      measure({ shape: shape(4, 0), daysMissingMealBefore: 2, mealsAdded: 3 }),
+      measure({
+        shape: shape(4, 0),
+        daysMissingMealBefore: 2,
+        daysNoneOpenBefore: 1,
+        mealsAdded: 3,
+      }),
     ]);
     expect(pooled.mealGapRate).toBeCloseTo(3 / 7, 10);
     expect(pooled).toMatchObject({ days: 7, mealGapDays: 3, noneOpenDays: 1, mealsAdded: 5 });
     expect(pooled.mealGapBeforeDays).toBe(2);
+    expect(pooled.noneOpenBeforeDays).toBe(1);
     expect(summarize([measure({ shape: null })]).mealGapRate).toBeNull();
-    expect(summarize([measure({ daysMissingMealBefore: null })]).mealGapBeforeDays).toBeNull();
+    const unknown = measure({ daysMissingMealBefore: null, daysNoneOpenBefore: null });
+    expect(summarize([unknown])).toMatchObject({
+      mealGapBeforeDays: null,
+      noneOpenBeforeDays: null,
+    });
   });
 
   it("pools must-includes across plans and ignores plans without an answer", () => {

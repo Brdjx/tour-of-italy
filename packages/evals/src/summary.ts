@@ -31,6 +31,7 @@ export interface Summary {
   mealGapDays: number; // days missing a lunch or a dinner
   noneOpenDays: number; // of those, days no place could have fed (the rest: not planned)
   mealGapBeforeDays: number | null; // days missing a meal before code added any; null for the baseline
+  noneOpenBeforeDays: number | null; // of those, days no place could have fed; null for the baseline
   mealsAdded: number; // lunches and dinners code added to the model's answers
   latencyP50Ms: number | null;
   latencyP95Ms: number | null;
@@ -101,6 +102,7 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
   const days = shapes.reduce((sum, s) => sum + s.days, 0);
   const mealGapDays = shapes.reduce((sum, s) => sum + s.daysMissingMeal, 0);
   const before = present(measures.map((m) => m.daysMissingMealBefore));
+  const noneOpenBefore = present(measures.map((m) => m.daysNoneOpenBefore));
   return {
     plans: measures.length,
     finalValidRate: rate(measures.filter((m) => m.shape?.finalValid).length, measures.length),
@@ -125,6 +127,8 @@ export function summarize(measures: readonly PlanMeasure[]): Summary {
     mealGapDays,
     noneOpenDays: shapes.reduce((sum, s) => sum + s.daysNoneOpen, 0),
     mealGapBeforeDays: before.length === 0 ? null : before.reduce((sum, n) => sum + n, 0),
+    noneOpenBeforeDays:
+      noneOpenBefore.length === 0 ? null : noneOpenBefore.reduce((sum, n) => sum + n, 0),
     mealsAdded: measures.reduce((sum, m) => sum + m.mealsAdded, 0),
     latencyP50Ms: percentile(latencies, 50),
     latencyP95Ms: percentile(latencies, 95),

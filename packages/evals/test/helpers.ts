@@ -85,6 +85,7 @@ export function measure(overrides: Partial<PlanMeasure> = {}): PlanMeasure {
     checks: [],
     mealsAdded: 0,
     daysMissingMealBefore: 0,
+    daysNoneOpenBefore: 0,
     ...overrides,
   };
 }

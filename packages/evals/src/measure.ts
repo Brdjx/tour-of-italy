@@ -5,9 +5,11 @@ import { type PlannerContext, planDeterministic, type TripRequest } from "@italy
 import type { EvalCase } from "./cases";
 import { type CheckResult, checkExpectations } from "./expectations";
 import {
-  daysMissingMealBefore,
+  daysMissingMeal,
+  daysNoneOpen,
   firstAnswerMustInclude,
   type PlanMeasure,
+  planBeforeMeals,
   planMustInclude,
   planShape,
 } from "./metrics";
@@ -87,7 +89,7 @@ export function measurePipelinePlan(input: PipelineMeasureInput, ctx: PlannerCon
   if (!attempt.ok) {
     const checks: CheckResult[] = [];
     const fallbackReason = attempt.error;
-    const none = { mealsAdded: 0, daysMissingMealBefore: null };
+    const none = { mealsAdded: 0, daysMissingMealBefore: null, daysNoneOpenBefore: null };
     return {
       ...base,
       ...none,
@@ -103,6 +105,7 @@ export function measurePipelinePlan(input: PipelineMeasureInput, ctx: PlannerCon
   // A rules-only plan never keeps what code added to an answer, even when the trace has it.
   const ai = itinerary.source === "ai" || itinerary.source === "ai_repaired";
   const added = ai ? trace.tidied.filter((change) => change.rule === "meal_added") : [];
+  const before = planBeforeMeals(itinerary, added, ctx);
   const written = writtenCodes(calls, itinerary.request, shortlist, ctx);
   const checks =
     caseDef === undefined
@@ -125,7 +128,8 @@ export function measurePipelinePlan(input: PipelineMeasureInput, ctx: PlannerCon
     shape,
     checks,
     mealsAdded: added.length,
-    daysMissingMealBefore: daysMissingMealBefore(itinerary, added, ctx),
+    daysMissingMealBefore: daysMissingMeal(before, ctx),
+    daysNoneOpenBefore: daysNoneOpen(before, ctx),
   };
 }
 
@@ -164,5 +168,6 @@ export function measureBaseline(
     checks,
     mealsAdded: 0,
     daysMissingMealBefore: null,
+    daysNoneOpenBefore: null,
   };
 }
