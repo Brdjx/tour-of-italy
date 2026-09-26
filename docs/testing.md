@@ -2,7 +2,7 @@
 
 The tests exist to prove that the ways this product can fail badly cannot happen. Each starts from a failure vector (what would break the product), names the guard in code, and asserts the guard holds. Test names state the failure they prevent, for example `never schedules a stop outside one open range on its date`. Coverage floors apply too, but only as a backstop: a test earns its place by asserting a guard, not by running code.
 
-On 2026-09-24 `pnpm test` ran about 2,200 tests in about 140 files, in under a minute on a laptop. The E2E and infra suites run on top of that. E2E runs in its own workflow (`.github/workflows/e2e.yml`) and gates nothing until its specs are rewritten for the new page (T62); a slow E2E run can no longer hold back a deploy.
+On 2026-09-25 `pnpm test` ran 3,121 tests in 189 files. The E2E and infra suites run on top of that. E2E runs in its own workflow (`.github/workflows/e2e.yml`) and gates nothing until its specs are rewritten for the new page (T62); a slow E2E run can no longer hold back a deploy.
 
 ## Failure vectors
 
