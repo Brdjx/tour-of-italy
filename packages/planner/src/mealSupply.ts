@@ -29,6 +29,11 @@ import { dateText, listText, weekdayPlural } from "./validate/text";
 // the traveler asked for it. Neither the planner, the meal code adds nor a swap ever offers it, so
 // naming it as a place that could take the meal was a way out that could not work. Found in review
 // (2026-09-26): every "not planned" lunch in Rome counted and listed Hard Rock Cafe Rome (2.1).
+// Decision: only places to eat count, not an outing the validator lets stand in for a meal (a day
+// trip under way through it). Review (2026-09-26) asked about the risotto festival, which by that
+// rule gives a Bologna day its lunch on the Sundays of October. But every outing of the Bologna
+// base has no listed hours, so the Parma tour, whose note says it runs on weekday mornings, could
+// be timed 14:00 to 20:00 through every Monday dinner, and the owner's warning would go.
 // Found by the owner (2026-09-26): Bologna on Monday 12 October had no dinner, and the page said
 // to swap a stop near that meal time, but none of Bologna's three dinner places opens on Mondays.
 
@@ -45,6 +50,7 @@ export type MealBlock =
 export interface MealPlaceStatus {
   placeId: string;
   name: string;
+  town: string | null; // its town when outside the base's city and not in its name: "Modena"
   block: MealBlock | null; // why it cannot take the meal that day; null when it can
   why: string; // the block in words that follow "is": "closed on Mondays"; "" when it can
   overBudget: boolean; // above the traveler's price level (never a reason it cannot take it)
@@ -140,6 +146,21 @@ function blockOf(
   return null;
 }
 
+/** The place's town when it is outside the base's city and its name does not say it. */
+function townOf(place: Place, anchor: Anchor): string | null {
+  if (place.city === anchor.name || place.name.includes(place.city)) return null;
+  return place.city;
+}
+
+/**
+ * How the page and the sentences name a place of a missing meal: with its town when that is not
+ * the base's city ("Osteria Francescana, Modena"), so "Bologna's three dinner places" does not
+ * read as three places in Bologna.
+ */
+export function mealPlaceName(place: Pick<MealPlaceStatus, "name" | "town">): string {
+  return place.town === null ? place.name : `${place.name}, ${place.town}`;
+}
+
 /**
  * Every place of base `anchorId` that serves `meal`, in id order, with why each cannot take it on
  * `date` for a day whose places can start at `startMin`. Empty for an unknown base. Throws
@@ -162,6 +183,7 @@ export function mealPlaces(
       return {
         placeId: place.id,
         name: place.name,
+        town: townOf(place, anchor),
         block: blocked?.block ?? null,
         why: blocked?.why ?? "",
         overBudget: !withinBudget(place, request.maxPriceLevel),
@@ -206,7 +228,7 @@ function notPlannedText(city: string, meal: Meal, places: readonly MealGapPlace[
     if (free.length === open.length) return `${every} over your budget.`;
     return `${every} already in the trip or over your budget.`;
   }
-  if (within.length === 1) return `${first.name} could take ${meal} that day.`;
+  if (within.length === 1) return `${mealPlaceName(first)} could take ${meal} that day.`;
   return `${countTitle(within.length)} places in ${city} could take ${meal} that day.`;
 }
 
@@ -215,6 +237,17 @@ function outingCovers(stop: DayPlan["stops"][number], meal: Meal, ctx: PlannerCo
   const place = ctx.placesById.get(stop.placeId);
   return (
     place !== undefined && hasValidTimes(stop) && coversMeal(place, stop.start, stop.end, meal)
+  );
+}
+
+/**
+ * The lunch and dinner a day has no stop for, lunch first: no stop in that role and no outing
+ * under way through it, as the validator's MEAL_MISSING counts them. Empty for an empty day.
+ */
+export function mealsMissing(day: Pick<DayPlan, "stops">, ctx: PlannerContext): Meal[] {
+  if (day.stops.length === 0) return [];
+  return MEAL_ORDER.filter(
+    (meal) => !day.stops.some((stop) => stop.role === meal || outingCovers(stop, meal, ctx)),
   );
 }
 
@@ -243,11 +276,8 @@ export function dayMealGaps(
   ctx: PlannerContext,
 ): MealGap[] {
   const day = trip.days[dayIndex];
-  if (!day || day.stops.length === 0) return [];
-  const missing = MEAL_ORDER.filter(
-    (meal) => !day.stops.some((stop) => stop.role === meal || outingCovers(stop, meal, ctx)),
-  );
-  if (missing.length === 0) return [];
+  const missing = day ? mealsMissing(day, ctx) : [];
+  if (!day || missing.length === 0) return [];
   const anchor = ctx.anchorById.get(day.anchorId);
   if (!anchor || !isValidIsoDate(day.date)) {
     return missing.map((meal) => ({

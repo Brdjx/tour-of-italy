@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildPlannerContext } from "../src/context";
 import { checkDayBase, dayBaseOptions } from "../src/dayBases";
 import { planRoute } from "../src/dayRoute";
-import { dayMealGaps, mealFacts, mealGaps, mealPlaces } from "../src/mealSupply";
+import {
+  dayMealGaps,
+  mealFacts,
+  mealGaps,
+  mealPlaceName,
+  mealPlaces,
+  mealsMissing,
+} from "../src/mealSupply";
 import { planDeterministic } from "../src/plan";
 import { makeWeek } from "../src/time";
 import { scheduleTrip } from "../src/trip";
@@ -59,6 +66,7 @@ describe("dayMealGaps", () => {
           {
             placeId: "place_043",
             name: "Osteria Francescana",
+            town: "Modena",
             block: "closed_weekday",
             why: "closed on Mondays",
             overBudget: false,
@@ -67,6 +75,7 @@ describe("dayMealGaps", () => {
           {
             placeId: "place_047",
             name: "Tagliatelle al Ragù at Trattoria Anna Maria",
+            town: null,
             block: "closed_weekday",
             why: "closed on Mondays",
             overBudget: false,
@@ -75,6 +84,7 @@ describe("dayMealGaps", () => {
           {
             placeId: "place_050",
             name: "Enoteca Italiana, Bologna",
+            town: null,
             block: "closed_weekday",
             why: "closed on Mondays",
             overBudget: false,
@@ -174,6 +184,33 @@ describe("dayMealGaps", () => {
     ]);
   });
 
+  it("names the town of a place outside the base's city, unless its name already says it", () => {
+    // Bologna on a Wednesday at a packed pace, which is back from Modena in time: Trattoria Anna
+    // Maria and Enoteca Italiana are on other days, so Osteria Francescana, in Modena, is the one
+    // free for dinner. Cantina di Parma says Parma in its name.
+    const request = makeRequest({ startDate: "2026-10-13", pace: "packed", maxPriceLevel: 4 });
+    const plan = [
+      day("2026-10-13", "bologna", [stop("place_047", "dinner", 1140, 1230)]),
+      day("2026-10-14", "bologna", [stop("place_044", "visit", 600, 690)]),
+      day("2026-10-15", "bologna", [stop("place_050", "dinner", 1140, 1230)]),
+    ];
+
+    const dinner = dayMealGaps(trip(request, plan), 1, ctx).find((gap) => gap.meal === "dinner");
+
+    expect(dinner?.text).toBe("Osteria Francescana, Modena could take dinner that day.");
+    expect(dinner?.places.map((p) => [p.placeId, p.town])).toEqual([
+      ["place_043", "Modena"],
+      ["place_047", null],
+      ["place_050", null],
+    ]);
+    const lunch = mealPlaces(request, "bologna", "lunch", "2026-10-14", 570, ctx);
+    expect(lunch.map((p) => [p.placeId, mealPlaceName(p)])).toEqual([
+      ["place_046", "Via Drapperie, Bologna"],
+      ["place_047", "Tagliatelle al Ragù at Trattoria Anna Maria"],
+      ["place_092", "Prosciutto di Parma at Cantina di Parma"],
+    ]);
+  });
+
   it("says when the places that could take the meal are over the traveler's budget", () => {
     // Venice on Sunday 11 October at the lowest budget: Osteria Alla Staffa closes on Sundays,
     // and Osteria da Rioba (three levels) and Al Quadri (four) are open but over it.
@@ -245,6 +282,7 @@ describe("dayMealGaps", () => {
     ];
 
     expect(mealGaps(trip(request, plan), ctx).map((g) => [g.day, g.meal])).toEqual([[0, "dinner"]]);
+    expect(plan.map((one) => mealsMissing(one, ctx))).toEqual([["dinner"], [], []]);
   });
 
   it("names no cause it cannot know: a base or a date the plan got wrong", () => {
