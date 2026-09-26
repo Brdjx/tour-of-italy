@@ -79,10 +79,10 @@ describe("the route view", () => {
     const view = routeView(plan, tripRoute(plan), ctx);
     expect(view.changed).toBe(false);
     expect(view.travel).toBeNull();
-    expect(view.rows.map((row) => [row.name, row.date, row.legIn, row.was])).toEqual([
-      ["Rome", "Tue 6 Oct", null, null],
-      ["Rome", "Wed 7 Oct", "Same city", null],
-      ["Rome", "Thu 8 Oct", "Same city", null],
+    expect(view.rows.map((row) => [row.name, row.date, row.start, row.legIn, row.was])).toEqual([
+      ["Rome", "Tue 6 Oct", "09:30", null, null],
+      ["Rome", "Wed 7 Oct", "09:30", "Same city", null],
+      ["Rome", "Thu 8 Oct", "09:30", "Same city", null],
     ]);
     expect(view.rows.every((row) => row.note === null && row.facts.length === 0)).toBe(true);
   });
@@ -93,29 +93,27 @@ describe("the route view", () => {
     expect(view.travel).toBe("Travel between cities: 4 h 20 min");
     const [first, second, third] = view.rows;
     expect(first).toMatchObject({ was: null, note: null, facts: [], replan: false });
+    // Each fact once: the leg gives the train, the day's column its start, and "was Rome" the
+    // change, so a changed day has no note and only what its travel leaves.
     expect(second).toEqual({
       day: 1,
       date: "Wed 7 Oct",
+      start: "11:40",
       anchorId: FLORENCE,
       name: "Florence",
       was: "Rome",
       legIn: "2 h 10 min by high-speed train",
-      note: "Day 2 will be planned in Florence.",
-      facts: [
-        "2 h 10 min by high-speed train from Rome, so the day starts at 11:40.",
-        "Leaves about 7 h before dinner.",
-      ],
+      note: null,
+      facts: ["Leaves about 7 h before dinner."],
       replan: true,
       refusal: null,
     });
     expect(third).toMatchObject({
+      start: "11:40",
       was: null,
       replan: true,
       note: "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
-      facts: [
-        "2 h 10 min by high-speed train from Florence, so the day starts at 11:40.",
-        "Leaves about 7 h before dinner.",
-      ],
+      facts: ["Leaves about 7 h before dinner."],
     });
   });
 
@@ -157,12 +155,13 @@ describe("a day's cities", () => {
       warnings: [],
       reason: null,
     });
+    // The minutes once: the line gives the travel on to day 2, and the warning what it does.
     expect(choices.rows[1]).toMatchObject({
       planned: false,
       chosen: false,
       allowed: true,
       line: "2 h 10 min on to Rome for day\u00a02, 22 places",
-      warnings: ["Day 2 will be planned again: it now starts after 2 h 10 min of travel."],
+      warnings: ["Day 2 will be planned again."],
     });
     expect(choices.rows.every((row) => row.allowed)).toBe(true);
     expect(choices.ideas).toEqual({ allowed: true, reason: null });
@@ -195,6 +194,21 @@ describe("a day's cities", () => {
     expect(second.rows[0]).toMatchObject({ anchorId: ROME, planned: true, chosen: false });
     expect(second.rows[1]).toMatchObject({ anchorId: FLORENCE, planned: false, chosen: true });
     expect(second.rows[1]?.line).toBe("2 h 10 min on to Rome for day\u00a03, 22 places");
+  });
+
+  it("keeps the next day's whole note when it keeps its places at a new start", () => {
+    // Rome, Rome, Florence: day 2 in Milan leaves day 3's places as they are, at 11:45.
+    const two = fixturePlan({ anchors: [ROME, FLORENCE] });
+    expect(tripRoute(two)).toEqual([ROME, ROME, FLORENCE]);
+    const milan = dayChoices(two, tripRoute(two), 1, ctx).rows.find((row) => row.name === "Milan");
+    expect(milan).toMatchObject({
+      line: "2 h 15 min on to Florence for day\u00a03, 18 places",
+      warnings: [
+        "3 h 35 min by high-speed train from Rome, so the day starts at 13:05.",
+        "Leaves about 5 h 30 min before dinner.",
+        "Day 3 keeps its places and now starts at 11:45.",
+      ],
+    });
   });
 
   it("gives a reason that is the same for every city in full once, then short", () => {

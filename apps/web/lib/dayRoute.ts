@@ -7,6 +7,7 @@ import {
   type Itinerary,
   mustIncludesLeftOut,
   newTripErrors,
+  type OtherDayNote,
   type PlannerContext,
   placesOfAnchor,
   planRoute,
@@ -21,7 +22,7 @@ import {
 import type { PlanDayBody } from "./api";
 import type { PlanDayResponse } from "./apiSchemas";
 import { type DayMade, type DayReply, tripKey, tripSelection } from "./dayCity";
-import { formatDuration, plural, shortDate } from "./format";
+import { formatClock, formatDuration, plural, shortDate } from "./format";
 import type { FallbackCause } from "./planRequest";
 
 // A route set by hand, the page's side of decision 16: a city for each day, chosen in the route
@@ -92,12 +93,13 @@ export function sameRoute(itinerary: Pick<Itinerary, "days">, draft: readonly st
 export interface RouteRow {
   day: number;
   date: string; // "Sat 10 Oct"
+  start: string; // when its places can start, after any travel in ("11:40")
   anchorId: string;
   name: string;
   was: string | null; // the day's city now, when the route changes it
   legIn: string | null; // the travel into the day ("2 h 10 min by high-speed train", "Same city")
-  note: string | null; // what happens to the day ("Day 3 will be planned again: ...")
-  facts: string[]; // its travel as facts, on a day the route changes or retimes
+  note: string | null; // what happens to a day kept in its city ("Day 3 will be planned again: ...")
+  facts: string[]; // what its travel leaves of it, on a day the route changes or retimes
   replan: boolean; // planned again
   refusal: string | null; // why the route cannot be planned, and the way out
 }
@@ -113,13 +115,18 @@ export interface RouteView {
 }
 
 /**
- * What the route sheet shows for `draft`: each day with its city, the city it replaces, the
- * travel into it, what happens to it and its facts, and the action that plans it. Throws
- * RangeError on a draft that is not a known base for every day (planRoute).
+ * What the route sheet shows for `draft`: each day with its start, its city, the city it
+ * replaces, the travel into it, what happens to it and what the travel leaves of it, and the
+ * action that plans it. Throws RangeError on a draft that is not a known base for every day
+ * (planRoute).
  */
-// Decision: the facts are shown only on a day the route touches (its city, its plan or its start
-// changes). A day the route leaves as it is keeps its travel on the leg line above it, so the
-// view does not repeat facts the traveler already has on the board.
+// Decision: each fact once (design review, 2026-09-26). The board already says a day's travel on
+// the leg above it and its start in the day's column, so a day the route touches keeps only what
+// the travel leaves of it ("Leaves about 7 h before dinner.", dayTravel's second fact). A day
+// whose city changes has no note: "Florence, was Rome" says it, and "Day 1 will be planned in
+// Florence." under it said it again and pushed its facts down. A day kept in its city still says
+// what happens to it (planned again for its travel or to hold a place asked for, or kept at a new
+// start). A day the route leaves as it is shows no facts.
 export function routeView(
   itinerary: Itinerary,
   draft: readonly string[],
@@ -133,12 +140,13 @@ export function routeView(
     return {
       day: day.day,
       date: shortDate(itinerary.days[day.day]?.date ?? ""),
+      start: formatClock(day.startMin),
       anchorId: day.anchorId,
       name: day.name,
       was: day.changes ? (ctx.anchorById.get(now ?? "")?.name ?? null) : null,
       legIn: day.day === 0 ? null : (day.travelIn?.label ?? "Same city"),
-      note: day.note,
-      facts: touched ? [...day.warnings] : [],
+      note: day.changes ? null : day.note,
+      facts: touched ? day.warnings.slice(1) : [],
       replan: day.replan !== null,
       refusal: refusal ? `${refusal.reason} ${refusal.fix}` : null,
     };
@@ -211,9 +219,10 @@ export const IDEAS_WAIT = "Your route has changes. Plan them or reset it first."
  * Every base for day `day` of the route being set (`draft`), as the day's list shows it: the
  * trip's city for the day first, each with the planner's verdict for the draft with that day's
  * city changed (routeOptions). A city's warnings leave out what the draft already does to the
- * other days, so each says only what choosing it adds. New ideas is checked as a new version of
- * the day in its own city with its places left out (checkDayBase), and waits while the draft has
- * changes, since a day of new ideas is planned alone. Throws RangeError on a day out of range.
+ * other days, so each says only what choosing it adds, and say the travel on to the next day
+ * once (otherNote). New ideas is checked as a new version of the day in its own city with its
+ * places left out (checkDayBase), and waits while the draft has changes, since a day of new
+ * ideas is planned alone. Throws RangeError on a day out of range.
  */
 export function dayChoices(
   itinerary: Itinerary,
@@ -232,6 +241,11 @@ export function dayChoices(
     const full = `${option.reason ?? ""} ${option.fix ?? ""}`.trim();
     const short = said.has(full) ? shortReason(option, day) : undefined;
     if (option.refusal) said.add(full);
+    // The day's own travel facts come first; the other days' notes end the warnings.
+    const own = option.warnings.slice(0, option.warnings.length - option.others.length);
+    const others = option.others
+      .filter((other) => !known.has(other.note))
+      .map((other) => otherNote(other, day, option));
     return {
       anchorId: option.anchorId,
       name: option.name,
@@ -239,7 +253,7 @@ export function dayChoices(
       chosen: draft[day] === option.anchorId,
       allowed: option.allowed,
       line: neighbourLine(draft, day, option, ctx),
-      warnings: option.warnings.filter((warning) => !known.has(warning)),
+      warnings: [...own, ...others],
       reason: option.allowed ? null : (short ?? full),
     };
   });
@@ -250,6 +264,25 @@ export function dayChoices(
     ? { allowed: false, reason: IDEAS_WAIT }
     : { allowed: check.option.allowed, reason: check.option.reason ?? null };
   return { day, rows, ideas };
+}
+
+/**
+ * What choosing a city for day `day` does to another day, as a warning in the day's list: the
+ * planner's note, or only "Day 3 will be planned again." for the next day planned again for its
+ * travel, since the city's line above it already gives that travel ("2 h 10 min on to Rome for
+ * day 3").
+ */
+// Decision: the minutes once (design review, 2026-09-26). Every city in a day's list said them
+// twice, on its line and in the next day's warning ("Day 2 will be planned again: it now starts
+// after 2 h 10 min of travel."). The line keeps them, since it says them for every city, the
+// next day planned again or not.
+function otherNote(
+  other: OtherDayNote,
+  day: number,
+  option: Pick<DayBaseOption, "transferOutMin">,
+): string {
+  const next = other.day === day + 1 && other.replan === "travel" && option.transferOutMin > 0;
+  return next ? `${dayTitle(other.day)} will be planned again.` : other.note;
 }
 
 /**

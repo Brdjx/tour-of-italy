@@ -2,17 +2,20 @@
  * The route sheet (components/RouteSheet.tsx) and days planned again. The city in "Day 2 in Rome"
  * is a quiet pill in the line of text, its 44 px target hung over the line's own height so the
  * heading keeps its rhythm; its chevron points onward, as Details' and More options' do, since it
- * opens a sheet. The sheet has two levels. The route is a small board of the three days (the day
- * and its date in a column of their own, the city with the onward chevron) under an ink rule,
- * joined by dashed legs that carry the travel into each day, and a day the route changes wears
- * the gold wash of a chosen option, with its facts under its city. A day's cities list its own
- * city first, then every city on hairline rows with its line and its warnings behind caution
- * squares; a city the planner refuses stays in place with its reason, in muted text and with no
- * chevron, never hidden. The levels slide 10 px from the side they were reached from, as the day
- * boards do. While days are planned their lines say so with the board's busy flap (turning on the
- * day being planned, still on a day waiting its turn, on its tab too), their rows are a skeleton
- * and their map dims; the other days say editing waits. Once planned, one line under a day says
- * how, with the source line's mark.
+ * opens a sheet. The sheet has two levels. The route is a small board of the three days (the day,
+ * its date and its start in the time role in a column of their own, the city with the onward
+ * chevron) under an ink rule, joined by dashed legs that carry the travel into each day, and a day
+ * the route changes wears the gold wash of a chosen option, inside the board's rules, with its
+ * facts under its city; a city or a start a choice changed flips in from the top hinge, as the
+ * board's changed times do. The route's foot is always there, dimmed until there is a change.
+ * A day's cities list its own city first, then every city on hairline rows with its line and its
+ * warnings behind caution squares; a city the planner refuses stays in place with its reason, in
+ * muted text and with no chevron, never hidden. Both levels hold their rows 10 px inside the
+ * rules, so a wash never passes the board's edge. The levels slide 10 px from the side they were
+ * reached from, as the day boards do. While days are planned their lines say so with the board's
+ * busy flap (turning on the day being planned, still on a day waiting its turn, on its tab too),
+ * their rows are a skeleton and their map dims; the other days say editing waits. Once planned,
+ * one line under a day says how, with the source line's mark.
  */
 
 /* In the components layer, so a Tailwind utility on the same element wins. */
@@ -154,6 +157,17 @@
 
   /* ----- The sheet ----- */
 
+  /* The tallest the sheet has been since it opened (RouteSheet), up to its own limit. */
+  .route-sheet[open] {
+    min-height: min(var(--route-sheet-min, 0px), calc(100dvh - var(--safe-top) - var(--sheet-top)));
+  }
+
+  @media (min-width: 768px) {
+    .route-sheet[open] {
+      min-height: min(var(--route-sheet-min, 0px), calc(100dvh - 64px), 880px);
+    }
+  }
+
   .route-sheet .form-sheet-head-row {
     align-items: flex-start;
   }
@@ -268,6 +282,7 @@
     grid-template-columns: var(--route-when) minmax(0, 1fr);
     align-items: center;
     column-gap: 14px;
+    padding-inline: 10px;
     color: var(--muted);
     font-size: 0.875rem;
     line-height: 1.3;
@@ -279,15 +294,17 @@
     border-left: 1px dashed var(--line-strong);
   }
 
+  /* Decision: the row, its wash and its hover stay inside the board's rules, with the words 10 px
+     in. The first build ran the wash 10 px past the ink rule and the closing hairline on either
+     side, which broke the board's column edge (design review, 2026-09-26). */
   .route-day {
     display: grid;
     width: 100%;
     min-height: 44px;
+    box-sizing: border-box;
     grid-template-columns: var(--route-when) minmax(0, 1fr);
     column-gap: 14px;
     padding: 12px 10px;
-    margin-inline: -10px;
-    box-sizing: content-box;
     text-align: left;
     transition: background-color var(--dur-color) ease;
   }
@@ -326,6 +343,23 @@
     color: var(--muted);
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* When the day's places can start, after any travel in: the board's time role. */
+  .route-day-start {
+    margin-top: 4px;
+    color: var(--fg);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* A city or a start the last choice changed: the board's split-flap, a row at a time. */
+  .route-day [data-flip="true"] {
+    display: inline-block;
+    transform-origin: 50% 0;
+    animation: flap var(--dur-arrive) var(--ease-content) both;
+    animation-delay: calc(80ms + min(var(--i, 0), 6) * 42ms);
   }
 
   .route-day-main {
@@ -403,7 +437,7 @@
     font-size: 1rem;
   }
 
-  /* The foot rises in with the first change. */
+  /* The foot rises in with the route. */
   .route-sheet .form-sheet-foot {
     animation: route-foot-in 280ms var(--ease-content) both;
   }
@@ -429,12 +463,11 @@
     display: flex;
     width: 100%;
     min-height: 44px;
+    box-sizing: border-box;
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
     padding: 12px 10px;
-    margin-inline: -10px;
-    box-sizing: content-box;
     text-align: left;
     transition: background-color var(--dur-color) ease;
   }
@@ -497,7 +530,7 @@
 
   /* New ideas for this day, under the trip's city for it. */
   .city-ideas-wrap {
-    padding: 2px 0 16px;
+    padding: 2px 10px 16px;
   }
 
   .city-ideas {
@@ -549,7 +582,8 @@
     .form-sheet[open] .route-level[data-entry="open"] .route-days > li,
     .route-level[data-entry="slide"],
     .route-heading[data-entry="slide"],
-    .route-sheet .form-sheet-foot {
+    .route-sheet .form-sheet-foot,
+    .route-day [data-flip="true"] {
       animation: fade 120ms ease both;
       animation-delay: 0ms;
     }

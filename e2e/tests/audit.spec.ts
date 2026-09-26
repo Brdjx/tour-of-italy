@@ -71,7 +71,7 @@ async function auditRoute(page: Page, press: Press): Promise<void> {
   await expect(sheet).toBeVisible();
   await auditState(page, "a day's cities in the route sheet");
   await press(sheet.locator('[data-testid="city-option"][data-anchor-id="florence"]'));
-  await expect(sheet.getByTestId("route-confirm")).toBeVisible();
+  await expect(sheet.getByTestId("route-confirm")).toHaveText("Plan day 1 and day 2");
   await auditState(page, "the route with a change");
 
   let release: () => void = () => {};

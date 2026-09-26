@@ -75,7 +75,9 @@ test.describe("setting a city for each day", () => {
     await press(routeDay(sheet, 3));
     await press(city(sheet, "milan"));
     await expect(routeDay(sheet, 3)).toContainText("was Florence");
-    await expect(routeDay(sheet, 2)).toContainText("so the day starts at");
+    // Each day's start in its column, and what the travel leaves of it under its city.
+    await expect(routeDay(sheet, 2).getByTestId("route-day-start")).toHaveText("Starts at 11:30");
+    await expect(routeDay(sheet, 2)).toContainText("Leaves about 7 h 30 min before dinner.");
     await expect(sheet.getByTestId("route-travel")).toContainText("Travel between cities:");
 
     // Held, so the progress can be read: day 1 plans, days 2 and 3 wait their turn.
@@ -124,6 +126,10 @@ test.describe("setting a city for each day", () => {
     await planTrip(page, press);
     const before = await readTrip(page, press);
     const sheet = await openCitiesFor(page, press, 1);
+    // The travel on to day 2 once, on the city's line; its warning says what it does.
+    await expect(city(sheet, "florence")).toContainText("2 h 10 min on to Rome for day");
+    await expect(city(sheet, "florence")).toContainText("Day 2 will be planned again.");
+    await expect(city(sheet, "florence")).not.toContainText("it now starts after");
     await press(city(sheet, "florence"));
     await expect(routeDay(sheet, 2)).toContainText(
       "Day 2 will be planned again: it now starts after 2 h 10 min of travel.",
@@ -155,13 +161,32 @@ test.describe("setting a city for each day", () => {
     await planTrip(page, press);
     const before = await readTrip(page, press);
     const sheet = await openCitiesFor(page, press, 2);
+    const tall = await sheet.boundingBox();
     await press(sheet.getByTestId("route-back"));
     await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();
     await expect(routeDay(sheet, 2)).toBeFocused();
+    // The route has its foot before any change, dimmed, at the bottom of a sheet that kept its
+    // height.
+    const action = sheet.getByTestId("route-confirm");
+    await expect(action).toHaveText("No changes to plan");
+    await expect(action).toHaveAttribute("aria-disabled", "true");
+    const box = await sheet.boundingBox();
+    const foot = await action.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual((tall?.height ?? 0) - 1);
+    expect(
+      (box?.y ?? 0) + (box?.height ?? 0) - ((foot?.y ?? 0) + (foot?.height ?? 0)),
+    ).toBeLessThan(60);
     await press(routeDay(sheet, 3));
     await expect(sheet.getByRole("heading", { name: "City for day 3" })).toBeFocused();
     await press(city(sheet, "venice"));
-    await expect(sheet.getByTestId("route-confirm")).toHaveText("Plan day 3");
+    await expect(action).toHaveText("Plan day 3");
+    // The changed day's wash stays inside the board's rules.
+    const board = await sheet.locator(".route-days").boundingBox();
+    const changed = await routeDay(sheet, 3).boundingBox();
+    expect(changed?.x ?? 0).toBeGreaterThanOrEqual((board?.x ?? 0) - 0.5);
+    expect((changed?.x ?? 0) + (changed?.width ?? 0)).toBeLessThanOrEqual(
+      (board?.x ?? 0) + (board?.width ?? 0) + 0.5,
+    );
     await press(routeDay(sheet, 3));
     await page.keyboard.press("Escape");
     await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();

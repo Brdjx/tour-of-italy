@@ -189,14 +189,22 @@ describe("the route sheet", () => {
     await user.click(screen.getByTestId("city-button"));
     await user.click(option("florence"));
 
-    // Back on the route: the change marked, what it does, and one action named by it.
+    // Back on the route: the change marked, when the day now starts, flipped in, what the
+    // travel leaves of it, what it does to day 3, and one action named by it.
     const second = routeDay(2);
     expect(second.dataset.changed).toBe("true");
     expect(second.textContent).toContain("was Rome");
-    expect(second.textContent).toContain("so the day starts at 11:40.");
+    const start = within(second).getByTestId("route-day-start");
+    expect(start.textContent).toBe("Starts at 11:40");
+    expect(start.querySelector('[data-flip="true"]')?.textContent).toBe("11:40");
+    expect(second.querySelector('.city-name[data-flip="true"]')?.textContent).toBe("Florence");
+    expect(second.textContent).toContain("Leaves about 7 h before dinner.");
+    expect(second.textContent).not.toContain("will be planned in Florence");
     expect(routeDay(3).textContent).toContain(
       "Day 3 will be planned again: it now starts after 2 h 10 min of travel.",
     );
+    // Day 1 is as it was: nothing on it flips.
+    expect(routeDay(1).querySelector("[data-flip]")).toBeNull();
     expect(document.activeElement).toBe(second);
     expect(within(sheet()).getByTestId("route-said").textContent).toBe("Day 2 set to Florence.");
     await user.click(within(sheet()).getByRole("button", { name: "Plan day 2 and day 3" }));
@@ -336,8 +344,13 @@ describe("the route sheet", () => {
     await user.click(screen.getByTestId("city-button"));
     await user.click(option("venice"));
     await user.click(within(sheet()).getByTestId("route-reset"));
-    expect(within(sheet()).queryByTestId("route-confirm")).toBeNull();
+    // The foot stays, dimmed until there is a change again.
+    const action = within(sheet()).getByTestId("route-confirm");
+    expect(action.textContent).toBe("No changes to plan");
+    expect(action.getAttribute("aria-disabled")).toBe("true");
     expect(routeDay(3).dataset.changed).toBeUndefined();
+    // Day 3's city flips back to the trip's.
+    expect(routeDay(3).querySelector('.city-name[data-flip="true"]')?.textContent).toBe("Rome");
     expect(within(sheet()).getByTestId("route-said").textContent).toBe("Route reset.");
     await user.click(routeDay(3));
     await user.click(option("venice"));

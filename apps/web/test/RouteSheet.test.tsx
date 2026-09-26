@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { createRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ROUTE_LEDE, RouteSheet } from "../components/RouteSheet";
+import { NOTHING_TO_PLAN, ROUTE_LEDE, RouteSheet } from "../components/RouteSheet";
 import { type DayChoices, dayChoices, type RouteView, routeView } from "../lib/dayRoute";
 import type { RouteLevel } from "../lib/useDayRoute";
 import { ctx, fixturePlan, must } from "./fixtures";
@@ -12,6 +12,14 @@ import { ctx, fixturePlan, must } from "./fixtures";
 // Back and Escape moving between the levels. The page's side is in PlannerApp.route.test.tsx.
 
 afterEach(cleanup);
+
+/** What describes `element`: the text of every element its aria-describedby names. */
+function description(element: HTMLElement): string {
+  return (element.getAttribute("aria-describedby") ?? "")
+    .split(" ")
+    .map((id) => document.getElementById(id)?.textContent ?? "")
+    .join(" ");
+}
 
 /** Three days in Rome. */
 const plan = fixturePlan();
@@ -127,14 +135,18 @@ describe("RouteSheet", () => {
       name: "Day 2, Wed 7 Oct, Florence, was Rome, choose city",
     });
     expect(second.dataset.changed).toBe("true");
-    const facts = document.getElementById(second.getAttribute("aria-describedby") ?? "");
-    expect(facts?.textContent).toContain("Day 2 will be planned in Florence.");
-    expect(facts?.textContent).toContain("so the day starts at 11:40.");
+    // Its start in the day's column, then only what the travel leaves: the leg above says the
+    // train, and "Florence, was Rome" says what changes.
+    expect(description(second)).toBe("Starts at 11:40 Leaves about 7 h before dinner.");
     const third = within(sheet).getByRole("button", {
       name: "Day 3, Thu 8 Oct, Rome, choose city",
     });
     expect(third.dataset.replan).toBe("true");
-    expect(third.textContent).toContain("Day 3 will be planned again");
+    expect(description(third)).toBe(
+      "Starts at 11:40 Day 3 will be planned again: it now starts after 2 h 10 min of travel.Leaves about 7 h before dinner.",
+    );
+    // Opened on the route, nothing has changed under the traveler yet: nothing flips.
+    expect(sheet.querySelector("[data-flip]")).toBeNull();
     const legs = within(sheet)
       .getAllByTestId("route-leg")
       .map((leg) => leg.textContent);
@@ -151,10 +163,24 @@ describe("RouteSheet", () => {
     expect(document.activeElement).toBe(within(sheet).getByRole("heading", { name: "Your route" }));
   });
 
-  it("has no action before a change", async () => {
-    renderSheet(["rome", "rome", "rome"], "route");
+  it("keeps its foot before a change, dimmed, with every day's start", async () => {
+    const { onConfirm, onReset } = renderSheet(["rome", "rome", "rome"], "route");
     const sheet = await screen.findByTestId("route-sheet");
-    expect(within(sheet).queryByTestId("route-confirm")).toBeNull();
+    const action = within(sheet).getByTestId("route-confirm");
+    expect(action.textContent).toBe(NOTHING_TO_PLAN);
+    expect(action.getAttribute("aria-disabled")).toBe("true");
+    const reset = within(sheet).getByTestId("route-reset");
+    expect(reset.getAttribute("aria-disabled")).toBe("true");
+    const user = userEvent.setup();
+    await user.click(action);
+    await user.click(reset);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onReset).not.toHaveBeenCalled();
+    expect(
+      within(sheet)
+        .getAllByTestId("route-day-start")
+        .map((start) => start.textContent),
+    ).toEqual(["Starts at 09:30", "Starts at 09:30", "Starts at 09:30"]);
     expect(within(sheet).queryByTestId("route-travel")).toBeNull();
     expect(
       within(sheet)

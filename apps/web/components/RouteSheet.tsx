@@ -7,6 +7,7 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import type { CityRow, DayChoices, RouteRow, RouteView } from "../lib/dayRoute";
 import type { RouteLevel } from "../lib/useDayRoute";
@@ -15,16 +16,17 @@ import { Sheet } from "./Sheet";
 
 // The route sheet (decision 16): a city for each day, from the city on any day's line. One sheet
 // with two levels, a bottom sheet on phones and a centred panel from 768 px (Sheet). The route
-// view lists the three days as a small board (the day and its date, then its city with the
-// onward chevron), with the travel into each day on a dashed leg between them, and on each day
-// the route changes: the city it replaces, what happens to it and its travel as facts. A day
-// opens its own list of cities, the child level, inside the same sheet: the trip's city for the
-// day first, with New ideas for this day; every city with how the day meets its neighbours and
-// its places, then its travel and what else it plans again as warnings; and a city the planner
-// refuses in place with its reason and the way out, never hidden. The sheet opens on the tapped
-// day's cities, brought forward over the route, so changing one day is a city and then the
-// route's one action. Back, and Escape, return to the route; Escape there closes. Closing without
-// the action leaves the trip as it was.
+// view lists the three days as a small board (the day, its date and when it starts, then its
+// city with the onward chevron), with the travel into each day on a dashed leg between them, and
+// on each day the route changes: the city it replaces, what happens to it and what its travel
+// leaves of it. A city or a start the last choice changed flips in, as changed times do on the
+// day's board. A day opens its own list of cities, the child level, inside the same sheet: the
+// trip's city for the day first, with New ideas for this day; every city with how the day meets
+// its neighbours and its places, then its travel and what else it plans again as warnings; and a
+// city the planner refuses in place with its reason and the way out, never hidden. The sheet
+// opens on the tapped day's cities, brought forward over the route, so changing one day is a
+// city and then the route's one action, in the foot the route always has. Back, and Escape,
+// return to the route; Escape there closes. Closing without the action leaves the trip as it was.
 
 export const ROUTE_SHEET_ID = "route-sheet";
 
@@ -32,6 +34,9 @@ export const ROUTE_SHEET_ID = "route-sheet";
 // takes only places the trip does not have yet, and travel is the traveler's to spend.
 export const ROUTE_LEDE =
   "Choose a city for each day. Days that change are planned again with places your trip does not have yet, and travel between cities comes out of the day.";
+
+/** The route's action while it has no change to plan, dimmed in place. */
+export const NOTHING_TO_PLAN = "No changes to plan";
 
 interface RouteSheetProps {
   open: boolean;
@@ -60,6 +65,9 @@ export function RouteSheet(props: RouteSheetProps) {
   const titleId = useId();
   const tallest = useRef(0);
   const shown = useRef<{ level: RouteLevel; day: number } | null>(null);
+  // Each day's city and start as the route last showed them (the trip's own when the sheet
+  // opens), so a choice flips only what it changed.
+  const board = useRef<Map<number, Shown> | null>(null);
 
   // Focus moves with the level: to the heading of a day's cities, and back to that day's row in
   // the route. The sheet puts focus on the heading as it opens (Sheet).
@@ -80,17 +88,32 @@ export function RouteSheet(props: RouteSheetProps) {
 
   // Decision: the sheet keeps the tallest height it has had since it opened, so going between the
   // levels never shrinks it under the traveler's finger (the Steady Sheet Rule). It grows when a
-  // level needs more, and starts again the next time it opens.
+  // level needs more, and starts again the next time it opens. The height is the whole sheet's,
+  // not the body's, so the route's foot stays pinned at the bottom of it: the first build kept
+  // the body's height instead, and the route under a taller list of cities ended in about 470 px
+  // of blank sheet with no foot (design review, 2026-09-26). city.css caps it at the sheet's own
+  // limit, so a screen that turns shorter is never overrun.
   useLayoutEffect(() => {
-    const body = bodyRef.current;
-    if (!body) return;
-    body.style.minHeight = "";
+    const sheet = bodyRef.current?.closest("dialog");
+    if (!sheet) return;
+    sheet.style.removeProperty("--route-sheet-min");
     if (!open) {
       tallest.current = 0;
       return;
     }
-    tallest.current = Math.max(tallest.current, body.offsetHeight);
-    if (tallest.current > 0) body.style.minHeight = `${tallest.current}px`;
+    tallest.current = Math.max(tallest.current, sheet.offsetHeight);
+    if (tallest.current > 0) {
+      sheet.style.setProperty("--route-sheet-min", `${tallest.current}px`);
+    }
+  });
+
+  // What the route shows, kept after each render of it for the next choice to flip against.
+  useLayoutEffect(() => {
+    if (!open || view === null) {
+      if (!open) board.current = null;
+      return;
+    }
+    if (board.current === null || level === "route") board.current = boardOf(view);
   });
 
   // Escape goes back one level before it closes the sheet.
@@ -112,7 +135,7 @@ export function RouteSheet(props: RouteSheetProps) {
   // The level slides in from the side it was reached from; the sheet's first level drops in.
   const entry = { "--from": onDay ? 1 : -1 } as CSSProperties;
   const footer =
-    !onDay && view?.changed ? (
+    !onDay && view ? (
       <RouteActions view={view} onReset={reset} onConfirm={props.onConfirm} />
     ) : undefined;
   return (
@@ -183,7 +206,7 @@ export function RouteSheet(props: RouteSheetProps) {
             {onDay && choices ? (
               <DayCities choices={choices} onChoose={props.onChoose} onIdeas={props.onIdeas} />
             ) : (
-              <RouteDays view={view} onOpenDay={props.onOpenDay} />
+              <RouteDays view={view} before={board.current} onOpenDay={props.onOpenDay} />
             )}
           </div>
         )}
@@ -195,8 +218,26 @@ export function RouteSheet(props: RouteSheetProps) {
   );
 }
 
+/** A day's city and start as the route showed them. */
+interface Shown {
+  name: string;
+  start: string;
+}
+
+function boardOf(view: RouteView): Map<number, Shown> {
+  return new Map(view.rows.map((row) => [row.day, { name: row.name, start: row.start }]));
+}
+
 /** The route: each day as a row of the small board, with the travel into it above it. */
-function RouteDays({ view, onOpenDay }: { view: RouteView; onOpenDay: (day: number) => void }) {
+function RouteDays({
+  view,
+  before,
+  onOpenDay,
+}: {
+  view: RouteView;
+  before: ReadonlyMap<number, Shown> | null;
+  onOpenDay: (day: number) => void;
+}) {
   return (
     <div className="route-view" data-testid="route-view">
       <p className="city-lede">{ROUTE_LEDE}</p>
@@ -214,7 +255,7 @@ function RouteDays({ view, onOpenDay }: { view: RouteView; onOpenDay: (day: numb
                 <span className="route-leg-text">{row.legIn}</span>
               </p>
             ) : null}
-            <RouteDay row={row} onOpen={() => onOpenDay(row.day)} />
+            <RouteDay row={row} before={before?.get(row.day)} onOpen={() => onOpenDay(row.day)} />
           </li>
         ))}
       </ol>
@@ -227,8 +268,20 @@ function RouteDays({ view, onOpenDay }: { view: RouteView; onOpenDay: (day: numb
   );
 }
 
-/** One day of the route: a button named by the day, its date and its city, opening its cities. */
-function RouteDay({ row, onOpen }: { row: RouteRow; onOpen: () => void }) {
+/**
+ * One day of the route: a button named by the day, its date and its city, opening its cities,
+ * described by when it starts and its facts.
+ */
+function RouteDay({
+  row,
+  before,
+  onOpen,
+}: {
+  row: RouteRow;
+  before: Shown | undefined;
+  onOpen: () => void;
+}) {
+  const startId = useId();
   const factsId = useId();
   const hasFacts = row.note !== null || row.facts.length > 0 || row.refusal !== null;
   const was = row.was ? `, was ${row.was}` : "";
@@ -238,7 +291,7 @@ function RouteDay({ row, onOpen }: { row: RouteRow; onOpen: () => void }) {
       className="route-day"
       onClick={onOpen}
       aria-label={`Day ${row.day + 1}, ${row.date}, ${row.name}${was}, choose city`}
-      aria-describedby={hasFacts ? factsId : undefined}
+      aria-describedby={hasFacts ? `${startId} ${factsId}` : startId}
       data-testid="route-day"
       data-day={row.day}
       data-anchor-id={row.anchorId}
@@ -248,10 +301,14 @@ function RouteDay({ row, onOpen }: { row: RouteRow; onOpen: () => void }) {
       <span className="route-day-when">
         <span className="route-day-title">Day {row.day + 1}</span>
         <span className="route-day-date">{row.date}</span>
+        <span id={startId} className="route-day-start t-time" data-testid="route-day-start">
+          <span className="sr-only">Starts at </span>
+          <Flip key={row.start} value={row.start} before={before?.start} />
+        </span>
       </span>
       <span className="route-day-main">
         <span className="route-day-head">
-          <span className="city-name t-tab">{row.name}</span>
+          <Flip key={row.name} value={row.name} before={before?.name} className="city-name t-tab" />
           <ChevronIcon size={16} className="city-option-chevron" />
           {row.was ? <span className="route-was">was {row.was}</span> : null}
         </span>
@@ -275,6 +332,28 @@ function RouteDay({ row, onOpen }: { row: RouteRow; onOpen: () => void }) {
   );
 }
 
+/**
+ * A city or a start on the route board, flipping in when it differs from what the board showed
+ * before (`before`), as changed times do on the day's board. Keyed by its value, so each new
+ * value mounts once and decides once; a value the board showed already stays still.
+ */
+function Flip({
+  value,
+  before,
+  className,
+}: {
+  value: string;
+  before: string | undefined;
+  className?: string;
+}) {
+  const [flip] = useState(() => before !== undefined && before !== value);
+  return (
+    <span className={className} data-flip={flip ? "true" : undefined}>
+      {value}
+    </span>
+  );
+}
+
 /** Reset, and the route's one action, named by what it plans. */
 function RouteActions({
   view,
@@ -285,12 +364,17 @@ function RouteActions({
   onReset: () => void;
   onConfirm: () => void;
 }) {
+  // Decision: the foot is always there on the route, both pills dimmed in place until there is a
+  // change to plan ("No changes to plan"), so the route ends where the sheet does and nothing
+  // arrives under the finger with the first change (the Steady Sheet Rule).
+  const ready = view.changed && view.allowed;
   return (
     <div className="route-actions">
       <button
         type="button"
         className="pill pill--quiet route-reset"
-        onClick={onReset}
+        onClick={view.changed ? onReset : undefined}
+        aria-disabled={view.changed ? undefined : true}
         data-testid="route-reset"
       >
         Reset
@@ -298,11 +382,11 @@ function RouteActions({
       <button
         type="button"
         className="pill pill--fill route-confirm"
-        onClick={view.allowed ? onConfirm : undefined}
-        aria-disabled={view.allowed ? undefined : true}
+        onClick={ready ? onConfirm : undefined}
+        aria-disabled={ready ? undefined : true}
         data-testid="route-confirm"
       >
-        {view.action}
+        {view.changed ? view.action : NOTHING_TO_PLAN}
       </button>
     </div>
   );
