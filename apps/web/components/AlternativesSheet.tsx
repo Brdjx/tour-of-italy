@@ -8,11 +8,19 @@ import { ClockText } from "./Clock";
 import { CloseIcon } from "./icons";
 
 // The swap picker: a modal sheet listing places that can replace a stop, each with the time it
-// would take and why it fits. A bottom sheet on phones, a side sheet on wide screens. While it is
+// would take and why it fits. A place that gives the day the lunch or dinner it lacks comes first
+// and starts its line with that meal, as a stop's line on the board does ("Dinner, restaurant in
+// Cannaregio"). A bottom sheet on phones, a side sheet on wide screens. While it is
 // open the rest of the page is inert, so focus and clicks cannot reach it; Escape closes it from
 // anywhere, the backdrop closes it, and focus goes back where it came from.
 
 export const EMPTY_ALTERNATIVES = "Nothing else fits this time slot. Try removing a stop first.";
+
+const MEAL_WORD = { lunch: "Lunch", dinner: "Dinner" } as const;
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
 
 interface AlternativesSheetProps {
   stopName: string;
@@ -157,7 +165,7 @@ function Option({
   date: string;
   onChoose: (placeId: string) => void;
 }) {
-  const { place, stop } = alternative;
+  const { place, stop, meal } = alternative;
   const notes = placeNotes(place).map((note) => note.label);
   // The sheet shows no rating and no leg, so only the type-and-area sentence is a repeat here.
   const reason = displayReason(stop.reason, stop.reasonSource === "ai", {
@@ -173,7 +181,18 @@ function Option({
       data-testid="alternative-option"
     >
       <span className="block t-tab text-base text-fg">{place.name}</span>
-      <span className="block text-sm text-muted">{placeSubtitle(place)}</span>
+      <span className="block text-sm text-muted">
+        {meal ? (
+          <>
+            <span className="font-medium text-fg" data-testid="alternative-meal">
+              {MEAL_WORD[meal]}
+            </span>
+            , {lowerFirst(placeSubtitle(place))}
+          </>
+        ) : (
+          placeSubtitle(place)
+        )}
+      </span>
       <span className="mt-1 block text-sm text-fg">
         <time dateTime={clockDateTime(date, stop.start)} className="tabular">
           <ClockText minutes={stop.start} />

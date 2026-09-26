@@ -1,4 +1,4 @@
-import { alternativesFor } from "@italy/planner";
+import { alternativesFor, type DayPlan, removeStop, rescheduleDay } from "@italy/planner";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -146,6 +146,32 @@ describe("AlternativesSheet", () => {
       expect(name).toBeTruthy();
       if (reason && !reason.startsWith("Note:")) expect(reason).not.toContain(`${subtitle}.`);
     }
+  });
+
+  it("starts the line of a place that gives the day its missing dinner with the meal", () => {
+    // Decision 17: a day with its dinner taken off offers places to eat first for a late visit.
+    const plan = fixturePlan();
+    const day = plan.days[0];
+    const dinner = day?.stops.findIndex((stop) => stop.role === "dinner") ?? -1;
+    expect(dinner).toBeGreaterThan(0);
+    const edited = rescheduleDay(plan, 0, removeStop(day as DayPlan, dinner), ctx).itinerary;
+    const roles = edited.days[0]?.stops.map((stop) => stop.role) ?? [];
+    const alternatives = alternativesFor(edited, 0, roles.lastIndexOf("visit"), ctx);
+    expect(alternatives[0]?.meal).toBe("dinner");
+    render(
+      <AlternativesSheet
+        stopName="A visit"
+        date={edited.days[0]?.date ?? ""}
+        alternatives={alternatives}
+        onChoose={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const [first] = screen.getAllByTestId("alternative-option");
+    const subtitle = first?.children[1]?.textContent ?? "";
+    expect(subtitle).toMatch(/^Dinner, [a-z]/);
+    const meals = screen.queryAllByTestId("alternative-meal").length;
+    expect(meals).toBe(alternatives.filter((one) => one.meal !== null).length);
   });
 
   it("closes from the close button and the backdrop", async () => {
