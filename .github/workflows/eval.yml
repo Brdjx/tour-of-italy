@@ -2,6 +2,9 @@ name: eval
 
 # Live evals against the Claude API. Costs money, so it never runs on pull requests and is never a
 # required check. CI runs the offline replay (pnpm eval:replay) instead.
+# Decision: started by hand only. A weekly schedule (Mondays 06:00 UTC) would spend on the key with
+# nobody watching, including while the repository is under review, so it was removed on 2026-09-25.
+# Run it from the Actions tab when a prompt or model change needs fresh numbers.
 on:
   workflow_dispatch:
     inputs:
@@ -16,9 +19,6 @@ on:
         description: Runs per case (1 to 10)
         type: number
         default: 3
-  schedule:
-    # Mondays 06:00 UTC.
-    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -42,8 +42,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      # Decision: the weekly run uses the default model only, to cap unattended spend. Model
-      # comparisons are started by hand with workflow_dispatch.
       MODEL: ${{ inputs.model || 'claude-sonnet-5' }}
       RUNS: ${{ inputs.runs || 3 }}
     steps:

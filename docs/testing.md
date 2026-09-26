@@ -72,7 +72,7 @@ The planner runs in browsers in every time zone, and a single `getDay()` instead
 
 ## What is deliberately not tested, and why
 
-- **The live Claude API in CI.** It costs money and its answers vary, so CI uses the scripted client and a fake Messages API over real HTTP (`integration/anthropicHttp.test.ts`). Live behavior is checked on demand with `pnpm --filter @italy/api live-smoke` (it spends real tokens) and measured by the eval workflow (`.github/workflows/eval.yml`, weekly and on demand, outside CI, so it never gates a merge or a deploy).
+- **The live Claude API in CI.** It costs money and its answers vary, so CI uses the scripted client and a fake Messages API over real HTTP (`integration/anthropicHttp.test.ts`). Live behavior is checked on demand with `pnpm --filter @italy/api live-smoke` (it spends real tokens) and measured by the eval workflow (`.github/workflows/eval.yml`, started by hand only, outside CI, so it never gates a merge or a deploy).
 - **Real AWS during tests.** `terraform test` uses mocked providers, so it checks what the code asks for, not what AWS accepts. The real account is checked by the plan job on pull requests and by the post-deploy smoke test.
 - **Real travel times.** The travel model is straight-line distance in four bands. Tests check the model is applied consistently, not that it matches train timetables.
 - **Automated mutation testing of the test suite.** Stryker is not set up. The validator has its own mutation suite (above), which fails if any error code lacks a corruption.
