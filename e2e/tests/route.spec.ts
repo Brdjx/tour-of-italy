@@ -1,9 +1,11 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../support/fixtures";
 import {
   BADGE,
   CHECKED,
+  closeMoreOptions,
   expectTimesInOrder,
+  openMoreOptions,
   openPlanner,
   type Press,
   placeIds,
@@ -13,22 +15,32 @@ import {
   type StopData,
 } from "../support/plan";
 
-// Changing a day's city (F13), against the local API with the scripted model (fixture mode):
-// the city on a day's line opens Change city, choosing a city plans that day again through
-// POST /api/plan/day, and the result is one edit. The fixture plan for the pinned date is two
-// days in Rome and one in Florence, so day 2 can move to Florence at once, and a third city can
-// take it too: travel is the traveler's choice (decision 16). What would break the product: a
-// place on two days, a day the page did not check, an edit Undo cannot take back, or a saved link
-// that loses the new day.
+// A city for each day, set by hand (F13, decision 16), against the local API with the scripted
+// model (fixture mode): the city on a day's line opens the route sheet on that day's cities over
+// the route; a city sets that day in the route, which says what it does; its one action plans the
+// days it names one request at a time, and the result is one edit. The fixture plan for the
+// pinned date is two days in Rome and one in Florence. What would break the product: a city
+// refused for its travel, a place on two days, a day the page did not check, an edit Undo cannot
+// take back, or a saved link that loses the new days.
 
-/** Opens Change city for a day (1-based) and returns the sheet. */
-async function openCityFor(page: Page, press: Press, day: number) {
+/** Opens the route sheet from a day's city (1-based): that day's cities, over the route. */
+async function openCitiesFor(page: Page, press: Press, day: number): Promise<Locator> {
   await readDay(page, press, day);
   await press(page.getByTestId("city-button"));
-  const sheet = page.getByTestId("city-sheet");
+  const sheet = page.getByTestId("route-sheet");
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole("heading", { name: `Change city for day ${day}` })).toBeFocused();
+  await expect(sheet.getByRole("heading", { name: `City for day ${day}` })).toBeFocused();
   return sheet;
+}
+
+/** A city in the day's list. */
+function city(sheet: Locator, anchorId: string): Locator {
+  return sheet.locator(`[data-testid="city-option"][data-anchor-id="${anchorId}"]`);
+}
+
+/** A day (1-based) in the route view. */
+function routeDay(sheet: Locator, day: number): Locator {
+  return sheet.locator(`[data-testid="route-day"][data-day="${day - 1}"]`);
 }
 
 /** Every place id of the trip, in day order. */
@@ -36,80 +48,227 @@ function allIds(trip: readonly (readonly StopData[])[]): string[] {
   return trip.flatMap((day) => placeIds(day));
 }
 
-test.describe("changing a day's city", () => {
-  test.beforeEach(async ({ page, press }) => {
-    await openPlanner(page);
-    await planTrip(page, press);
-  });
+/** Waits for a run's one edit to land, by its message in the live region. */
+async function routeDone(page: Page, message: string): Promise<void> {
+  await expect(page.getByTestId("live-region")).toContainText(message, { timeout: 30_000 });
+}
 
-  test("moves day 2 to Florence with new stops, none repeated anywhere, and Undo brings the trip back", async ({
+test.describe("setting a city for each day", () => {
+  test("gives every day a new city, with no place anywhere twice, and Undo brings the trip back", async ({
     page,
     press,
   }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
     const before = await readTrip(page, press);
-    const sheet = await openCityFor(page, press, 2);
-    const current = sheet.getByTestId("city-current");
-    await expect(current).toContainText("Rome");
-    await expect(current).toContainText("This day");
-    // A third city can take the day too: it points onward, with its travel as a fact.
-    const milan = sheet.locator('[data-testid="city-option"][data-anchor-id="milan"]');
-    await expect(milan).toHaveAttribute("data-allowed", "true");
-    await expect(milan.locator(".city-option-chevron")).toBeVisible();
-    await expect(milan).toContainText("from Rome");
-    // Florence can take the day: it points onward, and its line says both sides of the day.
-    const florence = sheet.locator('[data-testid="city-option"][data-anchor-id="florence"]');
-    await expect(florence).toHaveAttribute("data-allowed", "true");
-    await expect(florence.locator(".city-option-chevron")).toBeVisible();
-    await expect(florence).toContainText("from Rome, same city as day 3");
+    const sheet = await openCitiesFor(page, press, 1);
+    // Travel is the traveler's choice: every city can take day 1 and points onward.
+    for (const anchorId of ["florence", "milan", "venice", "bologna"]) {
+      await expect(city(sheet, anchorId)).toHaveAttribute("data-allowed", "true");
+      await expect(city(sheet, anchorId).locator(".city-option-chevron")).toBeVisible();
+    }
+    await press(city(sheet, "florence"));
+    await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();
+    await expect(routeDay(sheet, 1)).toBeFocused();
+    await press(routeDay(sheet, 2));
+    await press(city(sheet, "venice"));
+    await press(routeDay(sheet, 3));
+    await press(city(sheet, "milan"));
+    await expect(routeDay(sheet, 3)).toContainText("was Florence");
+    await expect(routeDay(sheet, 2)).toContainText("so the day starts at");
+    await expect(sheet.getByTestId("route-travel")).toContainText("Travel between cities:");
 
-    await press(florence);
+    // Held, so the progress can be read: day 1 plans, days 2 and 3 wait their turn.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/api/plan/day*", async (route) => {
+      await held;
+      await route.continue();
+    });
+    await press(sheet.getByRole("button", { name: "Plan all three days" }));
     await expect(sheet).toBeHidden();
-    await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
-    await expect(page.getByTestId("day-subtitle")).toContainText("Day 2 in Florence");
-    await expect(page.getByTestId("live-region")).toContainText("Day 2 now in Florence.");
-    await expect(page.getByTestId("source-badge")).toContainText(BADGE.edited);
+    await expect(page.getByTestId("day-planning")).toHaveText(
+      "Planning day 1 in Florence (1 of 3)",
+    );
+    await expect(page.getByTestId("day-tab-3")).toHaveAttribute("data-busy", "waiting");
+    release();
+    await routeDone(page, "Route changed: Florence, Venice, Milan.");
+    await page.unroute("**/api/plan/day*");
 
     const after = await readTrip(page, press);
-    const [day1, day2, day3] = after;
-    // Day 2's stops are all new; day 1 is untouched; day 3 keeps its places.
-    expect(placeIds(day2 ?? []).some((id) => placeIds(before[1] ?? []).includes(id))).toBe(false);
-    expect(day1).toEqual(before[0]);
-    expect(placeIds(day3 ?? [])).toEqual(placeIds(before[2] ?? []));
-    // No place on two days, and every day still runs in order with nothing flagged.
+    // Day 1 may take the Florence places day 3 gave up; no place is on two days.
     const ids = allIds(after);
     expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
-    for (const day of after) expectTimesInOrder(day);
+    for (const [index, name] of ["Florence", "Venice", "Milan"].entries()) {
+      await readDay(page, press, index + 1);
+      await expect(page.getByTestId("day-subtitle")).toContainText(`Day ${index + 1} in ${name}`);
+      await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
+      expectTimesInOrder(after[index] ?? []);
+    }
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
+    await expect(page.getByTestId("source-badge")).toContainText(BADGE.edited);
 
-    await readDay(page, press, 2);
     await press(page.getByTestId("undo-button"));
-    await expect(page.getByTestId("day-subtitle")).toContainText("Day 2 in Rome");
     await expect(page.getByTestId("day-source")).toHaveCount(0);
     expect(await readTrip(page, press)).toEqual(before);
     await expect(page.getByTestId("source-badge")).toHaveText(BADGE.ai + CHECKED);
   });
 
-  test("gives new ideas for a day, and the saved link reopens the trip with them", async ({
+  test("moves one day and plans the next again for its travel, while the rest waits", async ({
     page,
     press,
   }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
     const before = await readTrip(page, press);
-    const sheet = await openCityFor(page, press, 1);
-    await press(sheet.getByTestId("city-new-ideas"));
-    await expect(sheet).toBeHidden();
+    const sheet = await openCitiesFor(page, press, 1);
+    await press(city(sheet, "florence"));
+    await expect(routeDay(sheet, 2)).toContainText(
+      "Day 2 will be planned again: it now starts after 2 h 10 min of travel.",
+    );
+    await press(sheet.getByRole("button", { name: "Plan day 1 and day 2" }));
+    await routeDone(page, "Day 1 now in Florence. Day 2 planned again.");
+
+    const after = await readTrip(page, press);
+    expect(placeIds(after[0] ?? []).some((id) => placeIds(before[0] ?? []).includes(id))).toBe(
+      false,
+    );
+    expect(placeIds(after[2] ?? [])).toEqual(placeIds(before[2] ?? []));
+    const ids = allIds(after);
+    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
+    for (const day of after) expectTimesInOrder(day);
+    // Day 2 now starts with the train from Florence, and says what that leaves of it.
+    await readDay(page, press, 2);
+    await expect(page.getByTestId("transfer-note")).toContainText("from Florence");
+    await expect(page.getByTestId("transfer-left")).toHaveText(/^Leaves about \d+ h/);
     await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
-    await expect(page.getByTestId("live-region")).toContainText("New ideas for day 1.");
+    await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
+  });
+
+  test("goes back a level with Back and Escape, and closing leaves the trip as it was", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
+    const before = await readTrip(page, press);
+    const sheet = await openCitiesFor(page, press, 2);
+    await press(sheet.getByTestId("route-back"));
+    await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();
+    await expect(routeDay(sheet, 2)).toBeFocused();
+    await press(routeDay(sheet, 3));
+    await expect(sheet.getByRole("heading", { name: "City for day 3" })).toBeFocused();
+    await press(city(sheet, "venice"));
+    await expect(sheet.getByTestId("route-confirm")).toHaveText("Plan day 3");
+    await press(routeDay(sheet, 3));
+    await page.keyboard.press("Escape");
+    await expect(sheet.getByRole("heading", { name: "Your route" })).toBeVisible();
+    await expect(routeDay(sheet, 3)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(page.getByTestId("city-button")).toBeFocused();
+    expect(await readTrip(page, press)).toEqual(before);
+  });
+
+  test("refuses a city that would lose a place asked for, says why and the way out, and takes it once that is done", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    // The Uffizi as a must-see: the fixture plan puts it on day 1, the trip's only Florence day.
+    const mustSee = (await openMoreOptions(page, press)).getByTestId("must-see-field");
+    await mustSee.getByRole("combobox").fill("Uffizi");
+    await press(mustSee.getByRole("option", { name: "Uffizi Gallery" }).first());
+    await closeMoreOptions(page, press);
+    await planTrip(page, press);
+    const sheet = await openCitiesFor(page, press, 1);
+    const rome = city(sheet, "rome");
+    await expect(rome).toHaveAttribute("data-allowed", "false");
+    await expect(rome.locator(".city-option-chevron")).toHaveCount(0);
+    await expect(rome).toContainText(
+      "Day 1 has Uffizi Gallery, which you asked for, and no other day of this route is in Florence. Keep day 1 in Florence, or remove Uffizi Gallery from day 1 first.",
+    );
+    await expect(city(sheet, "milan")).toContainText("This day has a place you asked for.");
+    await rome.scrollIntoViewIfNeeded();
+    await press(rome, { force: true });
+    await expect(sheet.getByRole("heading", { name: "City for day 1" })).toBeVisible();
+
+    // The way out: day 2 in Florence can hold the Uffizi, so day 1 can then go to Rome.
+    await press(sheet.getByTestId("route-back"));
+    await press(routeDay(sheet, 2));
+    await press(city(sheet, "florence"));
+    await press(routeDay(sheet, 1));
+    await expect(city(sheet, "rome")).toHaveAttribute("data-allowed", "true");
+    await press(city(sheet, "rome"));
+    await expect(routeDay(sheet, 1)).toContainText("was Florence");
+    await press(sheet.getByTestId("route-confirm"));
+    await routeDone(page, "Route changed: Rome, Florence, Rome.");
+    const trip = await readTrip(page, press);
+    expect(allIds(trip)).toContain("place_026");
+    const ids = allIds(trip);
+    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
+  });
+
+  test("plans the days on this device when the API cannot be reached, and says so", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
+    const before = await readTrip(page, press);
+    await page.route("**/api/plan/day*", (route) => route.abort("connectionreset"));
+    const sheet = await openCitiesFor(page, press, 1);
+    await press(city(sheet, "venice"));
+    await press(sheet.getByTestId("route-confirm"));
+    await routeDone(page, "Planned without AI on this device.");
+    await readDay(page, press, 1);
+    await expect(page.getByTestId("day-source")).toHaveText(
+      "Planned again on this device, offline",
+    );
+    await expect(page.getByTestId("day-subtitle")).toContainText("Day 1 in Venice");
     const after = await readTrip(page, press);
     expect(placeIds(after[0] ?? []).some((id) => placeIds(before[0] ?? []).includes(id))).toBe(
       false,
     );
     const ids = allIds(after);
     expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
+    await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
+  });
+
+  test("gives new ideas for a day, and a saved link of a three-city trip reopens it", async ({
+    page,
+    press,
+  }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
+    const before = await readTrip(page, press);
+    let sheet = await openCitiesFor(page, press, 2);
+    await press(sheet.getByTestId("city-new-ideas"));
+    await expect(sheet).toBeHidden();
+    await routeDone(page, "New ideas for day 2.");
+    await expect(page.getByTestId("day-source")).toHaveText("Planned again with AI");
+    const ideas = await readTrip(page, press);
+    expect(placeIds(ideas[1] ?? []).some((id) => placeIds(before[1] ?? []).includes(id))).toBe(
+      false,
+    );
+
+    // Day 2 to Venice and day 3 to Milan: with day 1 in Rome, three cities.
+    sheet = await openCitiesFor(page, press, 2);
+    await press(city(sheet, "venice"));
+    await press(routeDay(sheet, 3));
+    await press(city(sheet, "milan"));
+    await press(sheet.getByTestId("route-confirm"));
+    await routeDone(page, "Route changed: Rome, Venice, Milan.");
+    const after = await readTrip(page, press);
+    const ids = allIds(after);
+    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
 
     await press(page.getByTestId("share-button"));
     await expect(page.getByTestId("share-button")).toHaveText(/Link copied/);
     await expect(page.getByTestId("share-note")).toHaveText(
-      "Day 1 was planned again, so the saved trip shows the rules' why lines for it.",
+      "Days 2 and 3 were planned again, so the saved trip shows the rules' why lines for them.",
     );
     const link = await page.evaluate(
       () => (window as unknown as { __copiedText?: string }).__copiedText ?? "",
@@ -119,29 +278,12 @@ test.describe("changing a day's city", () => {
     const other = await page.context().newPage();
     await other.goto(link);
     await expect(other.getByTestId("plan-view")).toBeVisible();
-    await expect(other.getByTestId("source-badge")).toContainText(`${BADGE.savedAi}`);
+    await expect(other.getByTestId("source-badge")).toContainText(BADGE.savedAi);
     await expect(other.getByTestId("source-badge")).toContainText("edited");
     expect(await readTrip(other, press)).toEqual(after);
-  });
-
-  test("plans the day on this device when the API cannot be reached, and says so", async ({
-    page,
-    press,
-  }) => {
-    const before = await readTrip(page, press);
-    await page.route("**/api/plan/day*", (route) => route.abort("connectionreset"));
-    const sheet = await openCityFor(page, press, 2);
-    await press(sheet.locator('[data-testid="city-option"][data-anchor-id="florence"]'));
-    await expect(page.getByTestId("day-source")).toHaveText(
-      "Planned again on this device, offline",
-    );
-    await expect(page.getByTestId("day-subtitle")).toContainText("Day 2 in Florence");
-    const after = await readTrip(page, press);
-    expect(placeIds(after[1] ?? []).some((id) => placeIds(before[1] ?? []).includes(id))).toBe(
-      false,
-    );
-    const ids = allIds(after);
-    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
-    await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
+    for (const [index, name] of ["Rome", "Venice", "Milan"].entries()) {
+      await readDay(other, press, index + 1);
+      await expect(other.getByTestId("day-subtitle")).toContainText(`Day ${index + 1} in ${name}`);
+    }
   });
 });
