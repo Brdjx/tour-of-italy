@@ -47,7 +47,7 @@ data/italy.json
 | `schemas.ts` | Zod schemas for requests and itineraries, with compile-time checks against the types. |
 | `dataSchemas.ts` | Zod schemas for places and data notes, and the type-check helpers both schema files use. |
 | `config.ts` | Hard-rule tunables: trip length, pace windows, meal windows, travel bands, bases, score weights, request limits. |
-| `dataPolicy.ts` | Data-cleaning tables: visit lengths, derived windows, reviewed meal places and corrections. |
+| `dataPolicy.ts` | Data-cleaning tables: visit lengths, derived windows, reviewed meal places and corrections, and the owner's flagship places. |
 | `planPolicy.ts` | Tunables only the rules-only planner reads: idle limits, transfer cost, the last-chance margin, sunset table, day-rule times. |
 | `clock.ts` | Clock text to minutes and back. |
 | `time.ts` | Calendar maths in UTC and `hoursOn`, the one answer to "open on this date". |
@@ -55,7 +55,7 @@ data/italy.json
 | `anchors.ts` | Bases, transfers between them, and `dayOrigin`, where every day starts and ends. |
 | `context.ts` | `PlannerContext`: places, bases, and lookups built once per dataset and frozen. |
 | `constraints.ts` | Hard-rule predicates shared by the scheduler, validator, swaps, and the AI shortlist. |
-| `score.ts` | How much a traveler would want a place next (interest, rating, iconic, distance, repeats). |
+| `score.ts` | How much a traveler would want a place next (interest, rating, iconic, the owner's flagship places, distance, repeats). |
 | `reasons.ts` | Rule-based reason text per stop: the request, what the stop's date means for it (shut on the trip's other days at its base, opening later that weekday, starting as or soon after it opens), the listing's iconic and local favorite tags, the day's highest rating, the rating, the listing's morning or evening tag when at least half the visit is then, and an outing's meal. |
 | `schedule.ts` | `scheduleDay`: times a fixed order; `inferRole` decides visit, lunch, or dinner from arrival. |
 | `scheduleChecks.ts` | The problems `scheduleDay` reports while timing. |
@@ -134,6 +134,7 @@ Each rule was taken out of a copy of the planner as it was at commit 5df0a0b, an
 | | The meal promise: take a stop only if the meal on offer stays reachable | `dayPicks.ts` `keepsMeals` | Without it a long visit runs through the only lunch the day could reach | days missing a meal +2.8 [2.5 to 3.0] (must); lunch +2.3 (thin, must) | none |
 | | Meal flexibility: the due meal goes to the meal place with the fewest meals left on other days | `dayPicks.ts` `leastFlexible`, `tripWalk.ts` `mealsElsewhere` | Florence has four lunch places and Venice three; a lunch at a place that could also be a later dinner can leave that day without one | alone +1.2 [1.1 to 1.2] (mixed), under the bar; in the final planner, days missing a meal +1.6, +1.9, +2.3 (mixed) | none |
 | | A morning sight's last chance: a nearly as good morning sight that no later day can hold beats the top pick | `dayPicks.ts` `lastChance`, `tripWalk.ts` `visitsOn` | The Vatican Museums close on Sundays and must start by noon; days 2 and 3 each left them to the other | alone 0.07 iconic sights a trip, under the bar; the place-level check: in 100% of Rome trips starting on a Sunday, then in 0% | none |
+| | The owner's flagship places (the Vatican Museums) score 0.06 more, unless asked for | `score.ts` `scoreParts`, `dataPolicy.ts` `FLAGSHIP_PLACES` | The owner's call: extra emphasis for the Vatican. Added after the rules were measured; the numbers are the final planner without and with it (below) | Rome trips where the Vatican Museums are open, within budget, and not asked for: 63.5% [62.3 to 65.0] include them (holiday), not 75.0%; 75.5% (mixed), not 79.6% | none past the bar: at most 0.02 fewer visits on day 1 (mixed). The Mercato Testaccio lunch, Castel Sant'Angelo, and the Palatine Hill are each in 1.2 to 1.6 points fewer holiday trips |
 | Day rules | Outings (4 hours or more) start by noon | `dayLimits.ts`, `dayRules.ts` | Taste: an outing that starts at 15:00 is the whole day | binds in +8.0 [7.8 to 8.0] of trips (mixed); nothing else moves 0.1 | none |
 | | Parks and outdoor experiences end by sunset | `dayRules.ts` `daylightEnd` | Fact: a park after dark is closed or unlit | binds in +15.8 [13.8 to 17.3] (holiday), +9.4 (mixed); travel +1.9 minutes a day | none |
 | | Gelato and wine bars after noon | `dayRules.ts` `keepsDayRules` | Taste | binds in +15.5 [14.8 to 16.4] (mixed); nothing else moves 0.1 | none |
@@ -172,6 +173,19 @@ Two cases an earlier review fixed by hand still plan differently, rare enough th
 | Time per plan, p50 and p95 | 4.5 ms, 8.1 ms | 3.4 ms, 6.9 ms |
 
 2564 of the 3000 plans changed. Timings are from one sequential run on one machine. Lines in `src/*.ts` (outside `normalize/` and `validate/`): 6541 before, 5460 after, in 43 and 34 files; the walk and its passes (the trip builder, walk, picks, limits, rules, repair, meal fill, pools, and plan files, with the removed ones): 2947 to 1945; all of `src`: 10578 to 9497.
+
+**The flagship bonus.** Measured on 2026-09-25 against the planner at commit 4320c8d, on the three seeds and four profiles of 3000 plans, and with the place-level check. The share is of Rome trips (every day at Rome) where the Vatican Museums are open on a Rome day other than 25 December or 1 January, within budget, and not a must-include. The web form's default request (balanced, no interests, bases chosen by the planner) and plain Rome trips at every pace, started on every day of a year, already had them in 100% and 99.6% of trips; both now have them in 100%, and neither misses a meal, before or after.
+
+| Weight | Mixed | Holiday | Thin | Must | Past the bar |
+|---|---|---|---|---|---|
+| 0 (before) | 75.5% | 63.5% | 81.9% | 26.0% | |
+| 0.05 | 77.0% | 64.2% | 84.0% | 26.8% | nothing |
+| 0.06 (kept) | 79.6% | 75.0% | 85.3% | 27.6% | nothing |
+| 0.07 | 79.9% | 75.1% | 85.3% | 27.9% | the book market as a must-include: its day has no lunch in 33% of trips, not 10% |
+| 0.25 | 84.9% | 80.9% | 87.9% | 31.7% | from 0.08, plain Rome trips reshuffle: every packed one starting on a Sunday, and 31 of 52 starting on a Monday, misses a dinner (none before), and Castel Sant'Angelo leaves Friday-start trips (21% to 0). From 0.15 the Vatican Museums open day 1 of most plain Rome trips, the Campo de' Fiori market leaves Monday-start trips (67% to 0), and Piazza Navona is in half as many |
+| 0.5 | 89.6% | 85.8% | 91.9% | 33.9% | the same as 0.25; no sweep metric passes the bar |
+
+By start weekday at 0.06 (mixed, three seeds), the Rome trips that include them: Sunday 61.6% to 63.3%, Monday 62.7% to 68.6%, Tuesday 62.4% to 66.1%, Wednesday 63.8% to 67.4%, Thursday 57.2% to 61.9%, Friday 61.6% to 62.9%, Saturday 60.6% to 63.3%; of all trips with a Rome day, 48.8% to 52.4%. 136 to 148 of each 3000 mixed plans change. The places most often displaced from trips with a Rome day are the Mercato Testaccio lunch (the four-hour visit covers lunch), Pigneto, and Castel Sant'Angelo (mixed, 0.5 to 0.9 points of all trips each). The AI shortlist ranks its candidates with the same score (`services/api/src/plan/candidates.ts`), so the Vatican Museums move up the list the model reads, from 8th to 5th of Rome's visits for the default request; the prompt and its version are unchanged, a reordered list does not make eval recordings stale, and the eval report is unchanged.
 
 ## Measuring a change
 
