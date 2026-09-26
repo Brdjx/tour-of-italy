@@ -44,8 +44,9 @@ Paths on the API host have no `/api` prefix: CloudFront adds it, so
 `https://api.italy-planner.brdjx.com/api/health` reaches the function as `/api/api/health` and gets
 the JSON 404. Plain HTTP to the API host is redirected to HTTPS, which suits a browser or a `GET`;
 a `POST` over HTTP arrives without its body, so clients must use `https://`. The WAF plan limit
-counts `/api/plan` on the site, `/plan` on the API host and any path ending in `/plan` (so a
-leading `/../` cannot dodge it), and the AWS common rule set blocks requests without a
+counts `/api/plan` on the site, `/plan` on the API host and any path ending in `/plan` or
+`/plan/day` (so a leading `/../` cannot dodge it; day re-plans share the plan limit), and the AWS
+common rule set blocks requests without a
 `User-Agent` header (curl and most HTTP libraries send one).
 
 | Layer | Path | Applied by | State |
@@ -330,7 +331,7 @@ Known exposures, accepted:
   role, so every account in `github_actor_ids` is trusted with the secret (pressing "Update
   branch" on someone else's pull request starts a run as you). With the secret a caller can reach
   the execute-api URL around the WAF; reserved concurrency (10) and API throttling (plan calls 1
-  per second, burst 6) still cap Claude spend.
+  per second, burst 6; day re-plans 1 per second, burst 3) still cap Claude spend.
 - Whoever can deploy can ship code that reads the Anthropic key. Only `deploy.yml` on `main`,
   started by `github_actor_ids`, can assume the deploy role.
 
@@ -350,8 +351,9 @@ Lambda, the HTTP API ($1 per million requests), CloudFront, S3 and the CloudFron
 cents. The certificate and SSM standard parameters are free; the brdjx.com zone already exists.
 The budget `italy-planner-monthly` (default $20) emails at 80% actual and 100% forecast. Claude API
 usage is billed by Anthropic, not AWS; it is capped by reserved concurrency (10), API throttling
-(plan calls 1 per second, burst 6), the WAF plan limit (30 per IP per 5 minutes) and the plan
-cache (the tab, the instance, the table). Both distributions share one web ACL and one rate rule, so one IP most likely has one count
+(plan calls 1 per second, burst 6; day re-plans 1 per second, burst 3), the WAF plan limit (30 per
+IP per 5 minutes, day re-plans included) and the plan and day caches (the tab, the instance, the
+table). Both distributions share one web ACL and one rate rule, so one IP most likely has one count
 across both hosts, but AWS does not document that; at worst each host counts 30 separately.
 
 ## Map tiles

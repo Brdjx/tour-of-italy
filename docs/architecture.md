@@ -26,7 +26,7 @@ CloudFront site distribution
 
 Deploy smoke test, curl and scripts, tool clients
   |  https://api.italy-planner.brdjx.com  (/health, /meta, /places, /data-issues, POST /plan,
-  |                                         POST /trips, GET /trips/<id>)
+  |                                         POST /plan/day, POST /trips, GET /trips/<id>)
   v
 CloudFront API distribution (origin path /api; same WAF, headers policy and origin secret)
   '-> the same HTTP API and function
@@ -83,6 +83,34 @@ POST /api/plan
 ```
 
 Code: `services/api/src/routes/plan.ts` (the route), `plan/planCache.ts` (the cache), `services/api/src/plan/planTrip.ts` (the loop and the deadline), `plan/candidates.ts` (shortlist), `llm/anthropic.ts` and `llm/schema.ts` (the call and the parse), `plan/tidy.ts` (the tidy step), `plan/materialize.ts` (timing and validation), `plan/outcome.ts` (fallback and final guard). The whole request has a 24 s deadline counted from arrival, and 1.5 s is kept back for the fallback, so the function answers before API Gateway's 30 s cap. Each model call gets at most 15 s (`LLM_TIMEOUT_MS`) and never more than what is left of the deadline after the reserve: the first call gets the full 15 s, and a repair after a first answer at 15 s still gets 7.5 s. A model failure never becomes a 500. An infeasible request is a 422, and a rules-only plan that fails its own guard (a bug) is a 503, never an invalid plan.
+
+## Day re-plan
+
+One day of a trip the page already has, planned again at a base the traveler picked: another city, or the day's own for a new version of it. The other days never change.
+
+```
+POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid? }
+  -> the plan route's guards: origin check, the same per-client bucket, JSON only, 16 KB cap
+  -> strict Zod: the request as POST /api/plan takes it; known bases and places, each place in
+       its day's base and once in the trip, every day but this one with a stop (400 otherwise)
+  -> checkDayBase (planner): at most 2 bases; a day holding a must-include keeps its city; the
+       rules-only day there (planDay) is not empty and adds no error to the trip, the next day
+       included after its new transfer -> 422 day_not_allowed with the traveler's reason
+  -> ?mode=deterministic, AI off, or no key -------------------------> the rules-only day
+  -> day cache: memory, then the table (not for notes), served only if it still fits the trip
+  -> shortlist: every place of the base open that date and able to fit the day after its
+       transfer, less every place on another day or at its spot, excluded or left out
+  -> prompt day-v1: the day, its base and transfer, the other days' bases, the places already
+       used, the day's must-includes, the candidate rows with that day's hours
+  -> Claude: the day's ordered place ids and a reason per stop (one-day JSON schema)
+  -> tidy: drop a repeat of another day or its spot, then the trip's tidy step on this day
+  -> ids outside the shortlist are errors; scheduleTrip and validateItinerary on the whole
+       trip; any error on this day, or one the trip did not have, fails it
+  -> one repair turn with the violations and what tidying removed, else the rules-only day
+  -> response: { day, dayPlan (timed, why lines marked ai or rule), source, meta }
+```
+
+The page applies the day with the planner's `withReplannedDay`, which times the trip again (the next day's transfer changes with the base), keeps the AI why lines that still hold, and takes the validator's warnings; the trip's summary goes when the day's base changes. `dayBaseOptions` gives the page each city with its reason and the transfers in and out. Code: `services/api/src/routes/planDay.ts`, `plan/dayInput.ts`, `plan/dayShortlist.ts`, `plan/dayTidy.ts`, `plan/replanDay.ts`, `plan/dayCache.ts`, `llm/dayPrompt.ts`, `packages/planner/src/planDay.ts`, `dayBases.ts`. A saved trip carries the rule's why lines on a re-planned day: the plan record holds the AI's text for the plan as first made.
 
 ## Plan cache
 
@@ -171,8 +199,8 @@ On a push to `main` that passes CI, `.github/workflows/deploy.yml` builds withou
 ## Security model
 
 - **Origin secret.** CloudFront adds `x-origin-verify` on both distributions. The function reads the value from SSM (cached 5 minutes, forced re-read on a mismatch at most every 10 s), compares SHA-256 digests in constant time, and answers 403 without it. An SSM failure fails closed. The direct execute-api URL therefore answers 403, which the post-deploy smoke test checks (`services/api/src/lib/originVerify.ts`, `infra/terraform/platform/secret.tf`).
-- **WAF.** One web ACL on both hosts: 30 plan calls per IP per 5 minutes (any path spelling of `/api/plan` or `/plan`, decoded and normalized), 2000 requests per IP per 5 minutes overall, and the AWS IP reputation, known bad inputs and common rule sets (`infra/terraform/platform/waf.tf`).
-- **Throttles and concurrency.** API Gateway allows `POST /api/plan` 1 request a second with a burst of 6, `POST /api/trips` 2 a second with a burst of 10, and other routes (opening a saved trip included) 50 a second with a burst of 100. The function has 10 reserved instances, which caps Claude spend and protects the other stacks in the account. Inside each instance a token bucket allows 10 plans and 20 saves a minute per client, keyed on `CloudFront-Viewer-Address` (IPv6 by /64), and the plan cache answers repeats (`infra/sam/template.yaml`, `services/api/src/lib/rateLimit.ts`, `plan/planCache.ts`). The WAF has no rule of its own for `/api/trips` yet; only its overall per-IP limit applies (a follow-up, and the rule must match encoded spellings of the path too, since `POST /api/trip%73` reaches the handler; see [deploy.md](deploy.md)).
+- **WAF.** One web ACL on both hosts: 30 plan calls per IP per 5 minutes (any path spelling of `/api/plan` or `/plan`, decoded and normalized, day re-plans at `/plan/day` included), 2000 requests per IP per 5 minutes overall, and the AWS IP reputation, known bad inputs and common rule sets (`infra/terraform/platform/waf.tf`).
+- **Throttles and concurrency.** API Gateway allows `POST /api/plan` 1 request a second with a burst of 6, `POST /api/plan/day` 1 a second with a burst of 3, `POST /api/trips` 2 a second with a burst of 10, and other routes (opening a saved trip included) 50 a second with a burst of 100. The function has 10 reserved instances, which caps Claude spend and protects the other stacks in the account. Inside each instance a token bucket allows 10 plans (whole trips and days together) and 20 saves a minute per client, keyed on `CloudFront-Viewer-Address` (IPv6 by /64), and the plan cache answers repeats (`infra/sam/template.yaml`, `services/api/src/lib/rateLimit.ts`, `plan/planCache.ts`). The WAF has no rule of its own for `/api/trips` yet; only its overall per-IP limit applies (a follow-up, and the rule must match encoded spellings of the path too, since `POST /api/trip%73` reaches the handler; see [deploy.md](deploy.md)).
 - **IAM boundary and pinned ids.** Every role the deploy role creates must carry `italy-planner-boundary`, which only works for the `italy-planner-api` function's own code. The deploy role cannot change its own roles or policies and is denied the Anthropic key. Rights on resources AWS names with generated ids are scoped to the ids pinned in `infra/terraform/bootstrap/deployed-ids.auto.tfvars`. The trust policies accept only `deploy.yml` on `main` (deploy) or `ci.yml` on a pull request (plan), started by the owner's GitHub account.
 - **Saved trips carry no text from a link.** A saved trip's why lines and summary come from the API's own records of the AI plan, checked again when the trip is saved; the body that saves a trip is ids only and refuses anything else. Ids are 10 random base62 characters (about 8e17 of them), written once with a conditional put. Requests are stored without the traveler's notes, and AI text that may repeat them is left out (see Saved trips); a plan made with notes is cached in the function's memory only, never in the table. The function may only read one item and write new ones (`dynamodb:GetItem`, `dynamodb:PutItem`), inside the boundary and only from its own code; CI may manage the table but never read or write its items.
 - **No secrets in code.** The Anthropic key lives in an SSM SecureString created by hand and is read by the function at runtime (re-read every 15 minutes, and at once after a 401 or 403). The logger redacts registered secrets and key-shaped strings. Error bodies carry a fixed message and a request id, never a stack. gitleaks scans the full history on every CI run. Locally the key is optional and lives in a gitignored `.env`.
