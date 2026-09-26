@@ -1,14 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
+import { REMOTE_URL } from "../support/env";
+import { useEmptyTiles } from "../support/tiles";
 
 // The post-deploy smoke: a few checks against the live site (E2E_BASE_URL) that prove a real
 // browser can load it and plan a trip. No fixtures and no scripted model: the plan uses
 // ?mode=deterministic, so a smoke run never spends Claude tokens. Locally the same tests run
 // against the local build, so a broken smoke test fails in CI before it can fail a deploy.
-
-const TILE_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
 
 /** Collects uncaught errors and console errors from the moment the page opens. */
 function watch(page: Page): string[] {
@@ -21,11 +18,10 @@ function watch(page: Page): string[] {
 }
 
 test.beforeEach(async ({ context }) => {
-  // Decision: map tiles come from a stub, so the smoke does not depend on (or load) the
-  // OpenStreetMap tile servers; the check is about this site.
-  await context.route("https://*.openstreetmap.org/**", (route) =>
-    route.fulfill({ status: 200, contentType: "image/png", body: TILE_PNG }),
-  );
+  // Decision: the live site serves its own map tile archive, and the smoke reads it as a
+  // traveler does. A local run has no archive (it is never in the repo), so there it reads an
+  // empty one, as every other local test does.
+  if (!REMOTE_URL) await useEmptyTiles(context);
 });
 
 test("the home page loads the planner with its places and no errors", { tag: "@smoke" }, async ({

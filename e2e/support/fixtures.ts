@@ -1,10 +1,12 @@
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { FIXED_NOW } from "./env";
+import { useEmptyTiles } from "./tiles";
 
 // The fixtures every local E2E test uses:
 // - a fixed start for the browser clock (see FIXED_NOW), so plans are the same every day
 // - a client id per test, which serve.mjs turns into a viewer address, so the API's per-client
 //   rate limit sees each test as its own traveler
+// - an empty map tile archive (support/tiles.ts), since the real one is never in the repo
 // - a watchdog that fails the test on any uncaught page error, Content-Security-Policy violation
 //   (the page is served with the production CSP) or unexpected console error, on every page the
 //   test opens
@@ -84,6 +86,7 @@ export const test = base.extend<Fixtures>({
     await context.addInitScript(recordCspViolations);
     await context.addInitScript(recordClipboard);
     await context.addInitScript(recordAnnouncements);
+    await useEmptyTiles(context);
     await use(context);
   },
 
