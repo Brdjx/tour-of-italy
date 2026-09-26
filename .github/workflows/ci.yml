@@ -88,14 +88,13 @@ jobs:
   e2e:
     # E2E is its own job, and ci-ok waits for it, so no commit that breaks a user flow deploys
     # (docs/testing.md, F12).
-    # Decision: 30 minutes. Locally the whole suite (312 tests, 4 workers) runs in 4 to 5 minutes.
-    # On this runner, also with 4 workers, each test takes 2.3 to 4.5 times as long (the tests that
-    # passed both locally and in the E2E runs for 6038aa2, b89f4d6 and 02ef29b; the last was the
-    # slowest). So a green run should be 12 to 16 minutes of tests after about 2 minutes of
-    # install, browsers and build. 30 leaves room for retries and a slow runner. A run that still
-    # hits it is cancelled, which fails ci-ok like any other failure.
+    # Decision: 45 minutes. Locally the whole suite (312 tests, 4 workers) runs in 4 to 5 minutes.
+    # On this runner the first blocking run (4320c8d, 26 September 2026) took 26.3 minutes of
+    # tests, 12 of them timing out and retrying, after about 2 minutes of install, browsers and
+    # build. 45 leaves room for retries and a slow runner. A run that still hits it is cancelled,
+    # which fails ci-ok like any other failure.
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

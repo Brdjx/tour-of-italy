@@ -89,6 +89,10 @@ for (const scheme of ["light", "dark"] as const) {
       press,
       touch,
     }) => {
+      // Decision: 3 minutes for this one test. It runs axe and the target audit on about eight
+      // states in a row; on the CI runner that took just over the default 60 s on every project
+      // (26 September 2026), while each state on its own is quick.
+      test.setTimeout(180_000);
       await openPlanner(page);
       await auditState(page, "form");
 
