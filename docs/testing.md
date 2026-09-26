@@ -2,7 +2,7 @@
 
 The tests exist to prove that the ways this product can fail badly cannot happen. Each starts from a failure vector (what would break the product), names the guard in code, and asserts the guard holds. Test names state the failure they prevent, for example `never schedules a stop outside one open range on its date`. Coverage floors apply too, but only as a backstop: a test earns its place by asserting a guard, not by running code.
 
-On 2026-09-26 `pnpm test` ran 3,417 tests in 208 files. The E2E and infra suites run on top of that. On 2026-09-26 `pnpm test:e2e` ran 348 tests on eight projects in 4 to 5 minutes on a laptop; on the CI runner the first blocking run took about 26 minutes of tests. It blocks `ci-ok`, so a commit that breaks a user flow does not deploy.
+On 2026-09-26 `pnpm test` ran 3,417 tests in 208 files. The E2E and infra suites run on top of that. On 2026-09-26 `pnpm test:e2e` ran 354 tests on eight projects in 4 to 5 minutes on a laptop; on the CI runner the first blocking run took about 26 minutes of tests. It blocks `ci-ok`, so a commit that breaks a user flow does not deploy.
 
 ## Failure vectors
 

@@ -267,14 +267,11 @@ test.describe("setting a city for each day", () => {
     await expect(page.locator('[data-flagged="true"]')).toHaveCount(0);
   });
 
-  test("gives new ideas for a day, and a saved link of a three-city trip reopens it", async ({
-    page,
-    press,
-  }) => {
+  test("gives new ideas for a day, with none of its places back", async ({ page, press }) => {
     await openPlanner(page);
     await planTrip(page, press);
     const before = await readTrip(page, press);
-    let sheet = await openCitiesFor(page, press, 2);
+    const sheet = await openCitiesFor(page, press, 2);
     await press(sheet.getByTestId("city-new-ideas"));
     await expect(sheet).toBeHidden();
     await routeDone(page, "New ideas for day 2.");
@@ -283,9 +280,18 @@ test.describe("setting a city for each day", () => {
     expect(placeIds(ideas[1] ?? []).some((id) => placeIds(before[1] ?? []).includes(id))).toBe(
       false,
     );
+    const ids = allIds(ideas);
+    expect(new Set(ids).size, "a place appears on two days").toBe(ids.length);
+  });
 
+  // Decision: its own test, apart from new ideas. Together they read the trip four times on two
+  // pages with a map each, which took up to 66 s on CI's WebKit tablets (11 s on a laptop) and
+  // ran into the 60 s test limit.
+  test("a saved link of a three-city trip reopens it", async ({ page, press }) => {
+    await openPlanner(page);
+    await planTrip(page, press);
     // Day 2 to Venice and day 3 to Milan: with day 1 in Rome, three cities.
-    sheet = await openCitiesFor(page, press, 2);
+    const sheet = await openCitiesFor(page, press, 2);
     await press(city(sheet, "venice"));
     await press(routeDay(sheet, 3));
     await press(city(sheet, "milan"));
@@ -310,9 +316,8 @@ test.describe("setting a city for each day", () => {
     await expect(other.getByTestId("plan-view")).toBeVisible();
     await expect(other.getByTestId("source-badge")).toContainText(BADGE.savedAi);
     await expect(other.getByTestId("source-badge")).toContainText("edited");
-    expect(await readTrip(other, press)).toEqual(after);
     for (const [index, name] of ["Rome", "Venice", "Milan"].entries()) {
-      await readDay(other, press, index + 1);
+      expect(await readDay(other, press, index + 1)).toEqual(after[index]);
       await expect(other.getByTestId("day-subtitle")).toContainText(`Day ${index + 1} in ${name}`);
     }
   });

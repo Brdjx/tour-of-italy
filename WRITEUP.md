@@ -31,7 +31,7 @@ Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
 - Only 4% were valid exactly as the model wrote them. The model never sees the time each stop lands at, so code tidies the plan first, and the tests still count that as the model's mistake.
 - The honest gap: AI days miss a lunch or dinner more often than rules-only days (26% against 19%). Claude Haiku 4.5 was faster at the median but missed a meal on 72% of days, so Sonnet stays the default.
 - Changing cities after a plan, 54 live days (single days and routes of up to three cities): no repeated place, no fallback, 3.3 to 5.5 seconds a day.
-- 3,417 unit and integration tests and 348 browser tests run on every push, and a failure blocks the deploy.
+- 3,417 unit and integration tests and 354 browser tests run on every push, and a failure blocks the deploy.
 
 ## Choices I made
 
