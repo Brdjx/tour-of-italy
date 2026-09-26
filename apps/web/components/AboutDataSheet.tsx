@@ -290,12 +290,13 @@ function PlanSection({ model }: { model: string | null }) {
       <p className="about-text" data-testid="about-plan-text">
         The AI planner{model ? <> (Claude, model {model})</> : null} chooses a base for each day,
         puts places from a shortlist in order, and writes each stop's one-line reason and the trip
-        summary. Code builds the shortlist, sets every time and travel leg, and checks the AI's
-        words: a reason that does not hold for its stop is replaced by one code writes, and a
-        sentence of the summary that fails a check is dropped. An independent check then tests the
-        plan against the opening hours on its dates, meal times, travel between stops and the pace.
-        A plan that fails is repaired once or replaced by one made by rules alone, which also plans
-        when the AI is unavailable or there is no connection, and the page says which one it is.
+        summary. Code builds the shortlist, sets every time and travel leg, adds a lunch or dinner
+        the AI left out when a place on the shortlist fits the day, and checks the AI's words: a
+        reason that does not hold for its stop is replaced by one code writes, and a sentence of the
+        summary that fails a check is dropped. An independent check then tests the plan against the
+        opening hours on its dates, meal times, travel between stops and the pace. A plan that fails
+        is repaired once or replaced by one made by rules alone, which also plans when the AI is
+        unavailable or there is no connection, and the page says which one it is.
       </p>
       {/* Decision: what the source line under the trip's dates means, said once here, so the line
           itself can stay one line of facts (components/SourceBadge.tsx). Each claim is a row
@@ -340,7 +341,7 @@ const CLAIM_MEANINGS: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     CLAIM_STARTS.repaired,
-    "The AI's first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.",
+    "The AI's first draft broke a rule or left out a meal, so code dropped or reordered stops, added a lunch or dinner, or asked the AI to fix it.",
   ],
   [
     CLAIM_STARTS.rules,

@@ -219,6 +219,8 @@ describe("the About this data overlay", () => {
     expect(text).toContain(
       "a reason that does not hold for its stop is replaced by one code writes",
     );
+    // Decision 17: the one place code adds to the AI's choice.
+    expect(text).toContain("adds a lunch or dinner the AI left out when a place on the shortlist");
   });
 
   it("says what the source line under the trip's dates means, which the line itself does not", () => {
@@ -244,7 +246,7 @@ describe("the About this data overlay", () => {
     expect(rows.map(term)).toEqual(Object.values(CLAIM_STARTS));
     const by = (claim: string) => meaning(must(rows.find((row) => term(row) === claim)));
     expect(by("Planned with AI, fixed after a check")).toBe(
-      "The AI's first draft broke a rule, so code dropped or reordered stops, or asked the AI to fix it.",
+      "The AI's first draft broke a rule or left out a meal, so code dropped or reordered stops, added a lunch or dinner, or asked the AI to fix it.",
     );
     expect(by("Planned without AI")).toContain("The words after the colon say why");
     expect(by("Planned on this device")).toContain("so it made one by rules");
