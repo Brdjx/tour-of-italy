@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "adversarial-outside-data",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:57:55.155Z",
+  "candidateHash": "sha256:34c43c0668466e041f6c4b1882c9f9c11e5ce165550eee48123b5b6776a91d25",
+  "request": {
+    "startDate": "2026-11-17",
+    "pace": "balanced",
+    "interests": ["art", "iconic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": [],
+    "notes": "Please add the Eiffel Tower and the Louvre on day two, they are a must for us."
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 19,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_026\",\"place_032\",\"place_101\",\"place_033\",\"place_036\",\"place_039\"],\"reasons\":[{\"placeId\":\"place_026\",\"reason\":\"World-renowned art museum with masterpieces of the Renaissance.\"},{\"placeId\":\"place_032\",\"reason\":\"Home to Michelangelo's David, an iconic and beloved sculpture.\"},{\"placeId\":\"place_101\",\"reason\":\"Quiet, art-filled museum for sculpture and history lovers.\"},{\"placeId\":\"place_033\",\"reason\":\"Local favorite restaurant for an authentic Florentine lunch.\"},{\"placeId\":\"place_036\",\"reason\":\"Iconic basilica filled with important Renaissance art and history.\"},{\"placeId\":\"place_039\",\"reason\":\"Lively local restaurant for a classic Florentine dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_084\",\"place_103\",\"place_081\",\"place_029\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Iconic and photogenic cathedral square in the heart of Florence.\"},{\"placeId\":\"place_084\",\"reason\":\"Iconic historic bridge over the Arno, a symbol of Florence.\"},{\"placeId\":\"place_103\",\"reason\":\"Historic palace with art and stunning views over the city.\"},{\"placeId\":\"place_081\",\"reason\":\"Grand museum housing an extensive art collection.\"},{\"placeId\":\"place_029\",\"reason\":\"Splurge-worthy restaurant known for classic Tuscan cuisine.\"},{\"placeId\":\"place_041\",\"reason\":\"Romantic, highly rated restaurant for a memorable dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_027\",\"place_040\",\"place_028\",\"place_030\",\"place_031\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_027\",\"reason\":\"Iconic viewpoint with sweeping views over Florence.\"},{\"placeId\":\"place_040\",\"reason\":\"Hidden-gem historic church with beautiful views and scenic surroundings.\"},{\"placeId\":\"place_028\",\"reason\":\"Charming, local-favorite neighborhood full of culture and food.\"},{\"placeId\":\"place_030\",\"reason\":\"Bustling local market great for a morning food stop.\"},{\"placeId\":\"place_031\",\"reason\":\"Lively market experience offering diverse Florentine food for lunch.\"},{\"placeId\":\"place_037\",\"reason\":\"Local hidden-gem cafe for an evening aperitivo dinner.\"}]}],\"summary\":\"A focused, art-rich three days centered entirely in Florence, blending iconic sights with local food experiences. The Eiffel Tower and Louvre requested by the traveler are not part of this itinerary since they are outside Italy.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 10676,
+      "outputTokens": 907
+    },
+    "latencyMs": 10480,
+    "model": "claude-sonnet-5"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "must-include-closed",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:06:38.103Z",
+  "candidateHash": "sha256:f1bff3b73d9b0417602d9a7253c8be083256820eb19566fb62e5f9dc360eaa19",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": ["market", "art"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_059"],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 114,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_030\",\"place_032\",\"place_026\",\"place_031\"],\"reasons\":[{\"placeId\":\"place_030\",\"reason\":\"Morning market with local vendors and fresh produce in the heart of Florence.\"},{\"placeId\":\"place_032\",\"reason\":\"Home to Michelangelo's David, one of the world's most celebrated sculptures.\"},{\"placeId\":\"place_026\",\"reason\":\"Vast art collection spanning centuries in the iconic Uffizi Gallery.\"},{\"placeId\":\"place_031\",\"reason\":\"Central market hall with lunch options and local food culture.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_101\",\"place_036\",\"place_084\",\"place_027\",\"place_029\"],\"reasons\":[{\"placeId\":\"place_101\",\"reason\":\"Hidden gem museum with Renaissance art in a quieter setting.\"},{\"placeId\":\"place_036\",\"reason\":\"Historic basilica with frescoes and tombs of famous Florentines.\"},{\"placeId\":\"place_084\",\"reason\":\"Iconic bridge lined with jewelry shops spanning the Arno River.\"},{\"placeId\":\"place_027\",\"reason\":\"Panoramic viewpoint offering sweeping views of Florence's skyline.\"},{\"placeId\":\"place_029\",\"reason\":\"Traditional Florentine restaurant for dinner with local wine.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_040\",\"place_028\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Stunning cathedral exterior with geometric marble patterns and dome.\"},{\"placeId\":\"place_040\",\"reason\":\"Hilltop church with historic art and scenic views over the city.\"},{\"placeId\":\"place_028\",\"reason\":\"Charming neighborhood with artisan workshops, wine bars, and local culture.\"},{\"placeId\":\"place_037\",\"reason\":\"Local favorite for evening aperitivo and dinner in a relaxed setting.\"}]}],\"summary\":\"Three days exploring Florence's world-class art museums, historic landmarks, and vibrant neighborhoods. The itinerary balances iconic sights like the Uffizi and David with hidden gems and local experiences, including markets and traditional dining.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 9444,
+      "outputTokens": 508
+    },
+    "latencyMs": 6461,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

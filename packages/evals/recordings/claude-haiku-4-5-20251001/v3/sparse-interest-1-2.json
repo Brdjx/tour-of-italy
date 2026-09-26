@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "sparse-interest",
+  "run": 1,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:07:29.686Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 6649,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_004\",\"place_016\",\"place_022\",\"place_077\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"Iconic ancient amphitheater showcasing Roman engineering and history.\"},{\"placeId\":\"place_004\",\"reason\":\"Historic ruins at the heart of ancient Rome with cultural significance.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic hilltop with views over the Roman Forum and surrounding city.\"},{\"placeId\":\"place_022\",\"reason\":\"Acclaimed wine bar and salumeria with local specialties and vibrant atmosphere.\"},{\"placeId\":\"place_077\",\"reason\":\"Romantic evening viewpoint of the illuminated fountain in the city center.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_008\",\"place_018\",\"place_020\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Perfectly preserved ancient temple with stunning architecture and cultural importance.\"},{\"placeId\":\"place_008\",\"reason\":\"Lively historic piazza surrounded by fountains, restaurants, and evening atmosphere.\"},{\"placeId\":\"place_018\",\"reason\":\"Iconic fountain in the heart of Rome, famous for its baroque sculptures and design.\"},{\"placeId\":\"place_020\",\"reason\":\"Relaxed local restaurant offering authentic Roman cuisine and lively evening vibe.\"},{\"placeId\":\"place_003\",\"reason\":\"Hidden gem trattoria in Trastevere serving traditional Roman dishes and local wine.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_032\",\"place_026\",\"place_103\",\"place_029\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_032\",\"reason\":\"Museum housing Michelangelo's David, one of the world's most iconic sculptures.\"},{\"placeId\":\"place_026\",\"reason\":\"Premier art gallery with masterpieces spanning centuries of Italian painting.\"},{\"placeId\":\"place_103\",\"reason\":\"Historic palace with art collections and panoramic city views from the tower.\"},{\"placeId\":\"place_029\",\"reason\":\"Celebrated traditional restaurant known for Tuscan cuisine and fine wines.\"},{\"placeId\":\"place_037\",\"reason\":\"Local favorite cafe offering aperitivo with hidden-gem charm and budget-friendly prices.\"}]}],\"summary\":\"A lively two-city Italian tour balancing Rome's ancient monuments and vibrant piazzas with Florence's Renaissance art and culinary traditions. Each day features iconic sights paired with celebrated local dining and evening experiences.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 9707,
+      "outputTokens": 582
+    },
+    "latencyMs": 4367,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

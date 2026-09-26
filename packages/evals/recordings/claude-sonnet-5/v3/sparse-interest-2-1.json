@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "sparse-interest",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:02:54.711Z",
+  "candidateHash": "sha256:3e1645fddf93f10fca7088f90eb2fcae544d9c5c36ba6b18b640133a91d3c326",
+  "request": {
+    "startDate": "2028-02-28",
+    "pace": "balanced",
+    "interests": ["lively"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 15,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_005\",\"place_018\",\"place_001\",\"place_004\",\"place_022\",\"place_002\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_005\",\"reason\":\"Iconic and lively ancient monument in the heart of Rome.\"},{\"placeId\":\"place_018\",\"reason\":\"Famous fountain full of energy and crowds.\"},{\"placeId\":\"place_001\",\"reason\":\"The Colosseum is Rome's most iconic historic landmark.\"},{\"placeId\":\"place_004\",\"reason\":\"Explore the ancient heart of Roman civic life.\"},{\"placeId\":\"place_022\",\"reason\":\"Lively local-favorite spot for a lunch of Roman classics.\"},{\"placeId\":\"place_002\",\"reason\":\"Vibrant, lively neighborhood full of evening energy.\"},{\"placeId\":\"place_003\",\"reason\":\"Local-favorite trattoria for a lively dinner in Trastevere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_008\",\"place_017\",\"place_019\",\"place_006\",\"place_020\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_008\",\"reason\":\"Lively historic piazza famous for its fountains and atmosphere.\"},{\"placeId\":\"place_017\",\"reason\":\"Scenic historic fortress with views over the Tiber.\"},{\"placeId\":\"place_019\",\"reason\":\"Iconic photogenic gathering spot in central Rome.\"},{\"placeId\":\"place_006\",\"reason\":\"Bustling morning market full of local life.\"},{\"placeId\":\"place_020\",\"reason\":\"Local-favorite spot for a relaxed lively lunch.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic, lively local trattoria for dinner in Trastevere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_016\",\"place_014\",\"place_097\",\"place_080\",\"place_042\",\"place_099\"],\"reasons\":[{\"placeId\":\"place_016\",\"reason\":\"Scenic ancient hill overlooking the Roman Forum.\"},{\"placeId\":\"place_014\",\"reason\":\"Hidden-gem viewpoint loved by locals for its views.\"},{\"placeId\":\"place_097\",\"reason\":\"Quiet scenic walk with sweeping views over the city.\"},{\"placeId\":\"place_080\",\"reason\":\"Lively green park popular for relaxing outdoors.\"},{\"placeId\":\"place_042\",\"reason\":\"Local-favorite hidden-gem restaurant for a lively lunch.\"},{\"placeId\":\"place_099\",\"reason\":\"Vibrant food market perfect for a lively dinner.\"}]}],\"summary\":\"A lively three-day Rome itinerary weaving together iconic landmarks, vibrant neighborhoods, and local food spots. Each day stays geographically compact to minimize backtracking.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 10637,
+      "outputTokens": 906
+    },
+    "latencyMs": 9867,
+    "model": "claude-sonnet-5"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "everything",
+  "run": 1,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:59:12.766Z",
+  "candidateHash": "sha256:500f219cfc3e607f236b1aa1f4ff164910fb011e76b53046982f6196f08fed39",
+  "request": {
+    "startDate": "2026-10-16",
+    "pace": "balanced",
+    "interests": [
+      "historic",
+      "art",
+      "food",
+      "scenic",
+      "views",
+      "wine",
+      "local-favorite",
+      "cultural"
+    ],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 38,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"venice\",\"placeIds\":[\"place_066\",\"place_074\",\"place_067\",\"place_096\",\"place_069\",\"place_073\"],\"reasons\":[{\"placeId\":\"place_066\",\"reason\":\"Iconic bridge with great morning views, easy start near San Marco.\"},{\"placeId\":\"place_074\",\"reason\":\"Stunning historic basilica with iconic art and cultural significance.\"},{\"placeId\":\"place_067\",\"reason\":\"Grand museum showcasing Venetian history and art.\"},{\"placeId\":\"place_096\",\"reason\":\"Iconic scenic restaurant for a memorable lunch.\"},{\"placeId\":\"place_069\",\"reason\":\"Renowned art museum with striking views along the canal.\"},{\"placeId\":\"place_073\",\"reason\":\"Local-favorite restaurant known for romantic scenic dining.\"}]},{\"anchorId\":\"venice\",\"placeIds\":[\"place_088\",\"place_072\",\"place_078\",\"place_076\",\"place_068\"],\"reasons\":[{\"placeId\":\"place_088\",\"reason\":\"Hidden-gem viewpoint offering scenic morning views over Venice.\"},{\"placeId\":\"place_072\",\"reason\":\"Local-favorite neighborhood full of art and relaxing scenery.\"},{\"placeId\":\"place_078\",\"reason\":\"Historic wine bar loved by locals for quiet quality drinks.\"},{\"placeId\":\"place_076\",\"reason\":\"Local-favorite budget eatery for an authentic lunch.\"},{\"placeId\":\"place_068\",\"reason\":\"Lively local food and wine crawl for a cultural evening.\"}]},{\"anchorId\":\"venice\",\"placeIds\":[\"place_095\",\"place_073\",\"place_079\"],\"reasons\":[{\"placeId\":\"place_095\",\"reason\":\"Historic, quiet botanical garden ideal for a cultural morning trip.\"},{\"placeId\":\"place_073\",\"reason\":\"Scenic local-favorite restaurant for a relaxing lunch.\"},{\"placeId\":\"place_079\",\"reason\":\"Hidden-gem local spot for an evening bite with wine.\"}]}],\"summary\":\"A Venice-based trip blending iconic sights, art, scenic viewpoints, and local food experiences across three balanced days.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 11301,
+      "outputTokens": 705
+    },
+    "latencyMs": 8337,
+    "model": "claude-sonnet-5"
+  }
+}

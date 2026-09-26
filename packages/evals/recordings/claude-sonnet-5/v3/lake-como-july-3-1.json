@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "lake-como-july",
+  "run": 3,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:00:55.630Z",
+  "candidateHash": "sha256:9472b60543fc33bf105ea38abf949701dee790b6ffc06f9a79c27e8f750cca9c",
+  "request": {
+    "startDate": "2027-07-13",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 8,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"milan\",\"placeIds\":[\"place_085\",\"place_063\",\"place_061\"],\"reasons\":[{\"placeId\":\"place_085\",\"reason\":\"Scenic lakefront viewpoint perfect for outdoor morning views.\"},{\"placeId\":\"place_063\",\"reason\":\"Iconic scenic lakeside town offering romantic photogenic outdoor views.\"},{\"placeId\":\"place_061\",\"reason\":\"Local iconic restaurant for a satisfying dinner after a scenic day.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_064\",\"place_058\",\"place_082\"],\"reasons\":[{\"placeId\":\"place_064\",\"reason\":\"Historic villa with scenic outdoor lake views, great for nature lovers.\"},{\"placeId\":\"place_058\",\"reason\":\"Renowned art museum offering a cultural break with quiet galleries.\"},{\"placeId\":\"place_082\",\"reason\":\"Casual family-friendly spot for dinner near the city center.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_055\",\"place_060\",\"place_094\",\"place_057\",\"place_100\"],\"reasons\":[{\"placeId\":\"place_055\",\"reason\":\"Iconic historic cathedral with striking architectural views.\"},{\"placeId\":\"place_060\",\"reason\":\"Grand historic gallery with scenic photogenic architecture.\"},{\"placeId\":\"place_094\",\"reason\":\"Rooftop viewpoint offering scenic and photogenic city vistas.\"},{\"placeId\":\"place_057\",\"reason\":\"Lively canal-side neighborhood with scenic evening atmosphere.\"},{\"placeId\":\"place_100\",\"reason\":\"Local food and wine walking experience for a memorable dinner.\"}]}],\"summary\":\"A Milan-based trip blending lake escapes at Como and Bellagio with the city's iconic historic sights and scenic viewpoints. Each day balances outdoor beauty with cultural stops and local dining.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 3820,
+      "outputTokens": 628
+    },
+    "latencyMs": 6745,
+    "model": "claude-sonnet-5"
+  }
+}

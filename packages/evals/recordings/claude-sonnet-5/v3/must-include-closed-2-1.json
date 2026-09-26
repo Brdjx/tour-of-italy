@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "must-include-closed",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:01:11.916Z",
+  "candidateHash": "sha256:f1bff3b73d9b0417602d9a7253c8be083256820eb19566fb62e5f9dc360eaa19",
+  "request": {
+    "startDate": "2026-10-09",
+    "pace": "balanced",
+    "interests": ["market", "art"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": ["place_059"],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 24,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"florence\",\"placeIds\":[\"place_030\",\"place_026\",\"place_032\",\"place_033\",\"place_101\",\"place_039\"],\"reasons\":[{\"placeId\":\"place_030\",\"reason\":\"A lively local market perfect for morning browsing and food.\"},{\"placeId\":\"place_026\",\"reason\":\"World-class art collection with iconic Renaissance masterpieces.\"},{\"placeId\":\"place_032\",\"reason\":\"Home to Michelangelo's David, a must for art lovers.\"},{\"placeId\":\"place_033\",\"reason\":\"Local-favorite restaurant for a satisfying lunch.\"},{\"placeId\":\"place_101\",\"reason\":\"Quiet museum with impressive historic and cultural art.\"},{\"placeId\":\"place_039\",\"reason\":\"Lively local restaurant for a hearty Florentine dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_093\",\"place_084\",\"place_081\",\"place_034\",\"place_029\",\"place_037\"],\"reasons\":[{\"placeId\":\"place_093\",\"reason\":\"Iconic and photogenic cathedral square in the heart of Florence.\"},{\"placeId\":\"place_084\",\"reason\":\"Historic bridge famous for its shops and views over the Arno.\"},{\"placeId\":\"place_081\",\"reason\":\"Grand palace showcasing extensive art and historic interiors.\"},{\"placeId\":\"place_034\",\"reason\":\"Scenic gardens offering a relaxing outdoor break.\"},{\"placeId\":\"place_029\",\"reason\":\"Iconic restaurant for a memorable Florentine lunch.\"},{\"placeId\":\"place_037\",\"reason\":\"Local-favorite cafe for a lively evening aperitivo dinner.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_103\",\"place_036\",\"place_040\",\"place_031\"],\"reasons\":[{\"placeId\":\"place_103\",\"reason\":\"Historic palace with art and views over Piazza della Signoria.\"},{\"placeId\":\"place_036\",\"reason\":\"Historic basilica filled with important cultural and artistic works.\"},{\"placeId\":\"place_040\",\"reason\":\"Hidden-gem church with scenic views over Florence.\"},{\"placeId\":\"place_031\",\"reason\":\"Bustling food market ideal for a lively lunch or dinner.\"}]}],\"summary\":\"A Florence-based trip blending top art museums with local markets and scenic historic sites. Days are geographically tight with balanced pacing and local dining.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 11216,
+      "outputTokens": 781
+    },
+    "latencyMs": 8017,
+    "model": "claude-sonnet-5"
+  }
+}

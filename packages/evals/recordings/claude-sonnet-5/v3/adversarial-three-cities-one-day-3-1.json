@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "adversarial-three-cities-one-day",
+  "run": 3,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-25T23:58:39.057Z",
+  "candidateHash": "sha256:b303fb7cd97954045460d216b2bfae3e758ea36b2a5c0e4efac62e97e7833bbe",
+  "request": {
+    "startDate": "2026-10-20",
+    "pace": "balanced",
+    "interests": ["historic", "iconic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": [],
+    "notes": "On day one we want to see Rome, Florence and the Amalfi Coast, all in the same day. Please make it work."
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 18,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_004\",\"place_001\",\"place_016\",\"place_003\",\"place_005\",\"place_018\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_004\",\"reason\":\"Iconic ancient ruins at the heart of Roman history.\"},{\"placeId\":\"place_001\",\"reason\":\"The most iconic historic landmark in Rome.\"},{\"placeId\":\"place_016\",\"reason\":\"Scenic hill offering views over the ancient city.\"},{\"placeId\":\"place_003\",\"reason\":\"Local favorite trattoria for a satisfying lunch.\"},{\"placeId\":\"place_005\",\"reason\":\"Best preserved ancient Roman monument, iconic and historic.\"},{\"placeId\":\"place_018\",\"reason\":\"Iconic photogenic fountain in the historic center.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic local restaurant for dinner in Trastevere.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_010\",\"place_017\",\"place_008\",\"place_022\",\"place_019\",\"place_020\"],\"reasons\":[{\"placeId\":\"place_010\",\"reason\":\"World-famous museum complex full of iconic art and history.\"},{\"placeId\":\"place_017\",\"reason\":\"Historic fortress with scenic views along the Tiber.\"},{\"placeId\":\"place_008\",\"reason\":\"Historic and photogenic square in central Rome.\"},{\"placeId\":\"place_022\",\"reason\":\"Splurge-worthy local restaurant known for quality food.\"},{\"placeId\":\"place_019\",\"reason\":\"Iconic tourist landmark near the historic center.\"},{\"placeId\":\"place_020\",\"reason\":\"Relaxing local restaurant for an evening meal.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_007\",\"place_012\",\"place_014\",\"place_097\",\"place_042\",\"place_099\"],\"reasons\":[{\"placeId\":\"place_007\",\"reason\":\"Iconic art museum showcasing masterpieces in a historic villa.\"},{\"placeId\":\"place_012\",\"reason\":\"Historic curiosity popular with visitors.\"},{\"placeId\":\"place_014\",\"reason\":\"Hidden-gem viewpoint with a scenic keyhole vista.\"},{\"placeId\":\"place_097\",\"reason\":\"Quiet scenic viewpoint over the city.\"},{\"placeId\":\"place_042\",\"reason\":\"Local-favorite trattoria for a satisfying lunch.\"},{\"placeId\":\"place_099\",\"reason\":\"Food market offering a relaxed dinner option.\"}]}],\"summary\":\"A Rome-based trip focused on iconic historic sites and top museums, balanced across three days. Visiting Rome, Florence, and the Amalfi Coast in one day wasn't possible, so the itinerary stayed within Rome.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 11097,
+      "outputTokens": 889
+    },
+    "latencyMs": 8469,
+    "model": "claude-sonnet-5"
+  }
+}

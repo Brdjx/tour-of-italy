@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "adversarial-three-cities-one-day",
+  "run": 1,
+  "attempt": 2,
+  "turn": "repair",
+  "model": "claude-haiku-4-5-20251001",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:05:09.887Z",
+  "candidateHash": "sha256:b303fb7cd97954045460d216b2bfae3e758ea36b2a5c0e4efac62e97e7833bbe",
+  "request": {
+    "startDate": "2026-10-20",
+    "pace": "balanced",
+    "interests": ["historic", "iconic"],
+    "maxPriceLevel": null,
+    "anchors": "auto",
+    "mustInclude": [],
+    "exclude": [],
+    "notes": "On day one we want to see Rome, Florence and the Amalfi Coast, all in the same day. Please make it work."
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 6298,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_018\",\"place_005\",\"place_001\",\"place_015\",\"place_003\"],\"reasons\":[{\"placeId\":\"place_018\",\"reason\":\"Iconic fountain and one of Rome's most recognizable landmarks.\"},{\"placeId\":\"place_005\",\"reason\":\"Perfectly preserved ancient temple with stunning architecture and history.\"},{\"placeId\":\"place_001\",\"reason\":\"The most iconic symbol of ancient Rome and the Roman Empire.\"},{\"placeId\":\"place_015\",\"reason\":\"Historic market offering authentic local lunch experience and food culture.\"},{\"placeId\":\"place_003\",\"reason\":\"Hidden gem restaurant in Trastevere serving traditional Roman cuisine.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_004\",\"place_016\",\"place_008\",\"place_022\",\"place_077\"],\"reasons\":[{\"placeId\":\"place_004\",\"reason\":\"Historic ruins of the ancient Roman political and social center.\"},{\"placeId\":\"place_016\",\"reason\":\"Ancient imperial residence with panoramic views over the Roman Forum.\"},{\"placeId\":\"place_008\",\"reason\":\"Beautiful baroque piazza with fountains and evening atmosphere.\"},{\"placeId\":\"place_022\",\"reason\":\"Upscale restaurant featuring fine wines and Italian charcuterie specialties.\"},{\"placeId\":\"place_077\",\"reason\":\"Trevi Fountain illuminated at night, creating a magical romantic atmosphere.\"}]},{\"anchorId\":\"florence\",\"placeIds\":[\"place_032\",\"place_026\",\"place_093\",\"place_029\",\"place_041\"],\"reasons\":[{\"placeId\":\"place_032\",\"reason\":\"Houses Michelangelo's David, one of the world's most iconic sculptures.\"},{\"placeId\":\"place_026\",\"reason\":\"Premier art museum with masterpieces spanning centuries of Italian art.\"},{\"placeId\":\"place_093\",\"reason\":\"Stunning cathedral exterior with iconic dome dominating Florence's skyline.\"},{\"placeId\":\"place_029\",\"reason\":\"Historic restaurant serving traditional Florentine cuisine and local specialties.\"},{\"placeId\":\"place_041\",\"reason\":\"Elegant restaurant offering refined Tuscan cuisine and exceptional wine selection.\"}]}],\"summary\":\"This itinerary spans two iconic Italian cities: Rome's ancient monuments and Renaissance landmarks across two days, followed by Florence's unparalleled art and architecture. The Amalfi Coast was unavailable in the candidate list.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 10092,
+      "outputTokens": 553
+    },
+    "latencyMs": 4209,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}

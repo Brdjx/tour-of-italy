@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "rome-food-balanced",
+  "run": 3,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:02:12.530Z",
+  "candidateHash": "sha256:e1f824248f0681c72d590a51093dab5b37d93df880abeeba4987b50b77200d68",
+  "request": {
+    "startDate": "2026-10-13",
+    "pace": "balanced",
+    "interests": ["food", "local-favorite"],
+    "maxPriceLevel": null,
+    "anchors": ["rome"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 3,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"rome\",\"placeIds\":[\"place_006\",\"place_015\",\"place_005\",\"place_003\",\"place_009\"],\"reasons\":[{\"placeId\":\"place_006\",\"reason\":\"Photogenic morning market beloved by locals.\"},{\"placeId\":\"place_015\",\"reason\":\"Local-favorite food market great for a quick lunch stop.\"},{\"placeId\":\"place_005\",\"reason\":\"Iconic historic monument in the heart of Rome.\"},{\"placeId\":\"place_003\",\"reason\":\"Hidden-gem trattoria loved by locals for classic Roman food.\"},{\"placeId\":\"place_009\",\"reason\":\"Romantic local-favorite spot for an evening dinner.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_001\",\"place_004\",\"place_022\",\"place_014\",\"place_042\"],\"reasons\":[{\"placeId\":\"place_001\",\"reason\":\"Iconic historic site central to Rome's cultural heritage.\"},{\"placeId\":\"place_004\",\"reason\":\"Historic forum ideal for a morning cultural walk.\"},{\"placeId\":\"place_022\",\"reason\":\"Local-favorite deli known for great wine and food.\"},{\"placeId\":\"place_014\",\"reason\":\"Scenic hidden-gem viewpoint loved by locals.\"},{\"placeId\":\"place_042\",\"reason\":\"Highly-rated local-favorite trattoria for dinner.\"}]},{\"anchorId\":\"rome\",\"placeIds\":[\"place_097\",\"place_008\",\"place_020\",\"place_002\",\"place_099\"],\"reasons\":[{\"placeId\":\"place_097\",\"reason\":\"Quiet local-favorite viewpoint for a scenic morning walk.\"},{\"placeId\":\"place_008\",\"reason\":\"Photogenic historic square popular with visitors and locals.\"},{\"placeId\":\"place_020\",\"reason\":\"Local-favorite restaurant relaxing setting for lunch.\"},{\"placeId\":\"place_002\",\"reason\":\"Charming local-favorite neighborhood full of food spots.\"},{\"placeId\":\"place_099\",\"reason\":\"Food market ideal for a casual dinner stop.\"}]}],\"summary\":\"A balanced three-day Rome itinerary mixing iconic sights with local-favorite food spots. Each day stays centered in walkable Rome, single base, no transfers needed.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 4650,
+      "outputTokens": 735
+    },
+    "latencyMs": 7377,
+    "model": "claude-sonnet-5"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "kind": "live",
+  "caseId": "lake-como-july",
+  "run": 2,
+  "attempt": 1,
+  "turn": "select",
+  "model": "claude-sonnet-5",
+  "promptVersion": "v3",
+  "recordedAt": "2026-09-26T00:00:48.862Z",
+  "candidateHash": "sha256:9472b60543fc33bf105ea38abf949701dee790b6ffc06f9a79c27e8f750cca9c",
+  "request": {
+    "startDate": "2027-07-13",
+    "pace": "balanced",
+    "interests": ["scenic", "outdoors", "views"],
+    "maxPriceLevel": null,
+    "anchors": ["milan"],
+    "mustInclude": [],
+    "exclude": []
+  },
+  "limits": {
+    "timeoutMs": 15000,
+    "deadlineMs": 24000,
+    "maxAttempts": 2
+  },
+  "startedAfterMs": 12,
+  "response": {
+    "rawText": "{\"days\":[{\"anchorId\":\"milan\",\"placeIds\":[\"place_085\",\"place_063\",\"place_061\"],\"reasons\":[{\"placeId\":\"place_085\",\"reason\":\"A scenic lakefront viewpoint with relaxing outdoor views.\"},{\"placeId\":\"place_063\",\"reason\":\"A stunning scenic lakeside town perfect for outdoor exploration.\"},{\"placeId\":\"place_061\",\"reason\":\"A local-favorite spot for a classic regional dish to end the day.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_055\",\"place_060\",\"place_094\",\"place_082\",\"place_100\"],\"reasons\":[{\"placeId\":\"place_055\",\"reason\":\"An iconic historic landmark with impressive views.\"},{\"placeId\":\"place_060\",\"reason\":\"A scenic and iconic gallery great for photos.\"},{\"placeId\":\"place_094\",\"reason\":\"A hidden-gem rooftop with scenic photogenic views over the city.\"},{\"placeId\":\"place_082\",\"reason\":\"A family-friendly restaurant for a relaxed lunch.\"},{\"placeId\":\"place_100\",\"reason\":\"A lively local experience combining food and wine for dinner.\"}]},{\"anchorId\":\"milan\",\"placeIds\":[\"place_064\",\"place_098\",\"place_058\",\"place_061\"],\"reasons\":[{\"placeId\":\"place_064\",\"reason\":\"A scenic historic villa with beautiful outdoor lake views.\"},{\"placeId\":\"place_098\",\"reason\":\"A quiet historic basilica showcasing local heritage.\"},{\"placeId\":\"place_058\",\"reason\":\"A renowned museum with notable art in a quiet setting.\"},{\"placeId\":\"place_061\",\"reason\":\"A local trattoria offering a classic dinner to close the trip.\"}]}],\"summary\":\"A balanced Milan-based trip blending scenic lake outings with iconic city sights and local dining. Days progress from outdoor lake scenery to urban landmarks and cultural gems.\"}",
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 3820,
+      "outputTokens": 629
+    },
+    "latencyMs": 6629,
+    "model": "claude-sonnet-5"
+  }
+}
