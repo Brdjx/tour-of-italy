@@ -66,6 +66,10 @@ describe("DayCitySheet", () => {
     expect(florence.getAttribute("aria-disabled")).toBeNull();
     const line = document.getElementById(florence.getAttribute("aria-describedby") ?? "");
     expect(line?.textContent).toBe("2 h 10 min by high-speed train from Rome, 22 places");
+    // A city the day can take points onward, as the city pill does; the chevron is not named.
+    expect(florence.querySelector("svg.city-option-chevron")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     await userEvent.setup().click(florence);
     expect(onChoose).toHaveBeenCalledWith("florence");
   });

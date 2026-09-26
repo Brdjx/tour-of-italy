@@ -1,4 +1,4 @@
-import { type Itinerary, validationErrors } from "@italy/planner";
+import { type Itinerary, MAX_ANCHORS_PER_TRIP, validationErrors } from "@italy/planner";
 import { describe, expect, it, vi } from "vitest";
 import type { PlanCallOptions, PlanDayBody } from "../lib/api";
 import { ApiError } from "../lib/apiError";
@@ -14,6 +14,7 @@ import {
   replannedAiDays,
   requestDay,
   resolveDay,
+  SHORT_REASONS,
   tripKey,
   tripSelection,
 } from "../lib/dayCity";
@@ -53,20 +54,59 @@ describe("the Change city sheet's choices", () => {
     );
   });
 
-  it("gives each city one factual line: the travel into the day and the places it has", () => {
+  it("gives each city one factual line: how the day meets the days either side, and its places", () => {
     const [rome, florence, milan] = cityChoices(plan, 2, ctx);
     expect(rome?.line).toBe("Same city as day\u00a02, 30 places");
     expect(florence).toMatchObject({ allowed: true, reason: null });
     expect(florence?.line).toBe("2 h 10 min by high-speed train from Rome, 22 places");
     expect(milan?.line).toMatch(/^3 h 35 min by .* from Rome, 18 places$/);
-    // The first day has no day before it; the travel on to the next day's city is said instead.
+    expect(cityChoices(plan, 1, ctx)[0]?.line).toBe(
+      "Same city as days\u00a01 and\u00a03, 30 places",
+    );
+    // With day 3 in Florence, day 2's lines say both sides: Florence saves the move to day 3.
     const moved = must(dayAnswer(plan, 2, FLORENCE).dayPlan);
     const trip = { ...plan, days: plan.days.map((day, i) => (i === 2 ? moved : day)) };
-    const second = cityChoices(trip, 1, ctx);
-    expect(second[0]?.line).toBe(
+    const [second, secondFlorence] = cityChoices(trip, 1, ctx);
+    expect(second?.line).toBe(
       "Same city as day\u00a01, 2 h 10 min on to Florence for day\u00a03, 30 places",
     );
-    expect(cityChoices(trip, 0, ctx)[0]?.line).toBe("30 places");
+    expect(secondFlorence).toMatchObject({ anchorId: FLORENCE, allowed: true });
+    expect(secondFlorence?.line).toBe(
+      "2 h 10 min by high-speed train from Rome, same city as day\u00a03, 22 places",
+    );
+    // The first day has no day before it: only the day after.
+    expect(cityChoices(trip, 0, ctx)[0]?.line).toBe("Same city as day\u00a02, 30 places");
+  });
+
+  it("gives a reason that is the same for every city in full once, then short", () => {
+    const moved = must(dayAnswer(plan, 2, FLORENCE).dayPlan);
+    const trip = { ...plan, days: plan.days.map((day, i) => (i === 2 ? moved : day)) };
+    const reasons = cityChoices(trip, 0, ctx).map((choice) => [choice.anchorId, choice.reason]);
+    expect(reasons).toEqual([
+      [ROME, null],
+      [
+        FLORENCE,
+        "A trip changes city once at most, so it cannot go from Florence to Rome and back. Move day 2 to Florence first.",
+      ],
+      ["milan", "A trip can use at most 2 cities, and the other days use Rome and Florence."],
+      ["venice", "Would be a third city."],
+      ["bologna", "Would be a third city."],
+    ]);
+    // "A third city" is right only while a trip can have two.
+    expect(MAX_ANCHORS_PER_TRIP).toBe(2);
+
+    // A day holding a must-include keeps its city: named once, then short on the rows after it.
+    const pinned = fixturePlan({ mustInclude: [must(ids(plan, 1)[0])] });
+    const holder = pinned.days.findIndex((day) =>
+      day.stops.some((stop) => pinned.request.mustInclude.includes(stop.placeId)),
+    );
+    const held = cityChoices(pinned, holder, ctx).filter((choice) => !choice.current);
+    expect(held.map((choice) => choice.reason)).toEqual([
+      expect.stringMatching(/^Day \d has .+, which you asked for\.$/),
+      SHORT_REASONS.holds_must_include,
+      SHORT_REASONS.holds_must_include,
+      SHORT_REASONS.holds_must_include,
+    ]);
   });
 
   it("checks the day's own city for new ideas, with its current places left out", () => {
@@ -81,7 +121,7 @@ describe("the Change city sheet's choices", () => {
       current: true,
       allowed: false,
       reason: "Nothing in Rome fits day 1 with your settings.",
-      line: "30 places",
+      line: "Same city as day\u00a02, 30 places",
     });
   });
 });

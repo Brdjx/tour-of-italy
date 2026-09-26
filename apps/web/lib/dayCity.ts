@@ -1,6 +1,7 @@
 import {
   checkDayBase,
   type DayPlan,
+  type DayRefusal,
   type DaySelection,
   dayBaseOptions,
   type FallbackReason,
@@ -197,28 +198,53 @@ export interface CityChoice {
 }
 
 /**
+ * The short form of a reason that is the same whatever the city, for every row after the first
+ * that gives it (cityChoices).
+ */
+// Decision: said in full once, on the first row that has it, and short on the rows after, so a
+// sheet with three cities past the two-city limit does not read one long sentence three times.
+// Every row still says why (a reason is never hidden), and a reason that names the city (the
+// next day's travel from it, nothing fitting there) stays whole on every row. "A third city"
+// follows MAX_ANCHORS_PER_TRIP, which is 2 (the tests pin it).
+export const SHORT_REASONS: Partial<Record<DayRefusal, string>> = {
+  too_many_bases: "Would be a third city.",
+  holds_must_include: "This day has a place you asked for.",
+};
+
+/**
  * Every base for day `day` (0-based) as the sheet shows it, the day's own first: the planner's
  * verdict (dayBaseOptions) and one factual line. The day's own city is checked for new ideas,
- * that is with its current places left out.
+ * that is with its current places left out. A reason the same for every city is given in full
+ * on its first row and short after it (SHORT_REASONS).
  */
 export function cityChoices(itinerary: Itinerary, day: number, ctx: PlannerContext): CityChoice[] {
   const days = tripSelection(itinerary);
   const avoid = days[day]?.placeIds ?? [];
   const options = dayBaseOptions(itinerary.request, days, day, ctx, { avoid });
-  return options.map((option) => ({
-    anchorId: option.anchorId,
-    name: option.name,
-    current: option.current,
-    allowed: option.allowed,
-    reason: option.allowed ? null : (option.reason ?? null),
-    line: cityLine(days, day, option, ctx),
-  }));
+  const said = new Set<DayRefusal>();
+  return options.map((option) => {
+    const refusal = option.refusal;
+    const short = refusal && said.has(refusal) ? SHORT_REASONS[refusal] : undefined;
+    if (refusal) said.add(refusal);
+    return {
+      anchorId: option.anchorId,
+      name: option.name,
+      current: option.current,
+      allowed: option.allowed,
+      reason: option.allowed ? null : (short ?? option.reason ?? null),
+      line: cityLine(days, day, option, ctx),
+    };
+  });
 }
 
 /**
- * "2 h 10 min by high-speed train from Rome, 22 places": the travel into the day from the day
- * before's base, the travel on to the next day's base when there is any, and the city's places.
+ * "2 h 10 min by high-speed train from Rome, same city as day 3, 22 places": how the day meets
+ * the day before (the travel from its city, or the same city) and the day after (the same city,
+ * or the travel on to its city), and the city's places.
  */
+// Decision: both neighbours, always. With day 3 already in Florence, a Florence line that said
+// only the travel from Rome left the traveler to work out whether the move adds travel or saves
+// it; "same city as day 3" says it saves the move to day 3.
 function cityLine(
   days: readonly DaySelection[],
   day: number,
@@ -229,25 +255,34 @@ function cityLine(
   const before = ctx.anchorById.get(days[day - 1]?.anchorId ?? "");
   const after = ctx.anchorById.get(days[day + 1]?.anchorId ?? "");
   const parts: string[] = [];
+  const same: number[] = []; // the neighbouring days (1-based) in this city
   if (here && before) {
-    parts.push(
-      option.transferInMin > 0
-        ? transferText(
-            option.transferInMin,
-            travelMode(before.centroid, here.centroid),
-            before.name,
-          )
-        : `Same city as day\u00a0${day}`,
-    );
+    if (option.transferInMin > 0) {
+      const mode = travelMode(before.centroid, here.centroid);
+      parts.push(transferText(option.transferInMin, mode, before.name));
+    } else {
+      same.push(day);
+    }
   }
+  if (after && option.transferOutMin === 0) same.push(day + 2);
+  if (same.length > 0) parts.push(sameCityText(same));
   if (after && option.transferOutMin > 0) {
-    // No break inside "day 3": a line that ends on "day" reads as a sentence cut short.
     parts.push(
       `${formatDuration(option.transferOutMin)} on to ${after.name} for day\u00a0${day + 2}`,
     );
   }
   parts.push(plural(placesOfAnchor(ctx, option.anchorId).length, "place", "places"));
-  return parts.join(", ");
+  const line = parts.join(", ");
+  return line.charAt(0).toUpperCase() + line.slice(1);
+}
+
+/** "same city as day 3", or "same city as days 1 and 3". */
+function sameCityText(days: readonly number[]): string {
+  // No break inside "day 3": a line that ends on "day" reads as a sentence cut short.
+  const [first, second] = days;
+  return second === undefined
+    ? `same city as day\u00a0${first}`
+    : `same city as days\u00a0${first} and\u00a0${second}`;
 }
 
 /** "Planned again with AI" and the rest: how a day planned again was made, in the source line's words. */

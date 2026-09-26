@@ -3,8 +3,9 @@
  * is a quiet pill in the line of text, its 44 px target hung over the line's own height so the
  * heading keeps its rhythm; its chevron points onward, as Details' and More options' do, since
  * it opens a sheet. The sheet lists the day's own city first, marked with a gold check and New
- * ideas for this day, then every other city as one row between hairlines; a city the planner
- * does not allow stays in its place with its reason, in muted text, never hidden. While a day is
+ * ideas for this day, then every other city as one row between hairlines, with the pill's onward
+ * chevron after the name of each city the day can take; a city the planner does not allow stays
+ * in its place with its reason, in muted text and with no chevron, never hidden. While a day is
  * planned again its line says so with the board's busy flap, its rows are a skeleton and its map
  * dims. Once planned, one line under it says how, with the source line's mark.
  */
@@ -217,6 +218,34 @@
     outline-offset: -2px;
   }
 
+  /* The name, and after it on a city the day can take the city pill's chevron: muted at rest,
+     ink on hover and focus, leaning onward on a pointer. */
+  .city-option-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .city-option-chevron {
+    flex-shrink: 0;
+    color: var(--muted);
+    transform: rotate(-90deg);
+    transition:
+      color var(--dur-color) ease,
+      translate var(--dur-press) var(--ease-out);
+  }
+
+  .city-option:focus-visible .city-option-chevron {
+    color: var(--fg);
+  }
+
+  @media (hover: hover) {
+    .city-option:hover .city-option-chevron {
+      color: var(--fg);
+      translate: 2px 0;
+    }
+  }
+
   /* Not allowed: dimmed in place, its name muted and its reason readable. */
   .city-option[aria-disabled="true"] {
     cursor: default;
@@ -245,6 +274,12 @@
     .city-pill:hover .city-pill-chevron {
       translate: none;
       transition: none;
+    }
+
+    .city-option-chevron,
+    .city-option:hover .city-option-chevron {
+      translate: none;
+      transition: color var(--dur-color) ease;
     }
 
     .form-sheet[open] .city-current,

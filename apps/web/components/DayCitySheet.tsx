@@ -2,16 +2,18 @@
 
 import { type CSSProperties, type RefObject, useId, useRef } from "react";
 import type { CityChoice } from "../lib/dayCity";
-import { CheckIcon, RefreshIcon } from "./icons";
+import { CheckIcon, ChevronIcon, RefreshIcon } from "./icons";
 import { Sheet, SheetTitleBar } from "./Sheet";
 
 // Change city: every base for one day, from the city pill on the day's heading. A bottom sheet on
 // phones and a centred panel from 768 px (Sheet). The day's own city comes first, marked, with
 // "New ideas for this day"; then the other cities, each one button with one factual line (the
-// travel it means and how many places the city has). A city the planner does not allow for the
-// day stays in the list, dimmed in place with its reason, so the traveler learns what to change
-// first ("Move day 3 to Florence first") instead of wondering where it went. Choosing plans the
-// day at once; the sheet closes and the day's board says it is planning.
+// travel it means and how many places the city has). A city the day can take has the onward
+// chevron after its name, as the city pill has, so it reads as pressable on touch as well. A city
+// the planner does not allow for the day stays in the list, dimmed in place with its reason and
+// no chevron, so the traveler learns what to change first ("Move day 3 to Florence first")
+// instead of wondering where it went. Choosing plans the day at once; the sheet closes and the
+// day's board says it is planning.
 
 export const CITY_SHEET_ID = "city-sheet";
 
@@ -117,7 +119,8 @@ function CurrentCity({
 
 /**
  * Another city: one button, named by the city, with its line (or, when the planner does not
- * allow it, its reason) as the button's description.
+ * allow it, its reason) as the button's description. Only a city the day can take has the
+ * chevron.
  */
 function CityOption({
   choice,
@@ -140,8 +143,11 @@ function CityOption({
       data-anchor-id={choice.anchorId}
       data-allowed={choice.allowed ? "true" : "false"}
     >
-      <span id={nameId} className="city-name t-tab">
-        {choice.name}
+      <span className="city-option-head">
+        <span id={nameId} className="city-name t-tab">
+          {choice.name}
+        </span>
+        {choice.allowed ? <ChevronIcon size={16} className="city-option-chevron" /> : null}
       </span>
       <span id={lineId} className={choice.allowed ? "city-line" : "city-reason"}>
         {choice.allowed ? choice.line : choice.reason}

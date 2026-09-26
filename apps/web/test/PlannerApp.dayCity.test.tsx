@@ -143,10 +143,12 @@ describe("Change city", () => {
       "venice",
       "bologna",
     ]);
-    // Day 3 still starts in Rome, so none of them fits day 2 yet; each one says why, in place.
+    // Day 3 still starts in Rome, so none of them fits day 2 yet; each one says why, in place,
+    // and none has the onward chevron.
     for (const element of options) {
       expect(element.getAttribute("aria-disabled")).toBe("true");
       expect(element.dataset.allowed).toBe("false");
+      expect(element.querySelector(".city-option-chevron")).toBeNull();
     }
     const florence = option("florence");
     expect(florence).toHaveProperty("textContent", expect.stringContaining("Florence"));
@@ -173,6 +175,7 @@ describe("Change city", () => {
     const florence = option("florence");
     expect(florence.dataset.allowed).toBe("true");
     expect(florence.textContent).toContain("2 h 10 min by high-speed train from Rome, 22 places");
+    expect(florence.querySelector(".city-option-chevron")).not.toBeNull();
     await user.click(florence);
 
     // The request: the trip as ids, the day and its new city, nothing to avoid.
