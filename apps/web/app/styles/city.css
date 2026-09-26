@@ -271,8 +271,19 @@
 
   .route-days {
     --route-when: 5.75rem;
+    --route-gap: 14px;
     border-top: 1px solid var(--fg);
     border-bottom: 1px solid var(--line);
+  }
+
+  /* Decision: on a phone the days' column narrows to the widest short date ("Wed 18 May", 83px)
+     and its gap to 10px, so a meal fact such as "No dinner in Bologna on Mondays." keeps one line
+     at 390px rather than leaving "on Mondays." alone on a second (design review, 2026-09-26). */
+  @media (max-width: 479px) {
+    .route-days {
+      --route-when: 5.25rem;
+      --route-gap: 10px;
+    }
   }
 
   /* The travel into a day, on a dashed leg in the days' column, as the board draws travel. */
@@ -281,7 +292,7 @@
     min-height: 32px;
     grid-template-columns: var(--route-when) minmax(0, 1fr);
     align-items: center;
-    column-gap: 14px;
+    column-gap: var(--route-gap);
     padding-inline: 10px;
     color: var(--muted);
     font-size: 0.875rem;
@@ -303,7 +314,7 @@
     min-height: 44px;
     box-sizing: border-box;
     grid-template-columns: var(--route-when) minmax(0, 1fr);
-    column-gap: 14px;
+    column-gap: var(--route-gap);
     padding: 12px 10px;
     text-align: left;
     transition: background-color var(--dur-color) ease;
