@@ -77,9 +77,10 @@ interface DayMapProps {
   ctx: PlannerContext;
   onSelectDay: (index: number) => void;
   onDetails: DayMapInnerProps["onDetails"];
+  busy?: boolean; // the day is being planned again: its old stops dim and wait
 }
 
-export function DayMap({ days, active, ctx, onSelectDay, onDetails }: DayMapProps) {
+export function DayMap({ days, active, ctx, onSelectDay, onDetails, busy = false }: DayMapProps) {
   const view = days[active] ?? days[0];
   const day = view?.day;
   const points = useMemo(() => (day ? mapPoints(day, ctx) : []), [day, ctx]);
@@ -97,7 +98,13 @@ export function DayMap({ days, active, ctx, onSelectDay, onDetails }: DayMapProp
   const approximate = points.some((point) => point.approximate);
   const dayNumber = (view?.index ?? 0) + 1;
   return (
-    <figure className="day-map" data-testid="day-map">
+    <figure
+      className="day-map"
+      data-testid="day-map"
+      data-busy={busy ? "true" : undefined}
+      aria-busy={busy || undefined}
+      inert={busy || undefined}
+    >
       <p className="sr-only">
         Map of day {dayNumber}. It shows the stops listed above, numbered in visiting order.
       </p>

@@ -1,11 +1,15 @@
 import {
   DataIssueSchema,
   DataSummarySchema,
+  DayPlanSchema,
   ExcludedRecordSchema,
   IdSchema,
+  ItineraryMetaSchema,
   ItinerarySchema,
+  PLAN_SOURCES,
   PlaceSchema,
   RecordIdSchema,
+  TRIP_DAYS,
 } from "@italy/planner";
 import { z } from "zod";
 
@@ -92,6 +96,26 @@ export type SavedTripResponse = z.output<typeof SavedTripSchema>;
 
 /** POST /api/trips: the new trip's id. */
 export const SaveTripResponseSchema = z.object({ id: RecordIdSchema });
+
+/**
+ * POST /api/plan/day: the one day the API planned again, timed in its trip, who chose its places
+ * and the plan's meta. The page applies it with the planner's withReplannedDay, which times the
+ * whole trip again, so these times are never shown as they came.
+ */
+// Decision: strict like the itinerary (the planner's DayPlanSchema and ItineraryMetaSchema are),
+// but the envelope is z.object, as for the other envelopes here. It mirrors the API's own
+// PlanDayResponseSchema (services/api/src/contract.ts), which this app does not import.
+export const PlanDayResponseSchema = z.object({
+  day: z
+    .number()
+    .int()
+    .min(0)
+    .max(TRIP_DAYS - 1),
+  dayPlan: DayPlanSchema,
+  source: z.enum(PLAN_SOURCES),
+  meta: ItineraryMetaSchema,
+});
+export type PlanDayResponse = z.output<typeof PlanDayResponseSchema>;
 
 /** Every API error: `{ error: { code, message, details?, requestId } }`. */
 export const ApiErrorBodySchema = z.object({

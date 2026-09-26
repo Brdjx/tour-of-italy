@@ -7,22 +7,34 @@ import {
   rescheduleDay,
   type Violation,
   validationErrors,
+  withReplannedDay,
 } from "@italy/planner";
+import {
+  type DayAsk,
+  type DayMade,
+  type DayReply,
+  dayMessage,
+  noDaysMade,
+  resolveDay,
+} from "./dayCity";
 import type { FallbackCause } from "./planRequest";
 import type { SavedTrip } from "./savedTrip";
 
-// Plan state and every edit the traveler can make: a new plan, swap, remove, move up or down,
-// and undo. Each edit rebuilds only the affected day with the planner's rescheduleDay (which
-// retimes it with scheduleDay and refreshes the warnings), then runs the independent validator
-// over the whole trip. An edit that breaks a rule is kept and flagged, never hidden, and undo
-// is always one tap away.
+// Plan state and every edit the traveler can make: a new plan, swap, remove, move up or down, a
+// day planned again in another city or with new ideas, and undo. Each stop edit rebuilds only the
+// affected day with the planner's rescheduleDay (which retimes it with scheduleDay and refreshes
+// the warnings); a day planned again goes in with withReplannedDay, which times the whole trip
+// again (the next day's transfer changes with the day's city) and keeps an AI why line only where
+// it still holds. Then the independent validator runs over the whole trip. An edit that breaks a
+// rule is kept and flagged, never hidden, and undo is always one tap away.
 
 export type PlanOrigin = "api" | "offline" | "shared" | "saved";
-export type EditKind = "swap" | "remove" | "move";
+export type EditKind = "swap" | "remove" | "move" | "city" | "ideas";
 
 export interface HistoryEntry {
   itinerary: Itinerary;
   errors: Violation[];
+  dayMade: (DayMade | null)[];
   kind: EditKind;
   at: { day: number; stop: number }; // the row the edit touched, where undo puts it back
 }
@@ -33,6 +45,7 @@ export interface ItineraryState {
   cause: FallbackCause | null; // why the browser built it, when it did
   saved: SavedTrip | null; // the saved trip it was opened from (origin "saved")
   editedBefore: boolean; // changed by the traveler before this page load (the last-plan record)
+  dayMade: (DayMade | null)[]; // per day, how it was planned again; null for as the plan came
   errors: Violation[]; // error-level violations of the current plan; empty for a clean plan
   checked: boolean; // `errors` came from this browser's validator (false until places load)
   history: HistoryEntry[]; // most recent last, at most HISTORY_LIMIT
@@ -49,11 +62,15 @@ export type ItineraryAction =
       cause?: FallbackCause | null;
       saved?: SavedTrip | null;
       edited?: boolean; // a restored plan the traveler had already changed
+      dayMade?: (DayMade | null)[]; // a restored plan's days planned again
       message?: string;
     }
   | { type: "swap"; day: number; stop: number; placeId: string }
   | { type: "remove"; day: number; stop: number }
   | { type: "move"; day: number; stop: number; direction: "up" | "down" }
+  // A day planned again: what was asked, how the call went, and tripKey of the trip it was sent
+  // with. The reducer takes the API's day or plans it here (resolveDay).
+  | { type: "day"; ask: DayAsk; reply: DayReply; basis: string }
   | { type: "undo" }
   | { type: "check" }
   | { type: "clear" };
@@ -65,6 +82,8 @@ export const UNDO_LABELS: Record<EditKind, string> = {
   swap: "Undo swap",
   remove: "Undo remove",
   move: "Undo move",
+  city: "Undo city change",
+  ideas: "Undo new ideas",
 };
 
 export function initialItineraryState(): ItineraryState {
@@ -74,6 +93,7 @@ export function initialItineraryState(): ItineraryState {
     cause: null,
     saved: null,
     editedBefore: false,
+    dayMade: noDaysMade(),
     errors: [],
     checked: false,
     history: [],
@@ -97,6 +117,7 @@ export function itineraryReducer(
         cause: action.cause ?? null,
         saved: action.saved ?? null,
         editedBefore: action.edited ?? false,
+        dayMade: action.dayMade ?? noDaysMade(),
         errors: ctx ? validationErrors(action.itinerary, ctx) : [],
         checked: ctx !== null,
         history: [],
@@ -110,6 +131,8 @@ export function itineraryReducer(
       return check(state, ctx);
     case "clear":
       return { ...initialItineraryState(), planId: state.planId };
+    case "day":
+      return replan(state, action, ctx);
     default:
       return edit(state, action, ctx);
   }
@@ -177,6 +200,7 @@ function apply(
   const entry: HistoryEntry = {
     itinerary: current,
     errors: state.errors,
+    dayMade: state.dayMade,
     kind: result.kind,
     at: result.at,
   };
@@ -192,6 +216,44 @@ function apply(
     history,
     changed: result.changed,
     message: `${result.text}${problem}`,
+  };
+}
+
+/**
+ * A day planned again: the API's day when it still fits the trip on screen, or the rules' day
+ * planned here (resolveDay), applied as one edit that undo takes back whole. The day's own record
+ * of how it was made goes with it, so the page can say so under the day's heading.
+ */
+function replan(
+  state: ItineraryState,
+  action: Extract<ItineraryAction, { type: "day" }>,
+  ctx: PlannerContext | null,
+): ItineraryState {
+  const current = state.itinerary;
+  const before = current?.days[action.ask.day];
+  if (!current || !before) return { ...state, message: "That day is no longer here." };
+  if (!ctx) return { ...state, message: "Places are still loading. Try again in a moment." };
+  const resolved = resolveDay(current, action.ask, action.reply, action.basis, ctx);
+  if (resolved.kind === "refused") return { ...state, message: resolved.reason };
+  const { dayPlan, made } = resolved;
+  const rebuilt = withReplannedDay(current, action.ask.day, dayPlan, ctx);
+  const moved = before.anchorId !== dayPlan.anchorId;
+  const entry: HistoryEntry = {
+    itinerary: current,
+    errors: state.errors,
+    dayMade: state.dayMade,
+    kind: moved ? "city" : "ideas",
+    at: { day: action.ask.day, stop: 0 },
+  };
+  const name = ctx.anchorById.get(dayPlan.anchorId)?.name ?? dayPlan.anchorId;
+  return {
+    ...state,
+    itinerary: rebuilt,
+    errors: validationErrors(rebuilt, ctx),
+    dayMade: state.dayMade.map((old, index) => (index === action.ask.day ? made : old)),
+    history: [...state.history, entry].slice(-HISTORY_LIMIT),
+    changed: null,
+    message: dayMessage(action.ask.day, name, moved, made),
   };
 }
 
@@ -213,6 +275,7 @@ function undo(state: ItineraryState): ItineraryState {
     ...state,
     itinerary: last.itinerary,
     errors: last.errors,
+    dayMade: last.dayMade,
     history: state.history.slice(0, -1),
     // The row that came back is highlighted, and the page puts focus there if it was lost.
     changed: last.at,

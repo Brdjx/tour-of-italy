@@ -149,3 +149,13 @@ export function ExpandIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** A circling arrow: the same day planned again, with new ideas. */
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </Svg>
+  );
+}

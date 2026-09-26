@@ -95,6 +95,23 @@ export const COPY_TEXT = {
   private: "To keep your notes private, the shared trip leaves out the AI's summary and why lines.",
 } as const;
 
+/**
+ * Which days of a saved trip show the rules' why lines where the page shows the AI's: the days
+ * the AI planned again (lib/dayCity.ts, replannedAiDays), 1-based. Null when there are none.
+ */
+// Decision: said, not hidden. A saved trip takes the AI's words only from the AI plan on record
+// (services/api/src/trips/rebuild.ts), and a day planned again has none, so the server times that
+// day and gives it the rules' why lines. Keeping the page's copy of them would let a client write
+// text into a saved trip, which the server never allows.
+export function replannedNote(days: readonly number[]): string | null {
+  if (days.length === 0) return null;
+  if (days.length === 1) {
+    return `Day ${days[0]} was planned again, so the saved trip shows the rules' why lines for it.`;
+  }
+  const which = `${days.slice(0, -1).join(", ")} and ${days.at(-1)}`;
+  return `Days ${which} were planned again, so the saved trip shows the rules' why lines for them.`;
+}
+
 export function copyStatus(result: CopyResult): string {
   if (result.copied) return result.saved ? COPY_TEXT.copied : COPY_TEXT.fallbackCopied;
   return result.saved ? COPY_TEXT.manual : COPY_TEXT.fallbackManual;
@@ -122,6 +139,7 @@ export interface CopyContext {
   flagged: boolean; // it breaks a rule, so it was not saved
   flaggedStops?: number; // how many of its stops break a rule, for the wording
   left: PrivateAiText; // what the saved trip leaves out of the AI's text
+  replanned?: readonly number[]; // days (1-based) planned again by the AI
 }
 
 export interface CopyMessages {
@@ -142,6 +160,8 @@ export function copyMessages(result: CopyResult, context: CopyContext): CopyMess
     const note = result.copied ? COPY_TEXT.fallbackCopied : COPY_TEXT.fallbackNote;
     return { status: copyStatus(result), note };
   }
-  const note = privateNote(context.left);
+  // A plan made with notes keeps none of the AI's text, days planned again included, so the notes
+  // sentence says it all; otherwise the days planned again are named.
+  const note = privateNote(context.left) ?? replannedNote(context.replanned ?? []);
   return { status: note ? `${copyStatus(result)} ${note}` : copyStatus(result), note };
 }

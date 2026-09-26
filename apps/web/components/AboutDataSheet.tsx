@@ -319,6 +319,15 @@ function PlanSection({ model }: { model: string | null }) {
         days say which. On each stop, a filled gold dot marks a reason the AI wrote and an open dot
         one the rules wrote.
       </p>
+      {/* Decision: a day planned again says how on a line of its own, in the same words with
+          "again", so it is explained here once, with what a saved trip keeps of it. */}
+      <p className="about-text" data-testid="about-plan-day">
+        The city on a day's line moves that day to another city, or gives it new ideas in its own.
+        Only that day is planned again, the same way and from places the trip does not have yet, and
+        a line under the day says how: "Planned again with AI", or without AI and why. A saved trip
+        keeps the AI's reasons only from the plan as it was first made, so such a day shows the
+        rules' reasons there.
+      </p>
     </Section>
   );
 }

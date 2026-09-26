@@ -1,13 +1,19 @@
 import {
   buildDataset,
   buildPlannerContext,
+  checkDayBase,
   type Itinerary,
   type Place,
   type PlannerContext,
+  type PlanSource,
   planDeterministic,
+  scheduleTrip,
   type TripRequest,
+  withDay,
 } from "@italy/planner";
 import raw from "../../../data/italy.json";
+import type { PlanDayResponse } from "../lib/apiSchemas";
+import { dayAsk, tripSelection } from "../lib/dayCity";
 import type { TripData } from "../lib/tripData";
 import { buildTripOptions } from "../lib/tripOptions";
 
@@ -97,4 +103,44 @@ export function vaticanDay(plan: Itinerary): number {
   );
   if (index < 0) throw new Error("No day visits the Vatican Museums in this fixture");
   return index;
+}
+
+/** The reason an AI day answer's stops carry in these tests. */
+export const AI_DAY_REASON = "A good fit for the interests in this trip.";
+
+/**
+ * What POST /api/plan/day would answer for day `day` (0-based) at `anchorId`: the rules' day there,
+ * timed in its trip, with AI reasons when `source` is an AI one. Throws when the planner does not
+ * allow that city for the day, so a data change fails loudly.
+ */
+export function dayAnswer(
+  itinerary: Itinerary,
+  day: number,
+  anchorId: string,
+  source: PlanSource = "ai",
+): PlanDayResponse {
+  const ask = dayAsk(itinerary, day, anchorId);
+  const days = tripSelection(itinerary);
+  const check = checkDayBase(itinerary.request, days, day, anchorId, ctx, { avoid: ask.avoid });
+  const picked = must(check.day, `a day at ${anchorId}`);
+  const dayPlan = must(scheduleTrip(itinerary.request, withDay(days, day, picked), ctx).days[day]);
+  const ai = source !== "deterministic";
+  return {
+    day,
+    dayPlan: {
+      ...dayPlan,
+      stops: dayPlan.stops.map((stop) =>
+        ai ? { ...stop, reason: AI_DAY_REASON, reasonSource: "ai" as const } : stop,
+      ),
+    },
+    source,
+    meta: {
+      ...(ai
+        ? { model: "claude-sonnet-5", promptVersion: "day-v1" }
+        : { fallbackReason: "timeout" }),
+      attempts: ai ? 1 : 0,
+      latencyMs: 4100,
+      generatedAt: GENERATED_AT,
+    },
+  };
 }

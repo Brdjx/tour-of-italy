@@ -17,7 +17,7 @@ interface SourceBadgeProps extends SourceStatus {
 }
 
 /** The drawn check for a checked plan, or the red dot for a plan with a problem. */
-function SourceMark({ marker }: { marker: SourceMarker }) {
+export function SourceMark({ marker }: { marker: SourceMarker }) {
   if (marker === "problem")
     return <span aria-hidden="true" className="source-mark source-mark--problem" />;
   return (

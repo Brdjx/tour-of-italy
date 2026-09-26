@@ -2,13 +2,18 @@
 
 import type { Place } from "@italy/planner";
 import { type Ref, useCallback, useEffect, useMemo, useRef } from "react";
+import { type DayMade, dayClaim } from "../lib/dayCity";
 import { clockDateTime } from "../lib/format";
 import { photoForPlace } from "../lib/placePhotos";
 import { type DayView, dayTimes, movedStops, thumbnailRows } from "../lib/timetable";
 import { type StopDetailsControl, type StopRef, useStopDetails } from "../lib/useStopDetails";
 import { ClockText } from "./Clock";
+import { CITY_SHEET_ID } from "./DayCitySheet";
+import { ChevronIcon } from "./icons";
+import { SourceMark } from "./SourceBadge";
 import { StopDetailsSheet } from "./StopDetailsSheet";
 import { StopRow } from "./StopRow";
+import { DayRowsSkeleton } from "./skeleton/PlanSkeleton";
 import { WarningChips } from "./WarningChip";
 
 // One day as a departure board: a header (date, base, what the day holds, day-level notes), the
@@ -17,6 +22,9 @@ import { WarningChips } from "./WarningChip";
 // One details sheet serves the day: a stop's photo or Details button opens it on that stop. The
 // plan (PlanView) owns that sheet and shares it with the day's map; on its own the board keeps one.
 // Closed on a stop the traveler stepped to in it, focus comes to that stop's Details here.
+// The city in "Day 2 in Rome" is a quiet pill that opens Change city (DayCitySheet). While the day
+// is planned again, the line says so and the rows are a skeleton; a day planned again says how
+// under that line, in the source line's words.
 
 /** Thumbnails on stops before this index load at once; the rest load as they scroll near. */
 const EAGER_PHOTOS = 3;
@@ -77,6 +85,19 @@ function hasOwnPhoto(place: Place): boolean {
   return photoForPlace(place)?.kind === "place";
 }
 
+/** The city pill on the day's heading line. */
+export interface DayCityControl {
+  onOpen: () => void;
+  open: boolean; // the Change city sheet is open on this day
+  disabled: boolean; // another day is being planned again
+}
+
+/** The day while it is planned again. */
+export interface DayPlanning {
+  text: string; // "Planning day 2 in Florence"
+  slow: string | null; // the line that says it is still working, after a while
+}
+
 export interface DayTimetableProps {
   view: DayView;
   animate: boolean; // draw the rows in once, only right after a new plan arrives
@@ -86,13 +107,14 @@ export interface DayTimetableProps {
   onMove: (stop: number, direction: "up" | "down") => void;
   headingRef?: Ref<HTMLHeadingElement>; // focused after a plan arrives or a stop is removed
   details?: StopDetailsControl; // the plan's details sheet, which the map opens too
+  city?: DayCityControl; // without it the city is plain text
+  planning?: DayPlanning | null; // the day is being planned again
+  made?: DayMade | null; // how the day was planned again, when it was
 }
 
 export function DayTimetable(props: DayTimetableProps) {
   const { view, animate, changedStop, onSwap, onRemove, onMove, headingRef } = props;
   const headingId = `day-heading-${view.index}`;
-  const count = view.rows.length;
-  const transfer = view.transfer;
   // A few highlights, not a photo per row: the day's best-rated stops with a photo of their own.
   const thumbnails = useMemo(() => thumbnailRows(view.rows, hasOwnPhoto), [view.rows]);
   // Each stop's times as last shown. A stop whose times differ from them was moved by an edit,
@@ -115,18 +137,140 @@ export function DayTimetable(props: DayTimetableProps) {
   const details = props.details ?? own.control;
   const list = useRef<HTMLOListElement>(null);
   const findDetails = useCallback((stop: StopRef) => detailsButtonFor(list.current, stop), []);
+  const planning = props.planning ?? null;
   return (
-    <section aria-labelledby={headingId} data-testid="day-timetable" data-day={view.index + 1}>
+    <section
+      aria-labelledby={headingId}
+      aria-busy={planning ? true : undefined}
+      data-testid="day-timetable"
+      data-day={view.index + 1}
+      data-planning={planning ? "true" : undefined}
+    >
       <header className="day-header">
         <h2 id={headingId} ref={headingRef} tabIndex={-1} className="day-heading t-day">
           {view.heading}
         </h2>
-        <p className="day-subtitle">
-          Day {view.index + 1} in {view.anchorName}
-          <span className="text-muted">, {view.stopsText}</span>
-        </p>
-        <WarningChips chips={view.dayChips} />
+        {planning ? (
+          <DayPlanningLine planning={planning} />
+        ) : (
+          <>
+            <p className="day-subtitle" data-testid="day-subtitle">
+              Day {view.index + 1} in{" "}
+              {props.city ? (
+                <>
+                  <CityPill control={props.city} name={view.anchorName} />
+                  {/* Decision: no comma after the pill on screen, where its chevron already
+                      ends the city; a screen reader still hears the sentence with one. */}
+                  <span className="text-muted day-stops">
+                    <span className="sr-only">, </span>
+                    {view.stopsText}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {view.anchorName}
+                  <span className="text-muted">, {view.stopsText}</span>
+                </>
+              )}
+            </p>
+            {props.made ? <DaySource made={props.made} /> : null}
+            <WarningChips chips={view.dayChips} />
+          </>
+        )}
       </header>
+      {planning ? (
+        <DayRowsSkeleton rows={view.rows.length} />
+      ) : (
+        <DayRows
+          view={view}
+          times={{ animate, moved }}
+          changedStop={changedStop}
+          thumbnails={thumbnails}
+          details={details}
+          list={list}
+          findDetails={findDetails}
+          onSwap={onSwap}
+          onRemove={onRemove}
+          onMove={onMove}
+        />
+      )}
+      {props.details ? null : <StopDetailsSheet {...own.sheet} date={view.day.date} />}
+    </section>
+  );
+}
+
+/** "Rome" and an onward chevron: the city, which opens Change city for the day. */
+function CityPill({ control, name }: { control: DayCityControl; name: string }) {
+  return (
+    <button
+      type="button"
+      className="city-pill"
+      onClick={control.disabled ? undefined : control.onOpen}
+      aria-haspopup="dialog"
+      aria-expanded={control.open}
+      aria-controls={CITY_SHEET_ID}
+      aria-disabled={control.disabled || undefined}
+      data-testid="city-button"
+    >
+      {name}
+      {/* Decision: the name first, then these words, so voice control finds it by what it shows
+          ("Rome") and a screen reader hears what it does. */}
+      <span className="sr-only">, change city</span>
+      <ChevronIcon size={16} className="city-pill-chevron" />
+    </button>
+  );
+}
+
+/** The day's heading line while the day is planned again, with the board's busy flap. */
+function DayPlanningLine({ planning }: { planning: DayPlanning }) {
+  return (
+    <>
+      <p className="day-subtitle day-planning" data-testid="day-planning">
+        <span className="flap-spinner" aria-hidden="true" />
+        {planning.text}
+      </p>
+      {planning.slow ? (
+        <p className="day-planning-slow" data-testid="day-planning-slow">
+          {planning.slow}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** "Planned again with AI": how the day was planned again, with the source line's mark. */
+function DaySource({ made }: { made: DayMade }) {
+  const { claim, ai } = dayClaim(made);
+  return (
+    <p className="day-source" data-testid="day-source" data-marker={ai ? "ai" : "rules"}>
+      <SourceMark marker={ai ? "ai" : "rules"} />
+      <span>{claim}</span>
+    </p>
+  );
+}
+
+interface DayRowsProps {
+  view: DayView;
+  times: { animate: boolean; moved: Set<string> };
+  changedStop: number | null;
+  thumbnails: Set<number>;
+  details: StopDetailsControl;
+  list: Ref<HTMLOListElement>;
+  findDetails: (stop: StopRef) => HTMLElement | null;
+  onSwap: (stop: number) => void;
+  onRemove: (stop: number) => void;
+  onMove: (stop: number, direction: "up" | "down") => void;
+}
+
+/** The transfer, the stops with their legs, and the way back: the board itself. */
+function DayRows(props: DayRowsProps) {
+  const { view, times, changedStop, thumbnails, details, list, findDetails } = props;
+  const { onSwap, onRemove, onMove } = props;
+  const count = view.rows.length;
+  const transfer = view.transfer;
+  const animate = times.animate;
+  return (
+    <>
       {transfer ? (
         <div className="timetable-grid transfer-row" data-testid="transfer-note">
           <p className="stop-times">
@@ -153,7 +297,7 @@ export function DayTimetable(props: DayTimetableProps) {
         aria-label="Stops in visiting order"
       >
         {view.rows.map((row) => {
-          const timesChanged = moved.has(row.stop.placeId);
+          const timesChanged = times.moved.has(row.stop.placeId);
           return (
             <StopRow
               key={row.stop.placeId}
@@ -185,8 +329,7 @@ export function DayTimetable(props: DayTimetableProps) {
           <p className="py-1.5 text-sm text-muted">{view.returnLeg}</p>
         </div>
       ) : null}
-      {props.details ? null : <StopDetailsSheet {...own.sheet} date={view.day.date} />}
-    </section>
+    </>
   );
 }
 

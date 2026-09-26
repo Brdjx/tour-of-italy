@@ -9,6 +9,7 @@ import {
   flaggedNote,
   type MakeClipboardItem,
   privateNote,
+  replannedNote,
 } from "../lib/copyLink";
 
 // Copy link saves the trip, then copies the link the save returns, from one press. Safari forgets
@@ -226,6 +227,34 @@ describe("copyMessages", () => {
       { flagged: false, left: none },
     );
     expect(plain).toEqual({ status: "Link copied.", note: null });
+  });
+
+  it("says which days a saved trip shows with the rules' why lines, after they were planned again", () => {
+    const one = replannedNote([2]) as string;
+    expect(one).toBe(
+      "Day 2 was planned again, so the saved trip shows the rules' why lines for it.",
+    );
+    expect(replannedNote([2, 3])).toBe(
+      "Days 2 and 3 were planned again, so the saved trip shows the rules' why lines for them.",
+    );
+    expect(replannedNote([1, 2, 3])).toBe(
+      "Days 1, 2 and 3 were planned again, so the saved trip shows the rules' why lines for them.",
+    );
+    expect(replannedNote([])).toBeNull();
+    const saved = { link: SAVED, saved: true, copied: true };
+    expect(copyMessages(saved, { flagged: false, left: none, replanned: [2] })).toEqual({
+      status: `Link copied. ${one}`,
+      note: one,
+    });
+    // The notes sentence already says none of the AI's text is kept, days planned again included.
+    const notes = copyMessages(saved, { flagged: false, left: some, replanned: [2] });
+    expect(notes.note).toBe(privateNote(some));
+    // A link that rebuilds the trip from its places has the rules' why lines everywhere anyway.
+    const rebuilt = copyMessages(
+      { link: FALLBACK, saved: false, copied: true },
+      { flagged: false, left: none, replanned: [2] },
+    );
+    expect(rebuilt.note).toBe(COPY_TEXT.fallbackCopied);
   });
 });
 

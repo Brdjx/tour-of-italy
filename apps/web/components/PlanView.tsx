@@ -3,9 +3,12 @@
 import { type PlannerContext, summaryForTrip } from "@italy/planner";
 import { type CSSProperties, type Ref, useEffect, useMemo, useRef } from "react";
 import { tripViolations, WARNING_NEXT_STEP } from "../lib/chips";
+import { type CityChoice, cityChoices } from "../lib/dayCity";
 import type { ItineraryState } from "../lib/itineraryReducer";
 import { buildTripView, type RowView } from "../lib/timetable";
+import { type DayCity, planningText, SLOW_DAY_TEXT } from "../lib/useDayCity";
 import { useStopDetails } from "../lib/useStopDetails";
+import { DayCitySheet } from "./DayCitySheet";
 import { DayMap } from "./DayMap";
 import { DAY_PANEL_ID, DayTabs, dayTabId } from "./DayTabs";
 import { DayTimetable } from "./DayTimetable";
@@ -20,7 +23,8 @@ import { StopDetailsSheet } from "./StopDetailsSheet";
 // move to the new day instead of starting over. The day's details sheet lives here, so a stop's
 // photo or Details on the board and its marker on the map (on the page or full screen) open the
 // same sheet on the same stop, and stepping in it to another stop marks that stop's row as the
-// one open (useStopDetails).
+// one open (useStopDetails). The Change city sheet lives here too, opened from the city on the
+// day's heading line; while a day is planned again its board is a skeleton and its map dims.
 
 const NO_ROWS: readonly RowView[] = [];
 
@@ -34,6 +38,7 @@ export interface PlanViewProps {
   onSwap: (day: number, stop: number) => void;
   onRemove: (day: number, stop: number) => void;
   onMove: (day: number, stop: number, direction: "up" | "down") => void;
+  dayCity?: DayCity; // Change city; without it the city on each day's line is plain text
 }
 
 export function PlanView(props: PlanViewProps) {
@@ -54,7 +59,29 @@ export function PlanView(props: PlanViewProps) {
   );
   const day = days[activeDay] ?? days[0];
   const details = useStopDetails(day?.rows ?? NO_ROWS);
+  const dayCity = props.dayCity;
+  const sheetDay = dayCity?.sheet.day ?? null;
+  const sheetOpen = dayCity?.sheet.open ?? false;
+  // Decision: worked out while the sheet is open only (a few milliseconds for five cities), and
+  // the last list kept while it closes, so it leaves with its content and later edits cost nothing.
+  const shownChoices = useRef<CityChoice[]>([]);
+  const choices = useMemo(
+    () =>
+      itinerary && sheetOpen && sheetDay !== null
+        ? cityChoices(itinerary, sheetDay, ctx)
+        : shownChoices.current,
+    [itinerary, sheetOpen, sheetDay, ctx],
+  );
+  shownChoices.current = choices;
+  // Where focus goes as the sheet closes: the day's heading once a city was chosen (its line then
+  // says the day is planning), or back to the city pill that opened it.
+  const cityReturn = useRef<HTMLElement | null>(null);
   if (!itinerary) return null;
+  const pending = dayCity?.pending ?? null;
+  const planning =
+    day && pending?.day === day.index
+      ? { text: planningText(pending), slow: pending.slow ? SLOW_DAY_TEXT : null }
+      : null;
   const tripNotes = tripViolations([...plan.errors, ...itinerary.warnings]);
   return (
     <section aria-labelledby="plan-title" className="plan" data-testid="plan-view">
@@ -108,6 +135,20 @@ export function PlanView(props: PlanViewProps) {
               onRemove={(stop) => props.onRemove(day.index, stop)}
               onMove={(stop, direction) => props.onMove(day.index, stop, direction)}
               details={details.control}
+              city={
+                dayCity
+                  ? {
+                      onOpen: () => {
+                        cityReturn.current = null;
+                        dayCity.open(day.index);
+                      },
+                      open: dayCity.sheet.open && sheetDay === day.index,
+                      disabled: pending !== null,
+                    }
+                  : undefined
+              }
+              planning={planning}
+              made={plan.dayMade[day.index] ?? null}
             />
           </div>
           <DayMap
@@ -116,10 +157,26 @@ export function PlanView(props: PlanViewProps) {
             ctx={ctx}
             onSelectDay={props.onSelectDay}
             onDetails={details.control.open}
+            busy={planning !== null}
           />
         </div>
       ) : null}
       {day ? <StopDetailsSheet {...details.sheet} date={day.day.date} /> : null}
+      {dayCity ? (
+        <DayCitySheet
+          open={dayCity.sheet.open}
+          day={sheetDay}
+          date={sheetDay === null ? "" : (days[sheetDay]?.heading ?? "")}
+          choices={choices}
+          onChoose={(anchorId) => {
+            if (sheetDay !== null)
+              cityReturn.current = document.getElementById(`day-heading-${sheetDay}`);
+            dayCity.choose(anchorId);
+          }}
+          onClose={dayCity.close}
+          returnFocus={cityReturn}
+        />
+      ) : null}
     </section>
   );
 }

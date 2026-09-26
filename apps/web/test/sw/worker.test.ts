@@ -97,6 +97,7 @@ describe("POST /api/plan and other API calls", () => {
     for (const request of [
       req("/api/plan", { method: "POST" }),
       req("/api/plan?mode=deterministic", { method: "POST" }),
+      req("/api/plan/day", { method: "POST" }),
       req("/api/health"),
       req("/api/data-issues"),
     ]) {

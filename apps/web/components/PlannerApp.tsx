@@ -5,12 +5,14 @@ import "../lib/zodSetup";
 import { privateAiText, summaryForTrip, type TripRequest } from "@italy/planner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flaggedStopCount } from "../lib/chips";
+import { type DayCallDeps, replannedAiDays } from "../lib/dayCity";
 import { useEditFocus } from "../lib/editFocus";
 import { isEdited, undoLabel } from "../lib/itineraryReducer";
 import { restoredNote } from "../lib/lastPlan";
 import type { PlanDeps } from "../lib/planRequest";
 import { type FetchTrip, SAVED_NOTES } from "../lib/savedTrip";
 import { defaultFormValues, valuesFromRequest } from "../lib/tripForm";
+import { useDayCity } from "../lib/useDayCity";
 import { useFirstScreen } from "../lib/useFirstScreen";
 import { useItinerary } from "../lib/useItinerary";
 import { type RestoredPlan, useLastPlan } from "../lib/useLastPlan";
@@ -48,6 +50,7 @@ export const STARTED_OVER = "Started a new trip. Your last plan is cleared from 
 export interface PlannerAppProps {
   loader?: TripDataLoader; // injected in tests
   post?: PlanDeps["post"]; // injected in tests
+  postDay?: DayCallDeps["post"]; // POST /api/plan/day; injected in tests
   saveTrip?: SaveTrip; // POST /api/trips; injected in tests
   fetchTrip?: FetchTrip; // GET /api/trips/:id; injected in tests
   today?: () => Date;
@@ -56,6 +59,7 @@ export interface PlannerAppProps {
 export function PlannerApp({
   loader,
   post,
+  postDay,
   saveTrip,
   fetchTrip,
   today = () => new Date(),
@@ -104,9 +108,21 @@ export function PlannerApp({
     onEdit: () => setAnimateDay(-1),
   });
 
-  const restore = ({ itinerary, origin, cause, saved, edited, flagged }: RestoredPlan) => {
+  // Change city and New ideas for this day: the answer goes in through the edits above, and the
+  // day's rows arrive the way a new plan's do when it is the day on screen.
+  const dayCity = useDayCity({
+    plan,
+    ctx,
+    post: postDay,
+    announce,
+    apply: edits.applyDay,
+    onPlanned: setAnimateDay,
+  });
+
+  const restore = (restored: RestoredPlan) => {
+    const { itinerary, origin, cause, saved, edited, dayMade, flagged } = restored;
     const message = "Showing your last plan.";
-    dispatch({ type: "plan", itinerary, origin, cause, saved, edited, message });
+    dispatch({ type: "plan", itinerary, origin, cause, saved, edited, dayMade, message });
     setForm((current) => ({ key: current.key + 1, values: valuesFromRequest(itinerary.request) }));
     setNotice(restoredNote(flagged, saved?.retimed === true));
   };
@@ -295,6 +311,7 @@ export function PlannerApp({
                       flaggedStops: flaggedStopCount(plan.errors),
                       edited: isEdited(plan),
                       privateText,
+                      replannedAi: replannedAiDays(shownPlan, plan.dayMade),
                       now: today(),
                     }
                   : null
@@ -344,6 +361,7 @@ export function PlannerApp({
                   onSwap={edits.startSwap}
                   onRemove={edits.remove}
                   onMove={edits.move}
+                  dayCity={dayCity}
                 />
               ) : null}
             </PlanPane>

@@ -27,6 +27,7 @@ export interface HeaderPlan {
   flaggedStops: number; // stops with one of them
   edited: boolean;
   privateText: PrivateAiText; // what a saved trip of it leaves out to keep the notes private
+  replannedAi: number[]; // days (1-based) planned again by the AI, whose why lines it leaves out
   now: Date; // today, for the source line's saved day
 }
 
@@ -59,7 +60,7 @@ export function TripSummary(props: TripSummaryProps) {
     savedFrom: plan?.saved?.id ?? null,
     flagged: (plan?.errors ?? 0) > 0,
     flaggedStops: plan?.flaggedStops ?? 0,
-    ...(plan ? { privateText: plan.privateText } : {}),
+    ...(plan ? { privateText: plan.privateText, replannedAi: plan.replannedAi } : {}),
     ...(props.saveTrip ? { saveTrip: props.saveTrip } : {}),
   });
   if (!request) {

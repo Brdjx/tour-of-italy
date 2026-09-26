@@ -1,7 +1,9 @@
 import {
   addDays,
+  FALLBACK_REASONS,
   type Itinerary,
   ItinerarySchema,
+  PLAN_SOURCES,
   type PlannerContext,
   RecordIdSchema,
   TRIP_DAYS,
@@ -9,6 +11,7 @@ import {
 } from "@italy/planner";
 import { z } from "zod";
 import { PLANNED_BY } from "./apiSchemas";
+import { type DayMade, noDaysMade } from "./dayCity";
 import type { PlanOrigin } from "./itineraryReducer";
 import type { FallbackCause } from "./planRequest";
 import type { SavedTrip } from "./savedTrip";
@@ -28,15 +31,32 @@ export const LAST_PLAN_MAX_CHARS = 100_000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const CAUSES = ["offline", "timeout", "busy", "server", "unreadable", "invalid"] as const;
+
+/** How one day was planned again (lib/dayCity.ts), or null for a day as the plan came. */
+const DayMadeSchema = z
+  .discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("api"),
+      source: z.enum(PLAN_SOURCES),
+      fallbackReason: z.enum(FALLBACK_REASONS).optional(),
+    }),
+    z.strictObject({ kind: z.literal("device"), cause: z.enum(CAUSES).nullable() }),
+  ])
+  .nullable();
+
 const StoredPlanSchema = z.strictObject({
   v: z.literal(LAST_PLAN_VERSION),
   savedAt: z.iso.datetime(),
   origin: z.enum(["api", "offline", "shared", "saved"]),
   // Why a browser-built plan was built there; absent in records saved before it was kept.
-  cause: z.enum(["offline", "timeout", "busy", "server", "unreadable", "invalid"]).optional(),
+  cause: z.enum(CAUSES).optional(),
   // True once the traveler has changed the plan on this device, so after a reload the source
   // line still says so and never claims the plan is as it arrived. Absent in older records.
   edited: z.boolean().optional(),
+  // How each day was planned again, so the line under a day's heading still says so after a
+  // reload. Absent when no day was, and in records saved before it was kept.
+  days: z.array(DayMadeSchema).length(TRIP_DAYS).optional(),
   // The saved trip a plan was opened from, so the source line still says so after a reload.
   saved: z
     .strictObject({
@@ -64,6 +84,7 @@ export type LastPlanRead =
       cause: FallbackCause | null;
       saved: SavedTrip | null;
       edited: boolean;
+      dayMade: (DayMade | null)[];
       flagged: number;
     };
 
@@ -81,6 +102,7 @@ export interface LastPlanExtra {
   cause?: FallbackCause | null; // why the browser built it
   saved?: SavedTrip | null; // the saved trip it was opened from
   edited?: boolean; // the traveler has changed it on this device
+  dayMade?: readonly (DayMade | null)[]; // how each day was planned again
 }
 
 // Decision: the trip notes are kept with the plan. They never leave this device (share links
@@ -91,7 +113,7 @@ export function saveLastPlan(
   itinerary: Itinerary,
   origin: PlanOrigin,
   now: Date,
-  { cause = null, saved = null, edited = false }: LastPlanExtra = {},
+  { cause = null, saved = null, edited = false, dayMade = [] }: LastPlanExtra = {},
 ): boolean {
   const record = {
     v: LAST_PLAN_VERSION,
@@ -99,6 +121,7 @@ export function saveLastPlan(
     origin,
     ...(cause ? { cause } : {}),
     ...(edited ? { edited } : {}),
+    ...(dayMade.some((made) => made !== null) ? { days: dayMade } : {}),
     ...(saved ? { saved } : {}),
     itinerary,
   };
@@ -160,7 +183,7 @@ function checkStored(raw: string, ctx: PlannerContext, now: Date): LastPlanRead 
   }
   const parsed = StoredPlanSchema.safeParse(json);
   if (!parsed.success) return { status: "discarded", reason: "invalid" };
-  const { itinerary, origin, savedAt, cause, saved, edited } = parsed.data;
+  const { itinerary, origin, savedAt, cause, saved, edited, days } = parsed.data;
   if (isStale(itinerary, savedAt, now)) return { status: "discarded", reason: "stale" };
   if (!knownToData(itinerary, ctx)) return { status: "discarded", reason: "data-changed" };
   // Rule breaks are kept and flagged, as after an edit: the traveler sees what changed and can
@@ -173,6 +196,7 @@ function checkStored(raw: string, ctx: PlannerContext, now: Date): LastPlanRead 
     cause: cause ?? null,
     saved: saved ?? null,
     edited: edited ?? false,
+    dayMade: days ?? noDaysMade(),
     flagged,
   };
 }

@@ -230,6 +230,10 @@ describe("the About this data overlay", () => {
     expect(marks).toContain('After a change the line adds "edited".');
     expect(marks).toContain("Every edit is checked again");
     expect(marks).toContain("a filled gold dot marks a reason the AI wrote");
+    const day = screen.getByTestId("about-plan-day").textContent ?? "";
+    expect(day).toContain("Only that day is planned again");
+    expect(day).toContain('"Planned again with AI"');
+    expect(day).toContain("such a day shows the rules' reasons there");
   });
 
   it("explains each claim of the source line in a row keyed by the words the line starts with", () => {

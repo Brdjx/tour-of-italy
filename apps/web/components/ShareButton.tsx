@@ -38,6 +38,7 @@ export interface ShareLinkOptions {
   flagged?: boolean; // the plan breaks a rule right now, so it is not saved
   flaggedStops?: number; // how many of its stops break a rule, for the note's wording
   privateText?: PrivateAiText; // what a saved trip of it leaves out (privateAiText)
+  replannedAi?: readonly number[]; // days (1-based) planned again by the AI (replannedAiDays)
 }
 
 const NOTHING_LEFT_OUT: PrivateAiText = { summary: false, reasons: 0 };
@@ -104,7 +105,8 @@ export function useShareLink(
       setManual(result.copied ? null : result.link);
       setCopied(result.copied);
       const flaggedStops = options.flaggedStops ?? 0;
-      const messages = copyMessages(result, { flagged, flaggedStops, left });
+      const replanned = options.replannedAi ?? [];
+      const messages = copyMessages(result, { flagged, flaggedStops, left, replanned });
       setNote(messages.note);
       onStatus?.(messages.status);
     });

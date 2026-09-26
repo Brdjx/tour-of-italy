@@ -10,6 +10,8 @@ import {
   type Meta,
   MetaSchema,
   PlacesResponseSchema,
+  type PlanDayResponse,
+  PlanDayResponseSchema,
   type SavedTripResponse,
   SavedTripSchema,
   SaveTripResponseSchema,
@@ -167,6 +169,30 @@ export function postPlan(request: TripRequest, options: PlanCallOptions = {}): P
     schema: ItinerarySchema,
     method: "POST",
     body: request,
+    options: { timeoutMs: TIMEOUTS.plan, ...options },
+  });
+}
+
+/** What POST /api/plan/day takes: the trip as ids, the day, its new base, places to leave out. */
+export interface PlanDayBody {
+  request: TripRequest; // the plan's own request, notes and all
+  days: { anchorId: string; ids: string[] }[];
+  day: number; // 0-based
+  anchorId: string; // another city, or the day's own for new ideas
+  avoid?: string[]; // the day's places, for new ideas at the same city
+}
+
+/** POST /api/plan/day. The reply must be one planned day or this throws a schema ApiError. */
+export function postPlanDay(
+  body: PlanDayBody,
+  options: PlanCallOptions = {},
+): Promise<PlanDayResponse> {
+  const query = options.deterministic ? "?mode=deterministic" : "";
+  return requestJson({
+    path: `/api/plan/day${query}`,
+    schema: PlanDayResponseSchema,
+    method: "POST",
+    body,
     options: { timeoutMs: TIMEOUTS.plan, ...options },
   });
 }

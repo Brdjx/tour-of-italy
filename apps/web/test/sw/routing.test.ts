@@ -30,6 +30,13 @@ const CASES: Array<[string, RequestLike, Strategy]> = [
     "network",
   ],
   ["plan fetched with GET", req("/api/plan"), "network"],
+  // Change city: one day planned again, a POST that must reach the server every time.
+  ["day request", req("/api/plan/day", { method: "POST" }), "network"],
+  [
+    "deterministic day request",
+    req("/api/plan/day?mode=deterministic", { method: "POST" }),
+    "network",
+  ],
   ["health check", req("/api/health"), "network"],
   ["data notes", req("/api/data-issues"), "network"],
   ["place list with a query", req("/api/places?limit=1"), "network"],

@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { EditIntent } from "./editFocus";
 import type { ItineraryAction, ItineraryState } from "./itineraryReducer";
 
-// Edits to the plan on screen (swap, remove, move, undo) as page actions: each one tells the
-// focus keeper where focus should land, stops the draw-in animation, and marks the next status
-// message as coming from an edit, so it shows in the toast with Undo as well as being announced.
+// Edits to the plan on screen (swap, remove, move, a day planned again, undo) as page actions:
+// each one tells the focus keeper where focus should land, stops the draw-in animation, and marks
+// the next status message as coming from an edit, so it shows in the toast with Undo as well as
+// being announced.
 
 export interface StopTarget {
   day: number;
@@ -65,7 +66,12 @@ export function usePlanEdits(options: PlanEditsOptions) {
     setSwapping(null);
   };
 
+  // A day planned again (lib/useDayCity.ts). Focus stays where the traveler is: on the day's
+  // heading, where choosing a city left it, or wherever they went while the day planned.
+  const applyDay = (action: Extract<ItineraryAction, { type: "day" }>) => edit(action);
+
   return {
+    applyDay,
     swapping,
     startSwap: (day: number, stop: number) => setSwapping({ day, stop }),
     cancelSwap: () => setSwapping(null),

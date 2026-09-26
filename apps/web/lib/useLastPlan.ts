@@ -2,6 +2,7 @@
 
 import type { Itinerary, PlannerContext } from "@italy/planner";
 import { useCallback, useEffect, useRef } from "react";
+import type { DayMade } from "./dayCity";
 import { type ItineraryState, isEdited, type PlanOrigin } from "./itineraryReducer";
 import { browserStore, forget, type KeyValueStore, readLastPlan, saveLastPlan } from "./lastPlan";
 import type { FallbackCause } from "./planRequest";
@@ -17,6 +18,7 @@ export interface RestoredPlan {
   cause: FallbackCause | null;
   saved: SavedTrip | null;
   edited: boolean; // the traveler had changed it on this device before the reload
+  dayMade: (DayMade | null)[]; // how each day was planned again, null for as the plan came
   flagged: number; // stops that break a rule with the current data
 }
 
@@ -36,7 +38,7 @@ export function useLastPlan(
   ctx: PlannerContext | null,
   plan: Pick<
     ItineraryState,
-    "itinerary" | "origin" | "cause" | "saved" | "history" | "editedBefore"
+    "itinerary" | "origin" | "cause" | "saved" | "history" | "editedBefore" | "dayMade"
   >,
   onRestore: (restored: RestoredPlan) => void,
   options: LastPlanOptions = {},
@@ -73,9 +75,9 @@ export function useLastPlan(
     const opts = latest.current.options;
     const store = (opts.store ?? browserStore)();
     const now = (opts.now ?? (() => new Date()))();
-    const extra = { cause: plan.cause, saved: plan.saved, edited };
+    const extra = { cause: plan.cause, saved: plan.saved, edited, dayMade: plan.dayMade };
     if (store) saveLastPlan(store, plan.itinerary, plan.origin, now, extra);
-  }, [plan.itinerary, plan.origin, plan.cause, plan.saved, edited]);
+  }, [plan.itinerary, plan.origin, plan.cause, plan.saved, edited, plan.dayMade]);
 
   // Decision: the page clears its plan in the same step, so nothing is saved again after this;
   // the next plan the traveler makes is saved as usual.

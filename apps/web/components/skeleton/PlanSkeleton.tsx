@@ -88,6 +88,26 @@ export function PlanSkeleton({ reason, slow }: PlanSkeletonProps) {
   );
 }
 
+/**
+ * The rows of a day's board while that day alone is planned again (DayTimetable): as many as the
+ * day had, within a few, so the board keeps about its height.
+ */
+export function DayRowsSkeleton({ rows }: { rows: number }) {
+  const count = Math.min(Math.max(rows, 3), 7);
+  return (
+    <ol className="timetable" aria-hidden="true" data-testid="day-skeleton-rows">
+      {Array.from({ length: count }, (_, index) => (
+        <SkeletonStopRow
+          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of identical placeholders.
+          key={index}
+          index={index % LEG_WIDTHS.length}
+          legWidth={LEG_WIDTHS[index % LEG_WIDTHS.length] as string}
+        />
+      ))}
+    </ol>
+  );
+}
+
 function SkeletonStopRow({ index, legWidth }: { index: number; legWidth: string }) {
   return (
     <li className="skeleton-row">

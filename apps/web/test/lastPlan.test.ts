@@ -64,9 +64,29 @@ describe("saving and reading the last plan", () => {
         cause: null,
         saved: null,
         edited: false,
+        dayMade: [null, null, null],
         flagged: 0,
       });
     }
+  });
+
+  it("keeps how each day was planned again, so the line under that day says so after a reload", () => {
+    const store = new MemoryStore();
+    const plan = fixturePlan();
+    const dayMade = [
+      null,
+      { kind: "api", source: "ai" } as const,
+      { kind: "device", cause: "offline" } as const,
+    ];
+    saveLastPlan(store, plan, "api", NOW, { edited: true, dayMade });
+    const read = readLastPlan(store, ctx, NOW);
+    expect(read.status === "restored" && read.dayMade).toEqual(dayMade);
+    // A plan with no day planned again stores nothing for it, as records saved before it did.
+    saveLastPlan(store, plan, "api", NOW, { dayMade: [null, null, null] });
+    expect(JSON.parse(store.getItem(LAST_PLAN_KEY) ?? "{}")).not.toHaveProperty("days");
+    // A record that says a day was made some other way is not one this page wrote.
+    const forged = stored(record(plan, { days: [null, { kind: "api", source: "gpt" }, null] }));
+    expectDiscarded(forged, "invalid");
   });
 
   it("keeps the saved trip a plan was opened from, so the source line says so after a reload", () => {
