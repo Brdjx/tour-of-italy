@@ -1,5 +1,7 @@
 import {
   type DayPlan,
+  type DaySelection,
+  mustIncludesLeftOut,
   newTripErrors,
   type PlannerContext,
   scheduleTrip,
@@ -115,14 +117,16 @@ export interface MaterializedDay {
 /**
  * The tidied day timed in its trip (the other days as they are, the next one after its new
  * transfer), with the AI reasons that pass the checks and rule reasons for the rest, and its
- * errors: an id or base the day's shortlist did not offer, and every error the trip did not
- * already have (any on this day counts).
+ * errors: an id or base the day's shortlist did not offer, every error the trip did not already
+ * have (any on this day counts), and a must-include the rules' day (`witness`) holds that this
+ * day leaves out (mustIncludesLeftOut).
  */
 export function materializeDay(
   tidied: Pick<DayTidied, "ids" | "reasons">,
   input: DayInput,
   shortlist: Shortlist,
   ctx: PlannerContext,
+  witness: DaySelection,
 ): MaterializedDay {
   const { request, day } = input;
   const selection = tripSelection(input, tidied.ids, tidied.reasons);
@@ -135,6 +139,7 @@ export function materializeDay(
     ...shortlistViolations(selection, shortlist, ctx).filter((v) => v.day === day),
     ...scheduled.violations.filter((v) => v.severity === "error" && v.day === day),
     ...newTripErrors(request, input.days, day, newDay, ctx),
+    ...mustIncludesLeftOut(request, day, witness, newDay, ctx),
   ]);
   return { dayPlan, errors, reasonStats: reasoned.stats };
 }

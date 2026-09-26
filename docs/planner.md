@@ -77,7 +77,7 @@ data/italy.json
 | `planDay.ts` | `planDay`: one day of an existing trip planned again by the rules at a base, the other days' places counted as used. |
 | `dayRoute.ts` | `planRoute`: a city a day set by hand, what it means for each day (travel, start, days planned again and why, facts), the rare refusals with a way out, and the days planned by the rules in day order; `dayTravel` for a planned day's travel facts. |
 | `dayBases.ts` | The cities one day can take (`dayBaseOptions`, `routeOptions`), and `checkDayBase`, the check for planning one day. |
-| `dayChecks.ts` | The validator's errors for a trip held as ids, and `newTripErrors`: which ones a re-planned day brought. |
+| `dayChecks.ts` | The validator's errors for a trip held as ids, `newTripErrors`: which ones a re-planned day brought, and `mustIncludesLeftOut`: a must-include the rules' day holds that another answer for the day leaves out. |
 | `stopEdits.ts` | Remove, move, and replace helpers that return a day's new ids. |
 | `orderDay.ts` | `orderDay`: the day walk over a fixed set of places, which the AI path's tidy step uses to order a day the scheduler cannot time as the model wrote it. |
 | `validate.ts` | The validator's entry: trip shape (at most a base a day, or `maxBases`), then each day, then must-includes. |

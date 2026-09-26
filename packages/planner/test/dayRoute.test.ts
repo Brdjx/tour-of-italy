@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { withReplannedDays } from "../src/alternatives";
 import { MAX_ANCHORS_PER_TRIP } from "../src/config";
 import { checkDayBase, routeOptions } from "../src/dayBases";
+import { mustIncludesLeftOut, newTripErrors } from "../src/dayChecks";
 import { dayTravel, planRoute, type RoutePlan, routeStartDays } from "../src/dayRoute";
 import { planDeterministic } from "../src/plan";
 import { type DaySelection, scheduleTrip } from "../src/trip";
@@ -340,6 +341,48 @@ describe("routeStartDays", () => {
       { anchorId: "florence", placeIds: [] },
       { anchorId: "rome", placeIds: [] },
       rome.days[2],
+    ]);
+  });
+});
+
+describe("mustIncludesLeftOut", () => {
+  it("catches a route day that loses a place asked for, which newTripErrors cannot see", () => {
+    // Day 3 holds Da Enzo al 29 and is planned again after its new travel. The trip sent with
+    // it has day 3 empty, so the restaurant is already missing there, and the validator finds
+    // it room on day 1, which the route keeps: the error is one the trip "already had".
+    const must = trip({ mustInclude: ["place_003"] });
+    expect(must.days[2]?.placeIds).toContain("place_003");
+    const plan = planRoute(must.req, must.days, ["rome", "florence", "rome"], ctx);
+    expect(plan.replan).toEqual([1, 2]);
+    const working = routeStartDays(must.days, plan);
+    working[1] = checkDayBase(must.req, working, 1, "florence", ctx).day as DaySelection;
+    const rules = checkDayBase(must.req, working, 2, "rome", ctx).day as DaySelection;
+    const without = {
+      anchorId: "rome",
+      placeIds: rules.placeIds.filter((id) => id !== "place_003"),
+    };
+
+    expect(newTripErrors(must.req, working, 2, without, ctx)).toEqual([]);
+    expect(mustIncludesLeftOut(must.req, 2, rules, without, ctx)).toEqual([
+      expect.objectContaining({
+        code: "MUST_INCLUDE_MISSING",
+        severity: "error",
+        day: 2,
+        placeId: "place_003",
+        detail: "You asked for Da Enzo al 29, and it fits on day 3, but it is not in the plan.",
+      }),
+    ]);
+    expect(mustIncludesLeftOut(must.req, 2, rules, rules, ctx)).toEqual([]);
+  });
+
+  it("counts only places asked for, and names one it does not know as a place", () => {
+    const req = request({ mustInclude: ["place_001", "place_x"] });
+    const rules = { anchorId: "rome", placeIds: ["place_001", "place_002", "place_x"] };
+    const day = { anchorId: "rome", placeIds: ["place_002"] };
+
+    expect(mustIncludesLeftOut(req, 0, rules, day, ctx).map((v) => v.detail)).toEqual([
+      "You asked for Colosseum, and it fits on day 1, but it is not in the plan.",
+      "You asked for a place, and it fits on day 1, but it is not in the plan.",
     ]);
   });
 });

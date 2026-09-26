@@ -89,6 +89,7 @@ const PLANNER_CORE_FUNCTIONS = [
   "checkDayBase",
   "dayBaseOptions",
   "newTripErrors",
+  "mustIncludesLeftOut",
   "withReplannedDay",
   // dayRoute.ts (a city a day set by hand: the page previews it, plans its days one request at a
   // time, and applies them as one edit)

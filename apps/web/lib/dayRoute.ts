@@ -5,6 +5,7 @@ import {
   type DayRefusal,
   type DaySelection,
   type Itinerary,
+  mustIncludesLeftOut,
   newTripErrors,
   type PlannerContext,
   placesOfAnchor,
@@ -345,10 +346,11 @@ export function jobBody(
  * labelled with why. Refused only when the rules cannot plan the day either.
  */
 // Decision: every answer is checked against the trip it was asked for, not trusted: the day and
-// city asked for, its date, known places, none on another day, and no new error from the
-// validator (newTripErrors, which judges a later day still waiting in its own turn). A day that
-// fails is planned here and blamed on the server ("invalid"), since editing waits while a run
-// plans and the trip cannot have changed under it.
+// city asked for, its date, known places, none on another day, no new error from the validator
+// (newTripErrors, which judges a later day still waiting in its own turn), and every place asked
+// for that the rules' day there holds (mustIncludesLeftOut). A day that fails is planned here and
+// blamed on the server ("invalid"), since editing waits while a run plans and the trip cannot
+// have changed under it.
 export function resolveJob(
   itinerary: Itinerary,
   working: readonly DaySelection[],
@@ -357,10 +359,11 @@ export function resolveJob(
   ctx: PlannerContext,
 ): JobResolution {
   const { request } = itinerary;
+  const check = checkDayBase(request, working, job.day, job.anchorId, ctx, { avoid: job.avoid });
   let cause: FallbackCause;
   if (reply.kind === "answer") {
     const { response } = reply;
-    if (answerFits(itinerary, working, job, response, ctx)) {
+    if (answerFits(itinerary, working, job, response, check.day, ctx)) {
       const reason = response.meta.fallbackReason;
       const made: DayMade = {
         kind: "api",
@@ -373,7 +376,6 @@ export function resolveJob(
   } else {
     cause = reply.cause;
   }
-  const check = checkDayBase(request, working, job.day, job.anchorId, ctx, { avoid: job.avoid });
   if (check.day === null) {
     return { kind: "refused", reason: check.option.reason ?? "This day cannot be planned there." };
   }
@@ -387,6 +389,7 @@ function answerFits(
   working: readonly DaySelection[],
   job: DayJob,
   response: PlanDayResponse,
+  rulesDay: DaySelection | null,
   ctx: PlannerContext,
 ): boolean {
   const { dayPlan } = response;
@@ -398,7 +401,9 @@ function answerFits(
   if (!unique || ids.some((id) => others.has(id) || !ctx.placesById.has(id))) return false;
   try {
     const day = { anchorId: job.anchorId, placeIds: ids };
-    return newTripErrors(itinerary.request, working, job.day, day, ctx).length === 0;
+    const { request } = itinerary;
+    const lost = rulesDay ? mustIncludesLeftOut(request, job.day, rulesDay, day, ctx) : [];
+    return lost.length === 0 && newTripErrors(request, working, job.day, day, ctx).length === 0;
   } catch {
     return false; // the validator could not read it, so it cannot be shown as checked
   }

@@ -1,7 +1,17 @@
-import { sharesLocation, usedOnOtherDays } from "@italy/planner";
+import {
+  checkDayBase,
+  type DaySelection,
+  newTripErrors,
+  planDay,
+  planRoute,
+  routeStartDays,
+  sharesLocation,
+  usedOnOtherDays,
+} from "@italy/planner";
 import { describe, expect, it } from "vitest";
 import { shippedData } from "../../src/data";
 import type { LlmDayAnswer } from "../../src/llm/client";
+import type { DayInput } from "../../src/plan/dayInput";
 import { buildDayShortlist } from "../../src/plan/dayShortlist";
 import { materializeDay, tidyDay } from "../../src/plan/dayTidy";
 import { repairNotes } from "../../src/plan/repairNotes";
@@ -14,6 +24,10 @@ const { ctx } = shippedData();
 const rome = plannedTrip();
 /** Day 3 is a Monday, when the Uffizi (place_026) is closed. */
 const romeFromSaturday = plannedTrip({ startDate: "2026-10-17" });
+
+/** The rules' day for the input's day and city, which the pipeline falls back to. */
+const witnessOf = (input: DayInput): DaySelection =>
+  planDay(input.request, input.days, input.day, input.anchorId, ctx, { avoid: input.avoid });
 
 const answer = (placeIds: string[]): LlmDayAnswer => ({
   placeIds,
@@ -199,6 +213,7 @@ describe("materializeDay", () => {
       input,
       shortlist,
       ctx,
+      witnessOf(input),
     );
 
     expect(made.errors).toEqual([]);
@@ -210,7 +225,13 @@ describe("materializeDay", () => {
 
   it("reports an id the day's shortlist did not offer, and one that is not a place", () => {
     const venice = ctx.anchorById.get("venice")?.placeIds[0] as string;
-    const made = materializeDay({ ids: [venice, "place_999"], reasons: [] }, input, shortlist, ctx);
+    const made = materializeDay(
+      { ids: [venice, "place_999"], reasons: [] },
+      input,
+      shortlist,
+      ctx,
+      witnessOf(input),
+    );
     const unknown = made.errors.filter((e) => e.code === "UNKNOWN_PLACE");
 
     expect(unknown.map((e) => e.detail)).toContain("This place is not in the candidate list.");
@@ -228,13 +249,61 @@ describe("materializeDay", () => {
       withMust,
       list,
       ctx,
+      witnessOf(withMust),
     );
 
     expect(made.errors.map((e) => e.code)).toContain("MUST_INCLUDE_MISSING");
   });
 
+  it("reports a must-include the rules' day of a route holds, though the trip already missed it", () => {
+    // Rome for three days with Da Enzo al 29 on day 3, routed Rome, Florence, Rome: day 2 moves
+    // and day 3 is planned again after its new travel. Day 3 is sent empty, so the restaurant is
+    // already missing from the trip sent, and the validator finds it room on day 1, which the
+    // route keeps: without the rules' day to compare with, a day 3 without it adds no new error.
+    const trip = plannedTrip({
+      mustInclude: ["place_003"],
+      anchors: ["rome"],
+      interests: ["historic"],
+    });
+    const days = trip.days.map((d) => ({
+      anchorId: d.anchorId,
+      placeIds: d.stops.map((s) => s.placeId),
+    }));
+    expect(days[2]?.placeIds).toContain("place_003");
+    const route = ["rome", "florence", "rome"];
+    const plan = planRoute(trip.request, days, route, ctx);
+    expect(plan.replan).toEqual([1, 2]);
+    const working = routeStartDays(days, plan);
+    working[1] = checkDayBase(trip.request, working, 1, "florence", ctx).day as DaySelection;
+    const input: DayInput = {
+      request: trip.request,
+      days: working,
+      day: 2,
+      anchorId: "rome",
+      avoid: [],
+      route,
+    };
+    const witness = witnessOf(input);
+    expect(witness.placeIds).toContain("place_003");
+    const without = witness.placeIds.filter((id) => id !== "place_003");
+    const day = { anchorId: "rome", placeIds: without };
+    expect(newTripErrors(trip.request, working, 2, day, ctx)).toEqual([]);
+
+    const made = materializeDay(
+      { ids: without, reasons: [] },
+      input,
+      buildDayShortlist(input, ctx),
+      ctx,
+      witness,
+    );
+
+    expect(made.errors).toContainEqual(
+      expect.objectContaining({ code: "MUST_INCLUDE_MISSING", day: 2, placeId: "place_003" }),
+    );
+  });
+
   it("reports an empty day", () => {
-    const made = materializeDay({ ids: [], reasons: [] }, input, shortlist, ctx);
+    const made = materializeDay({ ids: [], reasons: [] }, input, shortlist, ctx, witnessOf(input));
     expect(made.errors.map((e) => e.code)).toContain("EMPTY_DAY");
   });
 });

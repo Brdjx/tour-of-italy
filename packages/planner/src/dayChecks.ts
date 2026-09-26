@@ -4,7 +4,8 @@ import { EPOCH_ISO } from "./planPolicy";
 import { type DaySelection, scheduleTrip } from "./trip";
 import type { Itinerary, TripRequest, Violation } from "./types";
 import { validateItinerary } from "./validate";
-import { isError } from "./violations";
+import { dayText } from "./validate/text";
+import { isError, makeViolation } from "./violations";
 
 // The validator's verdict on a trip held as ids, and which of its errors a re-planned day brought.
 // Shared by the one-day check (dayBases.ts) and the route check (dayRoute.ts).
@@ -64,4 +65,35 @@ export function newTripErrors(
       (!had.has(errorKey(error)) &&
         (error.day === undefined || !isWaiting(days, dayIndex, error.day))),
   );
+}
+
+/**
+ * The traveler's must-includes that `rulesDay` (planDay's day for the same day and city) holds
+ * and `day` leaves out, each as a MUST_INCLUDE_MISSING error on day `dayIndex`. The check a day
+ * from the AI passes as well as newTripErrors, on the server and on the page.
+ */
+// Decision: a day of a route cannot lose a place asked for that the rules' day holds. newTripErrors
+// cannot see that loss: the trip it compares against has the route's days to plan again empty,
+// so a must-include one of them held is already missing there, and when the validator finds room
+// for it on a day the route keeps (the first day of its city that fits it), the error is one the
+// trip "already had". Found in review (2026-09-26): Rome three days with Da Enzo al 29 on day 3,
+// routed Rome, Florence, Rome, took a day 3 without it, and the trip lost it. The rules' day is the
+// one the route's preview promised and the one the fallback plans, so this never refuses a day
+// the fallback could not replace.
+export function mustIncludesLeftOut(
+  request: TripRequest,
+  dayIndex: number,
+  rulesDay: DaySelection,
+  day: DaySelection,
+  ctx: PlannerContext,
+): Violation[] {
+  const kept = new Set(day.placeIds);
+  const asked = new Set(request.mustInclude);
+  return [...new Set(rulesDay.placeIds)]
+    .filter((id) => asked.has(id) && !kept.has(id))
+    .map((id) => {
+      const name = ctx.placesById.get(id)?.name ?? "a place";
+      const detail = `You asked for ${name}, and it fits on ${dayText(dayIndex)}, but it is not in the plan.`;
+      return makeViolation("MUST_INCLUDE_MISSING", detail, { day: dayIndex, placeId: id });
+    });
 }

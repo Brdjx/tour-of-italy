@@ -159,6 +159,26 @@ describe("POST /api/plan/day for a route", () => {
     expect(applied.days[1]?.stops.map((stop) => stop.placeId)).toContain("place_001");
   });
 
+  it("keeps a place asked for that a route day's model answer leaves out", async () => {
+    // Day 3 holds Da Enzo al 29 and is planned again after its new travel. It is sent empty, so
+    // the restaurant is already missing from the trip sent and the validator finds it room on day
+    // 1, which the route keeps: only the rules' day shows the model's day 3 lost it.
+    const trip = plannedTrip({ mustInclude: ["place_003"], interests: ["historic"] });
+    expect(trip.days[2]?.stops.map((stop) => stop.placeId)).toContain("place_003");
+    const { app, logs } = makeApp({ client: new DroppingDayClient("place_003") });
+
+    const { plan, answers, applied } = await planRouteThroughApi(app, trip, [
+      "rome",
+      "florence",
+      "rome",
+    ]);
+
+    expect(plan.replan).toEqual([1, 2]);
+    expect(answers[1]?.source).toBe("deterministic");
+    expect(lastRequestLog(logs).violationCodes).toContain("MUST_INCLUDE_MISSING");
+    expect(applied.days[2]?.stops.map((stop) => stop.placeId)).toContain("place_003");
+  });
+
   it("plans the rules' day for a route day in deterministic mode, as the page would", async () => {
     const { app } = makeApp();
     const route = ["florence", "florence", "florence"];
@@ -402,5 +422,41 @@ class RepeatingDayClient implements LlmClient {
 
   repairDay(input: RepairInput): Promise<LlmDayResult> {
     return this.fixture.repairDay(input);
+  }
+}
+
+/** The fixture's valid day, without one place, on every answer and repair. */
+class DroppingDayClient implements LlmClient {
+  readonly model = "dropping-day";
+  private readonly fixture = new FixtureClient(ctx, "valid");
+
+  constructor(private readonly drop: string) {}
+
+  select(input: SelectInput) {
+    return this.fixture.select(input);
+  }
+
+  repair(input: RepairInput) {
+    return this.fixture.repair(input);
+  }
+
+  selectDay(input: SelectInput): Promise<LlmDayResult> {
+    return this.fixture.selectDay(input).then((result) => this.without(result));
+  }
+
+  repairDay(input: RepairInput): Promise<LlmDayResult> {
+    return this.fixture.repairDay(input).then((result) => this.without(result));
+  }
+
+  private without(result: LlmDayResult): LlmDayResult {
+    const answer = result.answer;
+    if (answer === null) return result;
+    return {
+      ...result,
+      answer: {
+        placeIds: answer.placeIds.filter((id) => id !== this.drop),
+        reasons: answer.reasons.filter((reason) => reason.placeId !== this.drop),
+      },
+    };
   }
 }

@@ -109,7 +109,8 @@ POST /api/plan/day { request, days: [{ anchorId, ids }], day, anchorId, avoid?, 
   -> Claude: the day's ordered place ids and a reason per stop (one-day JSON schema)
   -> tidy: drop a repeat of another day or its spot, then the trip's tidy step on this day
   -> ids outside the shortlist are errors; scheduleTrip and validateItinerary on the whole
-       trip; any error on this day, or one the trip did not have, fails it
+       trip; any error on this day, or one the trip did not have, fails it, and so does
+       leaving out a must-include the rules-only day holds
   -> one repair turn with the violations and what tidying removed, else the rules-only day
   -> response: { day, dayPlan (timed, why lines marked ai or rule), source, meta }
 ```

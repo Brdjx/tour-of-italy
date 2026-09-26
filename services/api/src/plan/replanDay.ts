@@ -153,7 +153,7 @@ async function runModel(run: Run): Promise<DayOutcome> {
     }
     const tidied = tidyDay(result.answer, input, run.shortlist, deps.ctx);
     for (const change of tidied.changes) trace.tidied.push({ ...change, answer: turn });
-    const made = materializeDay(tidied, input, run.shortlist, deps.ctx);
+    const made = materializeDay(tidied, input, run.shortlist, deps.ctx, run.witness);
     if (made.errors.length === 0) {
       // As for a whole trip: only an answer that passed exactly as the model wrote it is "ai".
       const source = turn === 1 && tidied.changes.length === 0 ? "ai" : "ai_repaired";

@@ -354,6 +354,37 @@ describe("taking the API's day, or planning it here", () => {
     }
   });
 
+  it("plans the day here when its answer leaves out a place asked for the rules' day holds", () => {
+    // Day 3 holds Da Enzo al 29 and is planned again after its new travel. Sent empty, the
+    // restaurant is already missing from the trip as planned so far, and the validator finds it
+    // room on day 1, which the route keeps: only the rules' day shows the answer lost it.
+    const trip = fixturePlan({
+      startDate: "2026-10-19",
+      interests: ["historic"],
+      anchors: [ROME],
+      mustInclude: ["place_003"],
+    });
+    expect(ids(trip, 2)).toContain("place_003");
+    const routeRun = runFor([ROME, FLORENCE, ROME], trip);
+    expect(routeRun.jobs.map((each) => each.day)).toEqual([1, 2]);
+    const [first, last] = routeRun.jobs.map((each) => must(each));
+    const day2 = dayAnswerFor(jobBody(trip.request, routeRun.start, must(first), routeRun.route));
+    const working = withDay(routeRun.start, 1, {
+      anchorId: FLORENCE,
+      placeIds: day2.dayPlan.stops.map((stop) => stop.placeId),
+    });
+    const good = dayAnswerFor(jobBody(trip.request, working, must(last), routeRun.route));
+    const stops = good.dayPlan.stops.filter((stop) => stop.placeId !== "place_003");
+    const response = { ...good, dayPlan: { ...good.dayPlan, stops } };
+
+    const resolved = resolveJob(trip, working, must(last), { kind: "answer", response }, ctx);
+
+    expect(resolved.kind === "day" && resolved.made).toEqual({ kind: "device", cause: "invalid" });
+    expect(resolved.kind === "day" && resolved.dayPlan.stops.map((stop) => stop.placeId)).toContain(
+      "place_003",
+    );
+  });
+
   it("plans the day here with the failure's cause when the call failed", () => {
     const resolved = resolveJob(plan, run.start, job, { kind: "failed", cause: "offline" }, ctx);
     expect(resolved.kind).toBe("day");
