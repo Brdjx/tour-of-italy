@@ -10,12 +10,12 @@ So my rule was: the model proposes, code decides. Claude picks a base for each d
 
 The data is cleaned in code, and `data/italy.json` is never edited. The normalizer logs 112 issues of 23 kinds, shown under "About this data".
 
-The traveler gets a day board with a time, travel and a reason for each stop. They can swap, remove, reorder and undo; swaps only offer places that keep the day valid. There is a map that opens full screen, credited photos of 73 places, and a Copy link that saves the trip as shown behind a short link.
+The traveler gets a day board with a time, travel and a reason for each stop. They can swap, remove, reorder and undo; swaps only offer places that keep the day valid. Once a trip exists, they can move one day to another city, or ask for new ideas for it: Claude fills only that day, from the places of that city open on that date that no other day uses, and code checks the whole trip again. A city the day cannot take is listed with the reason, such as a third city, or a next day that would no longer fit. There is a map that opens full screen, credited photos of 73 places, and a Copy link that saves the trip as shown behind a short link.
 
 ## Judgment calls
 
 - **Notes only tighten hours.** A wrong "open" sends someone to a closed door. A wrong "closed" hides one option.
-- **Five base cities, at most two a trip, straight-line travel.** No routing API: free, deterministic and offline, but not a timetable.
+- **Five base cities, at most two a trip and one change between them, straight-line travel.** No routing API: free, deterministic and offline, but not a timetable.
 - **Tidied plans are labelled.** The page says "fixed after a check", and the evals still count the fix as the model's mistake.
 - **One repair turn.** A plan gets 24 s under API Gateway's 30 s cap. Live repairs took 2.6 to 8 s, with one past its limit, so one fits and two do not.
 - **Notes stay private.** A trip planned with notes shares no AI text, since the model can echo the notes in its own words.
@@ -34,7 +34,8 @@ Live evals on 16 cases, recorded and replayed through the current code on every 
 - Every plan a traveler gets passes the validator, in every row.
 - Valid as written is low by design: the model never sees the time its order gives each stop, so a place often lands at an hour it is closed. An early live eval fell back to rules-only on 35 of 45 plans. I moved that work into a tidy step that drops, reorders or moves the model's own choices and never adds one, then resized the shortlist and rewrote the prompt and repair message.
 - AI plans still miss a lunch or dinner more often than rules-only plans (26% of days against 19%). Haiku is faster at the median but misses a meal on most days, so Sonnet stays the default.
-- A rules-only plan takes 3.4 ms at the median. 3,130 unit and integration tests and 312 end-to-end tests run on every push, and both block the deploy.
+- Moving one day to another city, 24 live runs: no repeated place, no id outside the shortlist, no fallback and no repair turn, 4.1 s at the median and under a cent each. 5 of the 24 days had one meal, the same gap as above.
+- A rules-only plan takes 3.4 ms at the median. 3,315 unit and integration tests and 330 end-to-end tests run on every push, and both block the deploy.
 
 ## How I used AI
 
@@ -51,10 +52,10 @@ Agents wrote it faster than I could type it; the design is mine, and I can build
 1. An eval of ordinary traveler notes against the rules-only plan. I cannot yet show AI plans are better.
 2. Close the meal gap: AI days miss a meal more often than rules-only days.
 3. Split `tidy.ts` by rule and remove rules by measurement, as I did for the planner.
-4. A "plan another version" button. The same options give the same cached plan, which is cheap and testable; variety should be something the traveler asks for, with each version cached on its own.
+4. A "plan another version" button for the whole trip. The same options give the same cached plan, which is cheap and testable; "New ideas for this day" already gives variety one day at a time, each version cached on its own.
 5. Alarms on AI quality in production, such as missed meals. (Model spend already has a workspace cap.)
 6. A routing API instead of straight-line bands, and the accessibility and dietary data the dataset lacks.
 
 ## Time spent
 
-About 6 hours of my own time, spent steering agents; the agents ran across about two and a half days (commits from 23 to 25 September 2026). I treated it as a small production product, because it is public, pays for every model call, and gives people times they will act on.
+About 6 hours of my own time, spent steering agents; the agents ran across about two and a half days (commits from 23 to 26 September 2026). I treated it as a small production product, because it is public, pays for every model call, and gives people times they will act on.
