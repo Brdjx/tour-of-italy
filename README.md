@@ -53,12 +53,12 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | Command | What it runs | Time |
 |---|---|---|
 | `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
-| `pnpm test` | 3,457 unit and integration tests in 212 files (Vitest) | under 1 min |
+| `pnpm test` | 3,480 unit and integration tests in 212 files (Vitest) | under 1 min |
 | `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
 | `pnpm test:props` | The planner's property tests at 5,000 runs each | about 1.5 min |
-| `pnpm test:e2e` | 354 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
+| `pnpm test:e2e` | 372 Playwright tests on eight projects: phones, tablets, desktop and the installed app. Builds the site and starts the API with scripted answers, no key needed | about 5 min |
 | `pnpm test:e2e route --project chromium-desktop` | One spec on one project. Add `E2E_SKIP_BUILD=1` to reuse the last build | 1 to 2 min, including the build |
 | `E2E_BASE_URL=https://italy-planner.brdjx.com pnpm test:e2e:smoke` | The smoke tests against a deployed site | seconds |
 | `pnpm eval:replay` | Replays the recorded model answers through the current code, no network, and rewrites the results | seconds |
@@ -90,9 +90,9 @@ Live evals on 16 cases, replayed through the current code. Full report: [package
 ## What it does
 
 - Plans three days from a start date, a pace, interests, a budget, bases to stay in, places to include and places to skip. Each stop gets a time, the travel from the previous stop, and a reason.
-- Checks every plan against opening hours on the actual dates, meal windows, travel time and the day's pace, and shows what the data could not confirm (estimated hours, approximate locations, seasonal closures).
+- Checks every plan against opening hours on the actual dates, meal windows, travel time and the day's pace, and shows what the data could not confirm (estimated hours, approximate locations, seasonal closures). A day without lunch or dinner says why: no place of its city is open for it that date ("No dinner open", naming the places, with another city as the way out), or one could be but is not planned ([decision 17](docs/decisions.md#17-a-missing-meal-says-why-a-city-warns-before-and-code-adds-the-meal-the-ai-left-out)).
 - Lets the traveler swap, remove, reorder and undo stops, and re-checks each edit in the browser. It installs as an app and still plans offline.
-- Sets the city of any day from the city on the day's line, up to a city a day, in any order and back again (Rome, Florence, Rome), or plans a new version of a day ("New ideas for this day"). Travel is the traveler's choice, stated as facts ("2 h 10 min by high-speed train from Rome, so the day starts at 11:40"); only the days that change city, or no longer fit their new start, are planned again, one request a day, and applied as one edit. Claude chooses each day from the places of its city open on that date that no other day has, and code times and checks the whole trip. A city is refused only when a place the traveler asked for would be lost or nothing fits the day, with the way out (`POST /api/plan/day`, decisions [15](docs/decisions.md#15-re-plan-one-day-of-a-trip) and [16](docs/decisions.md#16-a-city-a-day-set-by-hand)).
+- Sets the city of any day from the city on the day's line, up to a city a day, in any order and back again (Rome, Florence, Rome), or plans a new version of a day ("New ideas for this day"). Travel is the traveler's choice, stated as facts ("2 h 10 min by high-speed train from Rome, so the day starts at 11:40"), and so is a meal the city cannot give that day ("No dinner in Bologna on Mondays."); only the days that change city, or no longer fit their new start, are planned again, one request a day, and applied as one edit. Claude chooses each day from the places of its city open on that date that no other day has, and code times and checks the whole trip. A city is refused only when a place the traveler asked for would be lost or nothing fits the day, with the way out (`POST /api/plan/day`, decisions [15](docs/decisions.md#15-re-plan-one-day-of-a-trip) and [16](docs/decisions.md#16-a-city-a-day-set-by-hand)).
 - Copy link saves the trip as shown, with the AI's why lines and summary, behind a short link, and the link opens it as saved.
 - Opens each stop and highlight in a sheet (photo and credit, the facts for the date, the listing's own words), the day's map full screen, and About this data as an overlay with every note, source and credit.
 
