@@ -2,7 +2,7 @@
 
 The tests exist to prove that the ways this product can fail badly cannot happen. Each starts from a failure vector (what would break the product), names the guard in code, and asserts the guard holds. Test names state the failure they prevent, for example `never schedules a stop outside one open range on its date`. Coverage floors apply too, but only as a backstop: a test earns its place by asserting a guard, not by running code.
 
-On 2026-09-26 `pnpm test` ran 3,490 tests in 212 files. The E2E and infra suites run on top of that. On 2026-09-26 `pnpm test:e2e`, the E2E gate run before a push, ran 372 tests on eight projects in under 5 minutes on a laptop. CI runs its Chromium part (`pnpm test:e2e:ci`: the desktop, the installed app and the smoke tests, 72 tests), which blocks `ci-ok`, so a commit that breaks a user flow on the desktop does not deploy. The WebKit phones and tablets and the Pixel 7 run only locally ([E2E](#e2e-the-local-gate-and-the-ci-guard)).
+On 2026-09-26 `pnpm test` ran 3,500 tests in 212 files. The E2E and infra suites run on top of that. On 2026-09-26 `pnpm test:e2e`, the E2E gate run before a push, ran 372 tests on eight projects in under 5 minutes on a laptop. CI runs its Chromium part (`pnpm test:e2e:ci`: the desktop, the installed app and the smoke tests, 72 tests), which blocks `ci-ok`, so a commit that breaks a user flow on the desktop does not deploy. The WebKit phones and tablets and the Pixel 7 run only locally ([E2E](#e2e-the-local-gate-and-the-ci-guard)).
 
 ## Failure vectors
 

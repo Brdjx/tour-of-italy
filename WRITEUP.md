@@ -34,7 +34,7 @@ Live tests on 16 trips (full results in `packages/evals/results/latest.md`):
 - What the AI adds today: it matches interests better (66% against 61%) with less travel (92 against 104 minutes a day), and it is the only planner that reads your note. It also fits fewer visits (3.3 against 4.0 a day).
 - The model leaves out meals: 26% of Sonnet's days lacked a lunch or dinner as it answered, against 19% for the rules. Code now adds the meal where one fits, which brings Sonnet to 20%; on most of the rest, the places that could serve it are already on other days. Claude Haiku 4.5 was faster at the median but left out a meal on 72% of days (24% after code's additions), so Sonnet stays the default.
 - Changing cities after a plan, 54 live days (single days and routes of up to three cities): no repeated place, no fallback, 3.3 to 5.5 seconds a day.
-- 3,490 unit and integration tests and 72 desktop browser tests run on every push, and a failure blocks the deploy. All 372, on phones and tablets too, run locally in about 5 minutes.
+- 3,500 unit and integration tests and 72 desktop browser tests run on every push, and a failure blocks the deploy. All 372, on phones and tablets too, run locally in about 5 minutes.
 
 ## Choices I made
 

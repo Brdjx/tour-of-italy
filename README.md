@@ -53,7 +53,7 @@ curl -X POST 'localhost:8787/api/plan?mode=deterministic' -H 'content-type: appl
 | Command | What it runs | Time |
 |---|---|---|
 | `pnpm check` | Lint, typecheck, then every unit and integration test | about 1 min |
-| `pnpm test` | 3,490 unit and integration tests in 212 files (Vitest) | under 1 min |
+| `pnpm test` | 3,500 unit and integration tests in 212 files (Vitest) | under 1 min |
 | `pnpm test --project <name>` | One area: `planner`, `api`, `web`, `evals` or `infra` | seconds |
 | `pnpm test --project api planDay` | Only the test files whose path contains `planDay` | seconds |
 | `pnpm test:coverage` | The same tests with a coverage floor per area, as in CI | about 1 min |
