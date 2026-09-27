@@ -141,6 +141,16 @@ describe("dayMealGaps", () => {
     });
   });
 
+  it("says both, not all, when the two places listed share the one reason", () => {
+    // Milan's two lunch places on a Tuesday, when both are open, with the traveler avoiding both.
+    const request = makeRequest({ startDate: "2026-10-13", exclude: ["place_061", "place_082"] });
+    const plan = [day("2026-10-13", "milan", [stop("place_100", "dinner", 1140, 1260)])];
+
+    expect(dayMealGaps(trip(request, plan), 0, ctx).map((gap) => gap.text)).toEqual([
+      "The two lunch places listed for Milan are both on your avoid list.",
+    ]);
+  });
+
   it("says a meal was not planned when a place could take it, naming the one that is free", () => {
     // Milan on a Tuesday: Trattoria Milanese is lunch on day 1, Rossopomodoro and the aperitivo
     // walk are free for dinner on day 2.
@@ -211,6 +221,22 @@ describe("dayMealGaps", () => {
     ]);
   });
 
+  it("counts the places listed for a city that could take the meal, never as places in it", () => {
+    // Bologna on a Wednesday at a packed pace: Osteria Francescana, in Modena, is one of the three
+    // free for dinner, so "Three places in Bologna" would be a false claim about Bologna.
+    const request = makeRequest({ startDate: "2026-10-14", pace: "packed", maxPriceLevel: 4 });
+    const plan = [day("2026-10-14", "bologna", [stop("place_044", "visit", 600, 690)])];
+
+    const dinner = dayMealGaps(trip(request, plan), 0, ctx).find((gap) => gap.meal === "dinner");
+
+    expect(dinner?.text).toBe("Three places listed for Bologna could take dinner that day.");
+    expect(dinner?.places.find((p) => p.placeId === "place_043")).toMatchObject({
+      block: null,
+      day: null,
+      town: "Modena",
+    });
+  });
+
   it("says when the places that could take the meal are over the traveler's budget", () => {
     // Venice on Sunday 11 October at the lowest budget: Osteria Alla Staffa closes on Sundays,
     // and Osteria da Rioba (three levels) and Al Quadri (four) are open but over it.
@@ -244,7 +270,7 @@ describe("dayMealGaps", () => {
     const [lunch] = dayMealGaps(trip(request, plan), 0, ctx);
 
     expect(lunch?.cause).toBe("not_planned");
-    expect(lunch?.text).toMatch(/^[A-Z][a-z]+ places in Rome could take lunch that day\.$/);
+    expect(lunch?.text).toMatch(/^[A-Z][a-z]+ places listed for Rome could take lunch that day\.$/);
   });
 
   it("never counts a place the planner does not suggest as one that could take the meal, unless asked for", () => {
@@ -255,7 +281,7 @@ describe("dayMealGaps", () => {
 
     const [lunch] = dayMealGaps(trip(request, plan), 0, ctx);
 
-    expect(lunch?.text).toBe("Six places in Rome could take lunch that day.");
+    expect(lunch?.text).toBe("Six places listed for Rome could take lunch that day.");
     expect(lunch?.places.at(-1)).toMatchObject({
       placeId: "place_025",
       block: "low_rating",
@@ -263,7 +289,7 @@ describe("dayMealGaps", () => {
     });
     const asked = { ...request, mustInclude: ["place_025"] };
     const [again] = dayMealGaps(trip(asked, plan), 0, ctx);
-    expect(again?.text).toBe("Seven places in Rome could take lunch that day.");
+    expect(again?.text).toBe("Seven places listed for Rome could take lunch that day.");
     expect(again?.places.find((p) => p.placeId === "place_025")?.block).toBeNull();
   });
 

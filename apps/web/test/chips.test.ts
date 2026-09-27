@@ -247,7 +247,7 @@ describe("a missing meal's chip", () => {
   });
 
   it("names the places a swap could bring in when the sentence only counts them", () => {
-    const text = "Three places in Venice could take dinner that day.";
+    const text = "Three places listed for Venice could take dinner that day.";
     const places = ["Antiche Carampane", "Osteria alle Testiere", "Al Covo"].map((name) =>
       spot({ name }),
     );

@@ -254,7 +254,9 @@ describe("a day with no lunch or dinner", () => {
     const chip = view.dayChips.find((one) => one.label === "No dinner planned");
     // A dinner the day could still have: the transfer keeps the hours left before it.
     expect(view.transfer?.left).toBe("Leaves about 6 h before dinner.");
-    expect(chip?.explanation).toMatch(/^\w+ places in Venice could take dinner that day\.$/);
+    expect(chip?.explanation).toMatch(
+      /^\w+ places listed for Venice could take dinner that day\.$/,
+    );
     expect(chip?.places?.length).toBeGreaterThan(1);
     expect(chip?.wayOut).toBe(
       "Swap a stop near dinner time for one of them, or undo your last change.",

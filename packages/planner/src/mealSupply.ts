@@ -39,7 +39,8 @@ import { dateText, listText, weekdayPlural } from "./validate/text";
 // Decision: the sentences speak of the places "listed for" the city, never of the city itself.
 // The data has a few places for each base, some in towns nearby, so "No dinner in Bologna on
 // Mondays." and "Bologna's three dinner places are all closed on Mondays." read as false claims
-// about Bologna (review of v1.3.1, 2026-09-26).
+// about Bologna (review of v1.3.1, 2026-09-26). So did "Three places in Bologna could take dinner
+// that day.", which counted Osteria Francescana in Modena.
 
 /** Why a meal place cannot take a meal on a date. */
 export type MealBlock =
@@ -209,7 +210,8 @@ function noneOpenText(city: string, meal: Meal, places: readonly MealPlaceStatus
   const [only] = ordered;
   if (ordered.length === 1 && only !== undefined) {
     if (places.length === 1) return `The only ${meal} place listed for ${city} is ${only[0]}.`;
-    return `The ${countText(places.length)} ${meal} places listed for ${city} are all ${only[0]}.`;
+    const every = places.length === 2 ? "both" : "all";
+    return `The ${countText(places.length)} ${meal} places listed for ${city} are ${every} ${only[0]}.`;
   }
   const parts = ordered.map(
     ([why, count]) => `${countText(count)} ${count === 1 ? "is" : "are"} ${why}`,
@@ -218,8 +220,9 @@ function noneOpenText(city: string, meal: Meal, places: readonly MealPlaceStatus
 }
 
 /**
- * Who could take the meal, in one sentence, when a place can: the free places within the budget,
- * or else why none of the places that could is one ("already in the trip", "over your budget").
+ * Who could take the meal, in one sentence, when a place can: the free places within the budget
+ * ("Three places listed for Bologna could take dinner that day.", one of them in Modena), or else
+ * why none of the places that could is one ("already in the trip", "over your budget").
  */
 function notPlannedText(city: string, meal: Meal, places: readonly MealGapPlace[]): string {
   const open = places.filter((place) => place.block === null);
@@ -233,7 +236,7 @@ function notPlannedText(city: string, meal: Meal, places: readonly MealGapPlace[
     return `${every} already in the trip or over your budget.`;
   }
   if (within.length === 1) return `${mealPlaceName(first)} could take ${meal} that day.`;
-  return `${countTitle(within.length)} places in ${city} could take ${meal} that day.`;
+  return `${countTitle(within.length)} places listed for ${city} could take ${meal} that day.`;
 }
 
 /** True when the stop is an outing under way through the meal's window (as the validator says). */
