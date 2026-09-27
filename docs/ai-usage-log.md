@@ -35,6 +35,7 @@ only, without its git history, which is available on request.
 | 09-24 to 09-25 | The live AI path: thinking off, the tidy step, why lines, prompts v2 and v3 | 418afb3, cd1c501, f97d2ca, 6ccaa8c, 030ec00 |
 | 09-25 | Saved trips and the plan cache; stop and place sheets, About this data, full-screen map | b2e6d65, 78d6a2a, 26fc9e6, 2eb8b06 |
 | 09-25 | Live evals of Sonnet 5 and Haiku 4.5, README results, this log | 0219a78, a03235d |
+| 09-26 | A day planned again at another city, then a city a day set by hand; missing meals explained and added by code, after my own trip had no dinner on a Monday in Bologna; architecture diagrams; the full E2E suite as the local gate; fixes from independent graders | b800b73, 574c4cf, 8fd11aa, 3ffc123, c3dda75, 86729b3 |
 
 ## What I decided
 

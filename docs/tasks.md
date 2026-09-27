@@ -1,8 +1,10 @@
 # Task log
 
 Every piece of work has a stable id. Ids never change or get reused; new work takes the next number.
-Commits reference their task with a `Refs: T12` trailer, so `git log --grep "T12"` shows the history of
-any task.
+Until 25 September, commits referenced their task with a `Refs: T12` trailer, so `git log --grep "T12"`
+shows the history of those tasks. The work after tag `v1.0.0` (a day planned again, the route sheet, the
+missing meals, the E2E gate) has no task ids; it is recorded as decisions 15 to 17 in `decisions.md` and
+in `testing.md`.
 
 The commit ids here refer to the private repository: the submission zip holds the tagged tree only,
 without its git history, which is available on request.
