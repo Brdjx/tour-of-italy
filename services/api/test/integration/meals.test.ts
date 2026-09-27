@@ -121,7 +121,7 @@ describe("meals code adds to an AI answer", () => {
     const plan = planRoute(request, days, route, ctx);
     expect(plan.allowed).toBe(true);
     expect(plan.replan).toContain(2);
-    expect(plan.days[2]?.meals).toEqual(["No dinner in Bologna on Mondays."]);
+    expect(plan.days[2]?.meals).toEqual(["No dinner place listed for Bologna opens on Mondays."]);
     const { app, logs } = makeApp({ client: new MealSkippingClient() });
 
     let working = routeStartDays(days, plan);
@@ -148,7 +148,11 @@ describe("meals code adds to an AI answer", () => {
     const timed = { request, days: scheduleTrip(request, working, ctx).days };
     expect(validationErrors({ ...trip, ...timed }, ctx)).toEqual([]);
     expect(dayMealGaps(timed, 2, ctx).map((gap) => [gap.meal, gap.cause, gap.text])).toEqual([
-      ["dinner", "none_open", "Bologna's three dinner places are all closed on Mondays."],
+      [
+        "dinner",
+        "none_open",
+        "The three dinner places listed for Bologna are all closed on Mondays.",
+      ],
     ]);
   });
 });

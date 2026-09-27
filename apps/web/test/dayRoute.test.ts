@@ -150,7 +150,7 @@ describe("a meal a city cannot give a day", () => {
       name: "Bologna",
       start: "11:55",
       legIn: "2 h 25 min by train or car",
-      facts: ["No dinner in Bologna on Mondays."],
+      facts: ["No dinner place listed for Bologna opens on Mondays."],
     });
     // Venice has dinner on a Sunday: its day keeps what the travel leaves.
     expect(view.rows[1]?.facts).toEqual(["Leaves about 6 h before dinner."]);
@@ -163,7 +163,7 @@ describe("a meal a city cannot give a day", () => {
       allowed: true,
       warnings: [
         "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
-        "No dinner in Bologna on Mondays.",
+        "No dinner place listed for Bologna opens on Mondays.",
       ],
     });
     const others = choices.rows.filter((row) => row.anchorId !== BOLOGNA);
@@ -176,17 +176,21 @@ describe("a meal a city cannot give a day", () => {
     const relaxed = fixturePlan({ startDate: "2026-10-10", pace: "relaxed" });
     const view = routeView(relaxed, [ROME, ROME, BOLOGNA], ctx);
     expect(view.rows[2]?.facts).toEqual([
-      "No lunch in Bologna after the travel from Rome.",
-      "No dinner in Bologna on Mondays.",
+      "No lunch place listed for Bologna can take lunch after the travel from Rome.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
   });
 
   it("drops only the hours before dinner, and only when there is no dinner to have", () => {
     const travel = ["2 h by train from Venice, so the day starts at 11:30.", "Leaves about 7 h."];
     expect(travelFacts(travel, [])).toEqual(travel);
-    expect(travelFacts(travel, ["No lunch in Bologna on Sundays."])).toEqual(travel);
-    expect(travelFacts(travel, ["No dinner in Bologna on Mondays."])).toEqual([travel[0]]);
-    expect(travelFacts([], ["No dinner place in Testville."])).toEqual([]);
+    expect(travelFacts(travel, ["No lunch place listed for Bologna opens on Sundays."])).toEqual(
+      travel,
+    );
+    expect(travelFacts(travel, ["No dinner place listed for Bologna opens on Mondays."])).toEqual([
+      travel[0],
+    ]);
+    expect(travelFacts([], ["No dinner place is listed for Testville."])).toEqual([]);
   });
 });
 

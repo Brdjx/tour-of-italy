@@ -277,8 +277,8 @@
   }
 
   /* Decision: on a phone the days' column narrows to the widest short date ("Wed 18 May", 83px)
-     and its gap to 10px, so a meal fact such as "No dinner in Bologna on Mondays." keeps one line
-     at 390px rather than leaving "on Mondays." alone on a second (design review, 2026-09-26). */
+     and its gap to 10px, which gives the facts 244px at 390px rather than 232 (design review,
+     2026-09-26). */
   @media (max-width: 479px) {
     .route-days {
       --route-when: 5.25rem;

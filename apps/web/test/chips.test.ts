@@ -161,7 +161,7 @@ describe("a missing meal's chip", () => {
       { ...closed("Osteria Francescana"), town: "Modena" },
       ...["Trattoria Anna Maria", "Enoteca Italiana, Bologna"].map(closed),
     ];
-    const text = "Bologna's three dinner places are all closed on Mondays.";
+    const text = "The three dinner places listed for Bologna are all closed on Mondays.";
     const chip = mealChip(dinner, gap({ cause: "none_open", text, places }), 3, true);
     expect(chip).toEqual({
       key: "MEAL_MISSING--3",
@@ -272,7 +272,8 @@ describe("a missing meal's chip", () => {
       spot({ name: "Luini", day: 1 }),
       closed("Trattoria Milanese"),
     ];
-    const text = "Every place in Milan that could take dinner that day is already in the trip.";
+    const text =
+      "Every place listed for Milan that could take dinner that day is already in the trip.";
     const chip = mealChip(dinner, gap({ text, places }));
     expect(chip).toMatchObject({
       label: "No dinner planned",

@@ -636,16 +636,18 @@ describe("a meal a day cannot have", () => {
     const facts = [...bologna.querySelectorAll(".city-warning")].map((fact) => fact.textContent);
     expect(facts).toEqual([
       "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
     // Said to a screen reader with the city's name.
     const description = document.getElementById(bologna.getAttribute("aria-describedby") ?? "");
-    expect(description?.textContent).toContain("No dinner in Bologna on Mondays.");
+    expect(description?.textContent).toContain(
+      "No dinner place listed for Bologna opens on Mondays.",
+    );
     await user.click(bologna);
     const third = routeDay(3);
     expect(third.textContent).toContain("was");
     expect([...third.querySelectorAll(".city-warning")].map((fact) => fact.textContent)).toEqual([
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
     expect(within(sheet()).getByTestId("route-confirm").getAttribute("aria-disabled")).toBeNull();
   });
@@ -661,7 +663,9 @@ describe("a meal a day cannot have", () => {
     await user.click(none);
     const panel = must(document.getElementById(none.getAttribute("aria-controls") ?? ""));
     expect(panel.hidden).toBe(false);
-    expect(panel.textContent).toContain("Bologna's three dinner places are all closed on Mondays.");
+    expect(panel.textContent).toContain(
+      "The three dinner places listed for Bologna are all closed on Mondays.",
+    );
     expect(
       within(panel)
         .getAllByRole("listitem")

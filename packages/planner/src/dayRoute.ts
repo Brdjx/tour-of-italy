@@ -67,7 +67,7 @@ export interface RouteDay extends DayTravel {
   name: string;
   changes: boolean; // a different city from the trip's now
   replan: ReplanWhy | null; // planned again, and why; null when the day keeps its stops
-  meals: string[]; // the meals no place of the city can take that date: "No dinner in Bologna on Mondays."
+  meals: string[]; // the meals no place of the city can take that date (mealFacts)
   note: string | null; // what happens to the day: "Day 3 will be planned again: ..."
   refusal: RouteRefusal | null; // set on the day a refused route fails
 }

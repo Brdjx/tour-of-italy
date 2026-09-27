@@ -225,7 +225,7 @@ describe("a day with no lunch or dinner", () => {
     expect(view.dayChips).toEqual([
       expect.objectContaining({
         label: "No dinner open",
-        explanation: "Bologna's three dinner places are all closed on Mondays.",
+        explanation: "The three dinner places listed for Bologna are all closed on Mondays.",
         action: "city",
       }),
     ]);

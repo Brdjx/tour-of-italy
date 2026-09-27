@@ -36,6 +36,10 @@ import { dateText, listText, weekdayPlural } from "./validate/text";
 // be timed 14:00 to 20:00 through every Monday dinner, and the owner's warning would go.
 // Found by the owner (2026-09-26): Bologna on Monday 12 October had no dinner, and the page said
 // to swap a stop near that meal time, but none of Bologna's three dinner places opens on Mondays.
+// Decision: the sentences speak of the places "listed for" the city, never of the city itself.
+// The data has a few places for each base, some in towns nearby, so "No dinner in Bologna on
+// Mondays." and "Bologna's three dinner places are all closed on Mondays." read as false claims
+// about Bologna (review of v1.3.1, 2026-09-26).
 
 /** Why a meal place cannot take a meal on a date. */
 export type MealBlock =
@@ -154,8 +158,8 @@ function townOf(place: Place, anchor: Anchor): string | null {
 
 /**
  * How the page and the sentences name a place of a missing meal: with its town when that is not
- * the base's city ("Osteria Francescana, Modena"), so "Bologna's three dinner places" does not
- * read as three places in Bologna.
+ * the base's city ("Osteria Francescana, Modena"), so "the three dinner places listed for Bologna"
+ * does not read as three places in Bologna.
  */
 export function mealPlaceName(place: Pick<MealPlaceStatus, "name" | "town">): string {
   return place.town === null ? place.name : `${place.name}, ${place.town}`;
@@ -192,25 +196,25 @@ export function mealPlaces(
 }
 
 /**
- * Why no place can take the meal, in one sentence: "Bologna's three dinner places are all closed
- * on Mondays.", or with reasons that differ, "Of Bologna's three lunch places, two are closed on
- * Sundays and one is not reachable in time that day." Counts, not names: the page lists the
- * names, and a name may hold a comma ("Enoteca Italiana, Bologna").
+ * Why no place can take the meal, in one sentence: "The three dinner places listed for Bologna
+ * are all closed on Mondays.", or with reasons that differ, "Of the three lunch places listed for
+ * Bologna, two are closed on Sundays and one is not reachable in time that day." Counts, not
+ * names: the page lists the names, and a name may hold a comma ("Enoteca Italiana, Bologna").
  */
 function noneOpenText(city: string, meal: Meal, places: readonly MealPlaceStatus[]): string {
-  if (places.length === 0) return `${city} has no ${meal} place.`;
+  if (places.length === 0) return `No ${meal} place is listed for ${city}.`;
   const groups = new Map<string, number>();
   for (const place of places) groups.set(place.why, (groups.get(place.why) ?? 0) + 1);
   const ordered = [...groups].sort((a, b) => b[1] - a[1]);
   const [only] = ordered;
   if (ordered.length === 1 && only !== undefined) {
-    if (places.length === 1) return `${city}'s only ${meal} place is ${only[0]}.`;
-    return `${city}'s ${countText(places.length)} ${meal} places are all ${only[0]}.`;
+    if (places.length === 1) return `The only ${meal} place listed for ${city} is ${only[0]}.`;
+    return `The ${countText(places.length)} ${meal} places listed for ${city} are all ${only[0]}.`;
   }
   const parts = ordered.map(
     ([why, count]) => `${countText(count)} ${count === 1 ? "is" : "are"} ${why}`,
   );
-  return `Of ${city}'s ${countText(places.length)} ${meal} places, ${listText(parts)}.`;
+  return `Of the ${countText(places.length)} ${meal} places listed for ${city}, ${listText(parts)}.`;
 }
 
 /**
@@ -223,7 +227,7 @@ function notPlannedText(city: string, meal: Meal, places: readonly MealGapPlace[
   const within = free.filter((place) => !place.overBudget);
   const [first] = within;
   if (first === undefined) {
-    const every = `Every place in ${city} that could take ${meal} that day is`;
+    const every = `Every place listed for ${city} that could take ${meal} that day is`;
     if (free.length === 0) return `${every} already in the trip.`;
     if (free.length === open.length) return `${every} over your budget.`;
     return `${every} already in the trip or over your budget.`;
@@ -327,11 +331,13 @@ export function mealGaps(
 /**
  * The facts for a city on a day, before anything is planned: a line for each meal no place of the
  * base can take that date, for a day whose places can start at `startMin` after the travel from
- * `fromCity` (null when the day starts without travel). "No dinner in Bologna on Mondays." when
- * every place is closed that weekday; "No lunch in Bologna after the travel from Rome." when the
- * travel in leaves none in reach; else "No dinner in Bologna on Mon 12 Oct 2026."; with ", apart
- * from places you avoid" when the traveler avoids one that could. Empty when both meals can be
- * had. Throws RangeError on a bad date.
+ * `fromCity` (null when the day starts without travel). "No dinner place listed for Bologna opens
+ * on Mondays." when every place is closed that weekday; "No lunch place listed for Bologna can
+ * take lunch after the travel from Rome." when the travel in leaves none in reach; else "No dinner
+ * place listed for Bologna can take dinner on Mon 12 Oct 2026."; with ", apart from places you
+ * avoid" when the traveler avoids one that could. Every line starts "No lunch place" or "No dinner
+ * place", which the page reads (travelFacts in apps/web/lib/dayRoute.ts). Empty when both meals
+ * can be had. Throws RangeError on a bad date.
  */
 // Decision: a fact, not a refusal. The city stays a choice (decision 16: travel and meals are the
 // traveler's call), and the line says what the day will lack before it is planned, as the travel
@@ -350,16 +356,16 @@ export function mealFacts(
   return MEAL_ORDER.flatMap((meal) => {
     const places = mealPlaces(request, anchorId, meal, date, startMin, ctx);
     if (places.some((place) => place.block === null)) return [];
-    if (places.length === 0) return [`No ${meal} place in ${anchor.name}.`];
+    if (places.length === 0) return [`No ${meal} place is listed for ${anchor.name}.`];
     const reasons = places.filter((place) => place.block !== "avoided");
     const avoided = reasons.length < places.length ? ", apart from places you avoid" : "";
     const weekly = reasons.length > 0 && reasons.every((p) => p.block === "closed_weekday");
     const late = fromCity !== null && reasons.some((p) => p.block === "out_of_reach");
-    const when = weekly
-      ? `on ${weekdayPlural(date)}`
+    const what = weekly
+      ? `opens on ${weekdayPlural(date)}`
       : late
-        ? `after the travel from ${fromCity}`
-        : `on ${dateText(date)}`;
-    return [`No ${meal} in ${anchor.name} ${when}${avoided}.`];
+        ? `can take ${meal} after the travel from ${fromCity}`
+        : `can take ${meal} on ${dateText(date)}`;
+    return [`No ${meal} place listed for ${anchor.name} ${what}${avoided}.`];
   });
 }

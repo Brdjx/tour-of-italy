@@ -168,7 +168,8 @@ describe("a missing meal's chip", () => {
     key: "meal",
     label: "No dinner open",
     tone: "warning",
-    explanation: "Of Bologna's two dinner places, one is closed on Mondays and one is avoided.",
+    explanation:
+      "Of the two dinner places listed for Bologna, one is closed on Mondays and one is avoided.",
     places: [
       { name: "Trattoria Anna Maria", why: "closed on Mondays" },
       { name: "Enoteca Italiana, Bologna", why: null },

@@ -61,7 +61,7 @@ describe("dayMealGaps", () => {
         day: 2,
         meal: "dinner",
         cause: "none_open",
-        text: "Bologna's three dinner places are all closed on Mondays.",
+        text: "The three dinner places listed for Bologna are all closed on Mondays.",
         places: [
           {
             placeId: "place_043",
@@ -113,7 +113,7 @@ describe("dayMealGaps", () => {
     expect(lunch).toMatchObject({
       meal: "lunch",
       cause: "none_open",
-      text: "Of Bologna's three lunch places, two are not reachable in time that day and one is closed on Mondays.",
+      text: "Of the three lunch places listed for Bologna, two are not reachable in time that day and one is closed on Mondays.",
     });
     expect(lunch?.places.map((p) => [p.placeId, p.block])).toEqual([
       ["place_046", "out_of_reach"],
@@ -133,7 +133,7 @@ describe("dayMealGaps", () => {
 
     expect(lunch).toMatchObject({
       cause: "none_open",
-      text: "Of Milan's two lunch places, one is closed on Mondays and one is on your avoid list.",
+      text: "Of the two lunch places listed for Milan, one is closed on Mondays and one is on your avoid list.",
     });
     expect(lunch?.places.find((p) => p.placeId === "place_082")).toMatchObject({
       block: "avoided",
@@ -179,7 +179,7 @@ describe("dayMealGaps", () => {
       [
         "dinner",
         "not_planned",
-        "Every place in Milan that could take dinner that day is already in the trip.",
+        "Every place listed for Milan that could take dinner that day is already in the trip.",
       ],
     ]);
   });
@@ -220,7 +220,7 @@ describe("dayMealGaps", () => {
 
     expect(lunch).toMatchObject({
       cause: "not_planned",
-      text: "Every place in Venice that could take lunch that day is over your budget.",
+      text: "Every place listed for Venice that could take lunch that day is over your budget.",
     });
     expect(lunch?.places.filter((p) => p.block === null).map((p) => p.overBudget)).toEqual([
       true,
@@ -233,7 +233,7 @@ describe("dayMealGaps", () => {
     ];
     const [second] = dayMealGaps(trip({ ...request, startDate: "2026-10-10" }, taken), 1, ctx);
     expect(second?.text).toBe(
-      "Every place in Venice that could take lunch that day is already in the trip or over your budget.",
+      "Every place listed for Venice that could take lunch that day is already in the trip or over your budget.",
     );
   });
 
@@ -372,7 +372,7 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
     // Without the place of unknown hours, no dinner is possible, and the fact gives the date.
     const known = buildPlannerContext(places.filter((p) => p.id !== "place_904"));
     expect(mealFacts(request, "testville", MONDAY, 570, null, known)).toEqual([
-      "No dinner in Testville on Mon 12 Oct 2026.",
+      "No dinner place listed for Testville can take dinner on Mon 12 Oct 2026.",
     ]);
   });
 
@@ -388,12 +388,16 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
     const gaps = dayMealGaps(trip(request, plan), 0, small);
 
     expect(gaps.map((g) => [g.meal, g.cause, g.text])).toEqual([
-      ["lunch", "none_open", "Testville has no lunch place."],
-      ["dinner", "none_open", "Testville's 11 dinner places are all closed on Mondays."],
+      ["lunch", "none_open", "No lunch place is listed for Testville."],
+      [
+        "dinner",
+        "none_open",
+        "The 11 dinner places listed for Testville are all closed on Mondays.",
+      ],
     ]);
     expect(mealFacts(request, "testville", MONDAY, 570, null, small)).toEqual([
-      "No lunch place in Testville.",
-      "No dinner in Testville on Mondays.",
+      "No lunch place is listed for Testville.",
+      "No dinner place listed for Testville opens on Mondays.",
     ]);
   });
 
@@ -431,7 +435,7 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
 
     expect(dinner).toMatchObject({
       cause: "not_planned",
-      text: "Every place in Testville that could take dinner that day is already in the trip.",
+      text: "Every place listed for Testville that could take dinner that day is already in the trip.",
     });
     expect(dinner?.places.map((p) => [p.placeId, p.day])).toEqual([["place_901", 0]]);
   });
@@ -451,11 +455,11 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
     expect(dayMealGaps(trip(request, plan), 0, small)).toMatchObject([
       {
         cause: "none_open",
-        text: "Of Testville's two dinner places, one is closed on Mondays and one is rated below 3.5.",
+        text: "Of the two dinner places listed for Testville, one is closed on Mondays and one is rated below 3.5.",
       },
     ]);
     expect(mealFacts(request, "testville", MONDAY, 570, null, small)).toEqual([
-      "No dinner in Testville on Mon 12 Oct 2026.",
+      "No dinner place listed for Testville can take dinner on Mon 12 Oct 2026.",
     ]);
   });
 
@@ -471,7 +475,7 @@ describe("mealPlaces and mealFacts on hours the real data does not have", () => 
     const plan = [day(MONDAY, "testville", [stop("place_902", "dinner", 1140, 1230)])];
 
     expect(dayMealGaps(trip(request, plan), 0, small).map((g) => g.text)).toEqual([
-      "Testville's only lunch place is closed on Mondays.",
+      "The only lunch place listed for Testville is closed on Mondays.",
     ]);
   });
 });
@@ -480,19 +484,23 @@ describe("mealFacts", () => {
   it("warns about the owner's Monday in Bologna before it is planned", () => {
     const { plan } = ownersTrip();
 
-    expect(plan.days.map((d) => d.meals)).toEqual([[], [], ["No dinner in Bologna on Mondays."]]);
+    expect(plan.days.map((d) => d.meals)).toEqual([
+      [],
+      [],
+      ["No dinner place listed for Bologna opens on Mondays."],
+    ]);
   });
 
   it("says when the travel in leaves no lunch in reach: Rome to Bologna on a Monday, relaxed", () => {
     const request = makeRequest({ startDate: "2026-10-11", pace: "relaxed" });
     // The train from Rome takes 2 h 35 min: the day starts at 12:35, after Via Drapperie's last lunch.
     expect(mealFacts(request, "bologna", MONDAY, 755, "Rome", ctx)).toEqual([
-      "No lunch in Bologna after the travel from Rome.",
-      "No dinner in Bologna on Mondays.",
+      "No lunch place listed for Bologna can take lunch after the travel from Rome.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
     // A day in Bologna with no travel has its lunch.
     expect(mealFacts(request, "bologna", MONDAY, 600, null, ctx)).toEqual([
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
   });
 
@@ -500,7 +508,7 @@ describe("mealFacts", () => {
     const request = makeRequest({ startDate: MONDAY, exclude: ["place_082"] });
 
     expect(mealFacts(request, "milan", MONDAY, 570, null, ctx)).toEqual([
-      "No lunch in Milan on Mondays, apart from places you avoid.",
+      "No lunch place listed for Milan opens on Mondays, apart from places you avoid.",
     ]);
     expect(mealFacts(makeRequest(), "milan", MONDAY, 570, null, ctx)).toEqual([]);
     expect(mealFacts(request, "atlantis", MONDAY, 570, null, ctx)).toEqual([]);
@@ -510,8 +518,25 @@ describe("mealFacts", () => {
     const request = makeRequest({ startDate: "2026-10-11" });
 
     expect(mealFacts(request, "bologna", "2026-10-11", 570, null, ctx)).toEqual([
-      "No lunch in Bologna on Sundays.",
+      "No lunch place listed for Bologna opens on Sundays.",
     ]);
+  });
+
+  // Review of v1.3.1 (2026-09-26): "No dinner in Bologna on Mondays." read as a claim about the
+  // city. The page also tells a dinner fact by its start (travelFacts in apps/web/lib/dayRoute.ts).
+  it("speaks of the places listed for a city on every base and date, never of the city", () => {
+    const request = makeRequest({ startDate: "2026-10-10", pace: "relaxed" });
+    const dates = ["2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13"];
+    const facts = ctx.anchors.flatMap((anchor) =>
+      dates.flatMap((date) =>
+        [570, 755].flatMap((start) => mealFacts(request, anchor.id, date, start, "Rome", ctx)),
+      ),
+    );
+
+    expect(facts.length).toBeGreaterThan(2);
+    for (const fact of facts) {
+      expect(fact).toMatch(/^No (lunch|dinner) place (is )?listed for [A-Z]/);
+    }
   });
 });
 
@@ -525,20 +550,20 @@ describe("the cities a day can take", () => {
     expect(bologna).toMatchObject({
       current: true,
       allowed: true,
-      meals: ["No dinner in Bologna on Mondays."],
+      meals: ["No dinner place listed for Bologna opens on Mondays."],
       warnings: [
         "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
         "Leaves about 7 h before dinner.",
-        "No dinner in Bologna on Mondays.",
+        "No dinner place listed for Bologna opens on Mondays.",
       ],
     });
     expect(options.find((o) => o.anchorId === "florence")?.meals).toEqual([]);
     // Moving day 2 to Bologna (a Sunday): its lunch fact comes before the other day's note.
     const sunday = dayBaseOptions(request, days, 1, ctx).find((o) => o.anchorId === "bologna");
-    expect(sunday?.meals).toEqual(["No lunch in Bologna on Sundays."]);
-    expect(sunday?.warnings.indexOf("No lunch in Bologna on Sundays.")).toBe(2);
+    expect(sunday?.meals).toEqual(["No lunch place listed for Bologna opens on Sundays."]);
+    expect(sunday?.warnings.indexOf("No lunch place listed for Bologna opens on Sundays.")).toBe(2);
     expect(checkDayBase(request, days, 2, "bologna", ctx).option.meals).toEqual([
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
   });
 });

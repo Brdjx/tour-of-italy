@@ -127,8 +127,8 @@ export interface RouteView {
 // Florence." under it said it again and pushed its facts down. A day kept in its city still says
 // what happens to it (planned again for its travel or to hold a place asked for, or kept at a new
 // start). A day the route leaves as it is shows no facts. A meal no place of the day's city can
-// take that date is a fact too (decision 17: "No dinner in Bologna on Mondays."), said before the
-// day is planned, as its travel is.
+// take that date is a fact too (decision 17: "No dinner place listed for Bologna opens on
+// Mondays."), said before the day is planned, as its travel is.
 export function routeView(
   itinerary: Itinerary,
   draft: readonly string[],
@@ -167,11 +167,14 @@ export function routeView(
  * A day's travel facts (dayTravel: the train and when the day starts, then what it leaves before
  * dinner), without the second when `meals` (mealFacts) says the day has no dinner to have.
  */
-// Decision: "Leaves about 7 h before dinner." and "No dinner in Bologna on Mondays." together read
-// as a contradiction, and the owner's day 3 showed the first over a day with no dinner. The start
-// the first line gives says what the travel takes; the day's board drops it the same way.
+// Decision: "Leaves about 7 h before dinner." and "No dinner place listed for Bologna opens on
+// Mondays." together read as a contradiction, and the owner's day 3 showed the first over a day
+// with no dinner. The start the first line gives says what the travel takes; the day's board drops
+// it the same way. Every dinner fact starts "No dinner place" (mealFacts says so).
 export function travelFacts(travel: readonly string[], meals: readonly string[]): string[] {
-  return meals.some((fact) => fact.startsWith("No dinner ")) ? travel.slice(0, 1) : [...travel];
+  return meals.some((fact) => fact.startsWith("No dinner place"))
+    ? travel.slice(0, 1)
+    : [...travel];
 }
 
 /** "Plan day 2", "Plan day 2 and day 3", "Plan all three days": the route sheet's action. */

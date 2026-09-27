@@ -176,7 +176,7 @@ for (const scheme of ["light", "dark"] as const) {
       await press(page.getByTestId("city-button"));
       const sheet = page.getByTestId("route-sheet");
       const bologna = sheet.locator('[data-testid="city-option"][data-anchor-id="bologna"]');
-      await expect(bologna).toContainText("No dinner in Bologna on Mondays.");
+      await expect(bologna).toContainText("No dinner place listed for Bologna opens on Mondays.");
       await auditState(page, "a city with no dinner open that day");
       await press(bologna);
       await press(sheet.getByTestId("route-confirm"));

@@ -302,11 +302,11 @@ test.describe("setting a city for each day", () => {
     await expect(bologna).toHaveAttribute("data-allowed", "true");
     await expect(bologna.locator(".city-warning")).toHaveText([
       "2 h 25 min by train or car from Venice, so the day starts at 11:55.",
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
     await press(bologna);
     await expect(routeDay(sheet, 3).locator(".city-warning")).toHaveText([
-      "No dinner in Bologna on Mondays.",
+      "No dinner place listed for Bologna opens on Mondays.",
     ]);
     await press(sheet.getByTestId("route-confirm"));
     await routeDone(page, "Route changed: Rome, Venice, Bologna.");
@@ -316,7 +316,9 @@ test.describe("setting a city for each day", () => {
     await expect(page.getByTestId("transfer-left")).toHaveCount(0);
     await press(page.getByTestId("warning-chip").filter({ hasText: "No dinner open" }));
     const panel = page.locator('[data-testid="chip-explanation"]:not([hidden])');
-    await expect(panel).toContainText("Bologna's three dinner places are all closed on Mondays.");
+    await expect(panel).toContainText(
+      "The three dinner places listed for Bologna are all closed on Mondays.",
+    );
     await expect(panel.getByRole("listitem")).toHaveText([
       "Osteria Francescana, Modena",
       "Tagliatelle al Ragù at Trattoria Anna Maria",
