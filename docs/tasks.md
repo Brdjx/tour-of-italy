@@ -4,6 +4,9 @@ Every piece of work has a stable id. Ids never change or get reused; new work ta
 Commits reference their task with a `Refs: T12` trailer, so `git log --grep "T12"` shows the history of
 any task.
 
+The commit ids here refer to the private repository: the submission zip holds the tagged tree only,
+without its git history, which is available on request.
+
 Statuses:
 
 - `todo`: agreed, not started
@@ -112,18 +115,16 @@ Statuses:
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | review | architecture, decisions, testing from ac3e79f; README results table and quickstart from 329246f; AI usage log in `docs/ai-usage-log.md` |
+| T50 | README, write-up with real numbers, decisions log, AI usage log, testing strategy | done | architecture, decisions, testing from ac3e79f; README results table and quickstart from 329246f; AI usage log written in 82f3788; `WRITEUP.md` from 4320c8d; all in every tag from `v1.0.0` to `v1.3.1` |
 
 ## Phase 9: final pass
 
 | Id | Task | Status | Evidence |
 |---|---|---|---|
-| T51 | Test audit repeated until two rounds find nothing new | todo | |
-| T52 | Final review: security, correctness, accessibility, prose, secrets in history | todo | |
-| T53 | Fresh clone check, tag `v1.0.0` | todo | |
-| T54 | Pre-publication scan: full history for secrets and private material, personal details out of committed defaults | todo | |
-| T55 | Make the repo public, require `ci-ok` on `main`, protect the `production` environment | todo | |
-| T56 | Tighten the deploy role trust to the `production` environment subject only | todo | |
+| T51 | Test audit repeated until two rounds find nothing new | todo | No test audit rounds are recorded in the history or the docs. |
+| T52 | Final review: security, correctness, accessibility, prose, secrets in history | todo | Done so far: design and code reviews of the route sheet (82c3e31) and a review of decision 17 (402f2ec), with their fixes; axe and layout audits of the states a traveler reaches, on every device project in light and dark (`e2e/tests/audit.spec.ts`); gitleaks over the full history in CI's `secrets` job, green on the commit of every tag; a review of `v1.3.1` and the live site on 2026-09-26, whose findings (legs in Venice said "by taxi or bus", meal sentences that read as claims about a city, docs that assumed the git history) are fixed after that tag. No security or prose review of the whole submission is recorded. |
+| T53 | Fresh clone check, tag `v1.0.0` | todo | Tagged: `v1.0.0` (a22de43, 2026-09-25), `v1.1.0` (48994fd), `v1.2.0` (8149d55), `v1.3.0` (9f5d02a) and `v1.3.1` (3582343, 2026-09-26), each on a commit whose CI passed. No check from a fresh copy of a tagged tree (the zip, unpacked) is recorded; the quickstart's fixture mode was checked on 329246f. |
+| T54 | Pre-publication scan: full history for secrets and private material, personal details out of committed defaults | todo | Done: gitleaks scans the full history on every push, with one allowlist for AWS-shaped ids in `deployed-ids.auto.tfvars` only (8678aa4), green on every tag's commit; `docs/official-spec/` and `PLAN.md` are ignored and appear in no commit; comments cite committed docs, never the brief (T80). Not done: committed defaults still hold the owner's email address as the alarm and budget address (`infra/sam/samconfig.toml`, `infra/terraform/bootstrap/variables.tf`). |
 | T57 | Rename the site to italy-planner.brdjx.com and add the public API host api.italy-planner.brdjx.com | done | live at italy-planner.brdjx.com and api.italy-planner.brdjx.com |
 | T58 | Use a workspace-scoped Anthropic key (the current key needs the anthropic-workspace-id header) | done | 2026-09-24: SSM parameter version 2 and the GitHub secret hold the new key (digest checked, never printed) |
 | T59 | Measure each planner heuristic by ablation and remove the ones that do not earn their keep | done | 8cb7665; 25 rules removed, 7 files merged, judged on 3 seeds |
@@ -152,5 +153,7 @@ Statuses:
 
 | Id | Task | Status | Reason |
 |---|---|---|---|
+| T55 | Make the repo public, require `ci-ok` on `main`, protect the `production` environment | cut | The submission is a zip of the tagged tree and the repository stays private. On GitHub Free a private repository has no branch protection or environment rules (`gh api repos/Brdjx/tour-of-italy/branches/main/protection` answers 403), so `ci-ok` is not required on `main` and the AWS trust policies are the guard ([deploy.md](deploy.md#github-plan)). |
+| T56 | Tighten the deploy role trust to the `production` environment subject only | deferred | The deploy role accepts `...:environment:production` and `...:ref:refs/heads/main`, because GitHub may not honour environments in a private repository on GitHub Free; `ref`, `job_workflow_ref` and `actor_id` are the guards (decision in `infra/terraform/bootstrap/oidc.tf`). Revisit if the repository moves to GitHub Pro or goes public. |
 | T72 | Richer colourways within the design language | cut | The page keeps ink and gold, with the flag's colours only on the tricolour band and mark (78d6a2a); more colourways did not fit before submission. |
 | T73 | A detailed per-day skeleton for the itinerary on desktop, tablet and phone | deferred | The plan skeleton (`PlanSkeleton.tsx`, from T61, reshaped in cb38379 and d710fa4) already draws day tabs, the day heading, stop rows with times and the map in the plan's own layout on every screen; a separate design per device was not built. |

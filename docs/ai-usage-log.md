@@ -3,6 +3,9 @@
 How I used AI to build this project, dated, from the git history, [tasks.md](tasks.md) and
 [decisions.md](decisions.md). All dates are 2026.
 
+The commit ids here refer to the private repository: the submission zip holds the tagged tree
+only, without its git history, which is available on request.
+
 ## Who did what
 
 - I wrote the plan before any code: the scope, the architecture (the model proposes, code
