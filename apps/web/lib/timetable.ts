@@ -14,7 +14,6 @@ import {
   type PlannerContext,
   type Stop,
   TRAVEL,
-  travelMode,
   type Violation,
 } from "@italy/planner";
 import { type Chip, dayChips, stopChips, violationsForDay, violationsForStop } from "./chips";
@@ -30,7 +29,7 @@ export const FREE_TIME_MIN = 30;
 
 export interface LegView {
   minutes: number;
-  text: string; // "12 min walk", "15 min by taxi or bus from central Rome"
+  text: string; // "12 min walk", "15 min by taxi or bus from central Rome", "20 min by vaporetto"
   freeMin: number; // idle time before this stop starts, 0 when under FREE_TIME_MIN
 }
 
@@ -139,19 +138,18 @@ function legFor(
   const place = ctx.placesById.get(stop.placeId);
   const minutes = stop.travelFromPrevMin;
   if (index === 0) {
-    const mode = anchor && place ? travelMode(anchor.centroid, place) : "local";
     const from = anchor ? ` from central ${anchor.name}` : "";
     const text =
       minutes === 0
         ? `Starts in central ${anchor?.name ?? "town"}`
-        : travelText(minutes, mode) + from;
+        : travelText(minutes, anchor?.centroid, place) + from;
     return { minutes, text, freeMin: 0 };
   }
   const previous = day.stops[index - 1] as Stop;
   const previousPlace = ctx.placesById.get(previous.placeId);
-  const mode = previousPlace && place ? travelMode(previousPlace, place) : "local";
   const idle = stop.start - (previous.end + minutes + TRAVEL.bufferMin);
-  return { minutes, text: travelText(minutes, mode), freeMin: idle >= FREE_TIME_MIN ? idle : 0 };
+  const text = travelText(minutes, previousPlace, place);
+  return { minutes, text, freeMin: idle >= FREE_TIME_MIN ? idle : 0 };
 }
 
 /** The trip back to the base after the last stop, when the planner reports it. */
@@ -161,7 +159,7 @@ function returnFor(day: DayPlan, ctx: PlannerContext, anchor: Anchor | undefined
   const place = last ? ctx.placesById.get(last.placeId) : undefined;
   if (minutes === undefined || !anchor || !place) return null;
   if (minutes === 0) return `Ends in central ${anchor.name}`;
-  return `${travelText(minutes, travelMode(place, anchor.centroid))} back to central ${anchor.name}`;
+  return `${travelText(minutes, place, anchor.centroid)} back to central ${anchor.name}`;
 }
 
 /**
@@ -215,7 +213,7 @@ function transferFor(
   const facts = dayTravel(itinerary.request, bases, dayIndex, ctx).warnings;
   const noDinner = gaps.some((gap) => gap.meal === "dinner" && gap.cause === "none_open");
   return {
-    text: transferText(day.transferMin, travelMode(from.centroid, to.centroid), from.name),
+    text: transferText(day.transferMin, from.centroid, to.centroid, from.name),
     depart: PACE[pace].dayStart,
     arrive: dayWindow(pace, day.transferMin).start,
     left: noDinner ? null : (facts[1] ?? null),

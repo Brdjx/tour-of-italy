@@ -7,6 +7,7 @@ import {
   SAME_SPOT_LABEL,
   type TravelMode,
   travelLabel,
+  travelLabelBetween,
   travelLabelFor,
   travelLeg,
   travelMinutes,
@@ -151,6 +152,7 @@ describe("travel properties", () => {
           : travelLabelFor(leg.minutes, leg.mode);
         expect(leg.label).toBe(expected);
         expect(travelLabel(a, b)).toBe(leg.label);
+        expect(travelLabelBetween(leg.minutes, a, b)).toBe(leg.label);
       }),
       FC_SETTINGS,
     );
@@ -187,6 +189,31 @@ describe("Venice: the water bus and the islands", () => {
   it("never changes a leg outside the lagoon: Rome still goes by taxi or bus", () => {
     const leg = travelLeg(realPlace("place_001"), realPlace("place_002")); // Colosseum, Trastevere
     expect(leg.label).toMatch(/by taxi or bus$/);
+  });
+
+  // The page labels the minutes the scheduler gave a stop, which need not be the model's own.
+  describe("travelLabelBetween, for a planned stop's minutes", () => {
+    const colosseum = realPlace("place_001");
+    const trastevere = realPlace("place_002");
+
+    it("says by vaporetto for a local leg inside the lagoon", () => {
+      expect(travelLabelBetween(20, venice, burano)).toBe("20 min by vaporetto");
+      expect(travelLabelBetween(15, sanGiorgio, venice)).toBe("15 min by vaporetto");
+    });
+
+    it("says by taxi or bus for a local leg on the mainland", () => {
+      expect(travelLabelBetween(15, colosseum, trastevere)).toBe("15 min by taxi or bus");
+    });
+
+    it("keeps a walk and the longer modes as travelLabelFor words them", () => {
+      expect(travelLabelBetween(5, venice, basilica)).toBe("5 min walk");
+      expect(travelLabelBetween(200, colosseum, venice)).toBe(travelLabelFor(200, "intercity"));
+    });
+
+    it("says the same spot for 0 minutes, in the lagoon or out of it", () => {
+      expect(travelLabelBetween(0, venice, burano)).toBe(SAME_SPOT_LABEL);
+      expect(travelLabelBetween(0, colosseum, trastevere)).toBe(SAME_SPOT_LABEL);
+    });
   });
 });
 

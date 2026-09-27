@@ -177,6 +177,43 @@ describe("buildDayView", () => {
   });
 });
 
+// Venice: no taxi or bus runs in the lagoon, so a local leg there goes by water bus on every
+// line the day shows (the planner's travelLabelBetween).
+describe("a day in Venice", () => {
+  const plan = fixturePlan({ anchors: ["venice"] });
+  const day = must(plan.days[0]);
+  const others = day.stops.map((stop) => stop.placeId).filter((id) => id !== "place_088");
+  /** Day 1 with San Giorgio Maggiore, on its own island, moved to `at` in the order. */
+  const withIsland = (at: "first" | "last") => {
+    const order = at === "first" ? ["place_088", ...others] : [...others, "place_088"];
+    return must(buildDayView(rescheduleDay(plan, 0, order, ctx).itinerary, 0, ctx, []));
+  };
+
+  it("says by vaporetto from central Venice, between stops and back to the base", () => {
+    const first = withIsland("first");
+    const island = must(first.rows[0]);
+    expect(island.stop.placeId).toBe("place_088");
+    expect(island.leg.text).toBe(`${island.leg.minutes} min by vaporetto from central Venice`);
+    const next = must(first.rows[1]);
+    expect(next.leg.text).toBe(`${next.leg.minutes} min by vaporetto`);
+    const last = withIsland("last");
+    expect(last.rows.at(-1)?.stop.placeId).toBe("place_088");
+    expect(last.returnLeg).toBe(
+      `${last.day.returnTravelMin} min by vaporetto back to central Venice`,
+    );
+  });
+
+  it("never says taxi or bus on any line of a Venice trip, and keeps its walks", () => {
+    const lines = buildTripView(plan, ctx, []).flatMap((view) => [
+      ...view.rows.map((row) => row.leg.text),
+      view.returnLeg ?? "",
+    ]);
+    expect(lines.filter((line) => line.includes("by vaporetto")).length).toBeGreaterThan(0);
+    expect(lines.filter((line) => line.endsWith(" walk")).length).toBeGreaterThan(0);
+    expect(lines.filter((line) => /taxi|bus\b/.test(line))).toEqual([]);
+  });
+});
+
 // The owner's day 3 (decision 17): Monday 12 October in Bologna after the train from Venice, where
 // none of Bologna's dinner places opens on Mondays.
 describe("a day with no lunch or dinner", () => {

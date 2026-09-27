@@ -160,16 +160,27 @@ export function travelLabel(a: LatLng, b: LatLng): string {
   return travelLeg(a, b).label;
 }
 
+/**
+ * Label for `minutes` of travel on the leg between two points, in that leg's mode and words: a
+ * local leg inside the lagoon is "by vaporetto", every other label is travelLabelFor's.
+ */
+// Decision: the minutes come from the caller, because a planned stop keeps the minutes the
+// scheduler gave it; only the words come from the two points, so the page and travelLeg agree.
+export function travelLabelBetween(minutes: number, a: LatLng, b: LatLng): string {
+  return legLabel(minutes, travelMode(a, b), a, b);
+}
+
+function legLabel(minutes: number, mode: TravelMode, a: LatLng, b: LatLng): string {
+  if (mode === "local" && minutes > 0) return `${formatDuration(minutes)} ${localWords(a, b)}`;
+  return travelLabelFor(minutes, mode);
+}
+
 /** Distance, minutes, mode, and label for one leg, all from a single distance computation. */
 export function travelLeg(a: LatLng, b: LatLng): TravelLeg {
   const km = legKm(a, b);
   const mode = legMode(a, b, km);
   const minutes = minutesByMode(km, mode);
-  const label =
-    mode === "local" && minutes > 0
-      ? `${formatDuration(minutes)} ${localWords(a, b)}`
-      : travelLabelFor(minutes, mode);
-  return { km, minutes, mode, label };
+  return { km, minutes, mode, label: legLabel(minutes, mode, a, b) };
 }
 
 /**

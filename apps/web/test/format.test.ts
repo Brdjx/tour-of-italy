@@ -17,6 +17,7 @@ import {
   travelText,
   typeWord,
 } from "../lib/format";
+import { place } from "./fixtures";
 
 // Formatting runs inside render, so a throw here would blank the whole plan. Every function
 // must be total, and times must read right around midnight.
@@ -111,11 +112,19 @@ describe("places", () => {
   });
 
   it("labels travel legs and transfers the same way as the planner", () => {
-    expect(travelText(12, "walk")).toBe("12 min walk");
-    expect(travelText(0, "walk")).toBe("Same spot, no travel");
-    expect(travelText(-3, "walk")).toBe("");
-    expect(transferText(100, "intercity", "Rome")).toBe("1 h 40 min by high-speed train from Rome");
-    expect(transferText(0, "local", "Rome")).toBe("");
+    const [colosseum, trastevere] = [place("place_001"), place("place_002")];
+    const [doges, basilica, burano] = [place("place_067"), place("place_074"), place("place_070")];
+    expect(travelText(12, doges, basilica)).toBe("12 min walk");
+    expect(travelText(20, doges, burano)).toBe("20 min by vaporetto");
+    expect(travelText(15, colosseum, trastevere)).toBe("15 min by taxi or bus");
+    expect(travelText(0, doges, burano)).toBe("Same spot, no travel");
+    expect(travelText(-3, doges, basilica)).toBe("");
+    // An end no longer in the data keeps the local band's words.
+    expect(travelText(15, undefined, trastevere)).toBe("15 min by taxi or bus");
+    expect(transferText(100, colosseum, doges, "Rome")).toBe(
+      "1 h 40 min by high-speed train from Rome",
+    );
+    expect(transferText(0, colosseum, doges, "Rome")).toBe("");
     expect(plural(1, "stop", "stops")).toBe("1 stop");
     expect(plural(3, "stop", "stops")).toBe("3 stops");
   });

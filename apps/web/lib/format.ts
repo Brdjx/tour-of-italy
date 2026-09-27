@@ -1,11 +1,12 @@
 import {
+  type LatLng,
   MONTH_SHORT,
   type PlaceType,
   type PriceLevel,
   parseIsoDate,
   formatClock as plannerClock,
   formatDuration as plannerDuration,
-  type TravelMode,
+  travelLabelBetween,
   travelLabelFor,
   weekdayOf,
 } from "@italy/planner";
@@ -162,16 +163,26 @@ export function typeWord(type: PlaceType): string {
   return TYPE_WORDS[type] ?? "Place";
 }
 
-/** "12 min walk"; a zero-minute leg is "Same spot, no travel". */
-export function travelText(minutes: number, mode: TravelMode): string {
+/**
+ * "12 min walk", "15 min by vaporetto": a plan's minutes for the leg from `from` to `to`, in that
+ * leg's words (travelLabelBetween). A zero-minute leg is "Same spot, no travel".
+ */
+// Decision: a leg with an end no longer in the data is worded as the local band, since its words
+// cannot come from a point the data lacks; its minutes are still the plan's.
+export function travelText(
+  minutes: number,
+  from: LatLng | undefined,
+  to: LatLng | undefined,
+): string {
   if (!Number.isFinite(minutes) || minutes < 0) return "";
-  return travelLabelFor(Math.round(minutes), mode);
+  const whole = Math.round(minutes);
+  return from && to ? travelLabelBetween(whole, from, to) : travelLabelFor(whole, "local");
 }
 
 /** "1 h 40 min by train or car from Rome", for a day that starts with a transfer. */
-export function transferText(minutes: number, mode: TravelMode, fromName: string): string {
+export function transferText(minutes: number, from: LatLng, to: LatLng, fromName: string): string {
   if (!Number.isFinite(minutes) || minutes <= 0) return "";
-  return `${travelText(minutes, mode)} from ${fromName}`;
+  return `${travelText(minutes, from, to)} from ${fromName}`;
 }
 
 /** "1 stop" or "3 stops". */

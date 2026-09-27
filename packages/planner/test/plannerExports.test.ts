@@ -14,6 +14,7 @@ const PLANNER_CORE_FUNCTIONS = [
   "travelMode",
   "travelLabel",
   "travelLabelFor",
+  "travelLabelBetween",
   "travelLeg",
   "formatDuration",
   // anchors.ts
