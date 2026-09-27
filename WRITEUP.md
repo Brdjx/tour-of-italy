@@ -4,14 +4,14 @@ Live at https://italy-planner.brdjx.com. To run it on your machine with no API k
 
 ## What it does
 
-You pick a start date, a pace and what you enjoy (art, food, history and so on). You can also choose cities, places you must see, places to skip, and add a note. In about 10 seconds you get three days as a timetable: when to arrive at each place, how long to stay, how to get there, and why it was picked. Lunch and dinner are in it.
+You pick a start date, a pace and what you enjoy (art, food, history and so on). You can also choose cities, places you must see, places to skip, and add a note. In about 10 seconds you get three days as a timetable: when to arrive at each place, how long to stay, how to get there, and why it was picked. Lunch and dinner are in it wherever a place is open, and a day without one says why.
 
 Then you make it yours:
 
 - Swap, remove or reorder a stop. Swaps only offer places that still fit the day, and Undo takes back any change.
 - Change the city of any day, even a different city each day. Before you confirm, the page shows the train time and how much of each day is left. Then it plans only the days that change, never repeating a place, and one Undo takes it all back. You can also ask for new ideas for a day.
 - Open a stop for its photo, its hours on that date and a short summary, or open the map full screen.
-- Copy link saves the trip exactly as you see it.
+- Copy link saves the trip as you see it.
 
 It installs as an app on a phone, and it still plans with no connection.
 
@@ -20,19 +20,21 @@ It installs as an app on a phone, and it still plans with no connection.
 A plan that sends you to a museum on its closed day is worse than no plan, and the data makes that easy: of 103 places, 33 list no hours, 8 open only in some months or on some days, and one is listed 156 km from its city.
 
 - **The data is cleaned in code** and never edited by hand. The 112 issues found are listed under "About this data". A note in the data can make hours stricter, never looser: a wrong "open" sends you to a closed door, a wrong "closed" only hides one option.
-- **The model proposes, code decides.** Claude chooses the places and their order, from a list code built of places open on those dates. Code works out every time and travel leg, and a separate checker tests the whole plan. If it fails, Claude gets one chance to fix it. After that, or if Claude is slow or down, a rules-only planner makes the plan. Every plan you see has passed the checker.
-- **Meals are checked too.** If the AI leaves out a lunch or dinner that a place could serve, code adds it, and the day says "fixed after a check". If no place is open for it, as for dinner in Bologna on Mondays, the page says so before you pick the city and again on the day.
+- **The model proposes, code decides.** Claude picks the places and proposes an order, from a list code built of places open on those dates. Code works out every time and travel leg, and a separate checker tests the whole plan. If it fails, Claude gets one chance to fix it. After that, or if Claude is slow or down, a rules-only planner makes the plan. Every plan you see has passed the checker.
+- **Meals are checked too.** If the AI leaves out a lunch or dinner that a place could serve, code adds one where it fits without moving your other stops, and the day says "fixed after a check". If no place in the data is open for it, as for dinner in Bologna on Mondays, the page says so before you pick the city and again on the day.
 - **The page says how each plan was made:** with AI, with AI and fixed after a check, or by the rules.
 
 ## How well it works
 
-Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
+Live tests on 16 trips (full results in `packages/evals/results/latest.md`):
 
 - Claude Sonnet 5 plans passed the checker 48 times out of 48, with no fallback, in 8 seconds at the median, for about 2 cents each.
 - Only 2% were valid exactly as the model wrote them. The model never sees the time each stop lands at, so code tidies the plan first, and the tests still count that as the model's mistake.
+- The same reason gives the results page its harshest line: Sonnet meets every expectation of a case in 0 of 16 cases, against 10 for the rules, because a case judges the answer before code tidies it. Two cases also want a summary saying a request was not possible, and my summary filter cut that sentence.
+- What the AI adds today: it matches interests better (66% against 61%) with less travel (92 against 104 minutes a day), and it is the only planner that reads your note. It also fits fewer visits (3.3 against 4.0 a day).
 - The model leaves out meals: 26% of Sonnet's days lacked a lunch or dinner as it answered, against 19% for the rules. Code now adds the meal where one fits, which brings Sonnet to 20%; on most of the rest, the places that could serve it are already on other days. Claude Haiku 4.5 was faster at the median but left out a meal on 72% of days (24% after code's additions), so Sonnet stays the default.
 - Changing cities after a plan, 54 live days (single days and routes of up to three cities): no repeated place, no fallback, 3.3 to 5.5 seconds a day.
-- 3,490 unit and integration tests and 72 desktop browser tests run on every push, and a failure blocks the deploy. The full 372 browser tests, on phones, tablets and desktop, run locally in about 5 minutes; CI's slower runners took up to 34 minutes and timed out on tablets, so they stay local.
+- 3,490 unit and integration tests and 72 desktop browser tests run on every push, and a failure blocks the deploy. All 372, on phones and tablets too, run locally in about 5 minutes.
 
 ## Choices I made
 
@@ -48,7 +50,7 @@ Live tests on 16 trips ([full results](packages/evals/results/latest.md)):
 
 **To build it.** Claude Code agents wrote nearly all of the code, tests and docs, working from my written plan and stopping at checkpoints for my review. The calls that shaped it were mine: "the model proposes, code decides" before any code; "code tidies, AI chooses" on 24 September, when the live model kept failing on things it could not see; a self-hosted map; and what to ship and what to cut. Since agents also wrote the tests, I relied on checks that do not just restate the code: live runs against the real model, property and mutation tests, review agents told to find faults, a record-by-record check of all 103 places, and using the site myself. That last one found things the rest missed: on 26 September my three-city trip had no dinner on a Monday in Bologna, and the page did not say why.
 
-Agents wrote it faster than I could type it; the design is mine, and I can build each part by hand. What speed cost: one file (`tidy.ts`) grew too large, and the browser tests fell behind a redesign until I rewrote them. This note was drafted with AI and edited by me.
+The design and the decisions are mine. What speed cost: one file (`tidy.ts`) grew too large, and the browser tests fell behind a redesign until I rewrote them. This note was drafted with AI and edited by me.
 
 ## With more time
 
