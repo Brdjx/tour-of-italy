@@ -56,11 +56,8 @@ The design and the decisions are mine. What speed cost: one file (`tidy.ts`) gre
 
 1. Show that AI plans beat rules-only plans for real traveler notes. Today I cannot.
 2. Close the rest of the meal gap: let code give up a visit for a meal, which would bring both models to about 17%.
-3. Let Plan my trip suggest a city a day when asked. Today only the route view does that.
-4. Real routes and transit times instead of straight-line estimates.
-5. Alarms on AI quality in production, such as missed meals.
-6. Accessibility and dietary information, which the data lacks.
+3. Real routes and transit times instead of straight-line estimates.
 
 ## Time spent
 
-About 6 hours of my own time, spent steering agents, while the agents ran across about two and a half days (commits from 23 to 26 September 2026). I treated it as a small production product, because it is public, pays for every model call, and gives people times they will act on.
+About 5 hours of my own time, steering several agents. I treated it as a small production product, because it is public, pays for every model call, and gives people times they will act on.
