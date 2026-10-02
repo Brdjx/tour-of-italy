@@ -24,6 +24,7 @@ import { createLlmProvider, type LlmProvider } from "./llm/provider";
 import type { CachedDay } from "./plan/dayCache";
 import type { CachedPlan } from "./plan/planCache";
 import type { PlanTiming } from "./plan/planTrip";
+import { registerPingRoute } from "./routes/ping";
 import { registerPlanRoute } from "./routes/plan";
 import { registerPlanDayRoute } from "./routes/planDay";
 import {
@@ -69,6 +70,7 @@ const ROUTE_METHODS: Record<string, string> = {
   "/plan/day": "POST",
   "/trips": "POST",
   "/trips/:id": "GET, HEAD",
+  "/ping": "GET, HEAD",
 };
 
 /**
@@ -203,6 +205,10 @@ export function createApp(deps: AppDeps) {
     rateLimiter: deps.tripRateLimiter ?? createTokenBucket({ ...TRIP_RATE_LIMIT, now }),
     dataVersion,
     random: deps.random,
+  });
+
+  registerPingRoute(app, {
+    now,
   });
 
   for (const [path, allow] of Object.entries(ROUTE_METHODS)) {
