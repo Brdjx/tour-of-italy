@@ -24,6 +24,7 @@ import { createLlmProvider, type LlmProvider } from "./llm/provider";
 import type { CachedDay } from "./plan/dayCache";
 import type { CachedPlan } from "./plan/planCache";
 import type { PlanTiming } from "./plan/planTrip";
+import { registerPingRoute } from "./routes/ping";
 import { registerPlanRoute } from "./routes/plan";
 import { registerPlanDayRoute } from "./routes/planDay";
 import {
@@ -73,6 +74,7 @@ const ROUTE_METHODS: Record<string, string> = {
   "/trips": "POST",
   "/trips/:id": "GET, HEAD",
   "/weather": "GET, HEAD",
+  "/ping": "GET, HEAD",
 };
 
 /**
@@ -211,6 +213,9 @@ export function createApp(deps: AppDeps) {
   });
 
   registerWeatherRoute(app, { weather: deps.weather ?? new OpenMeteoClient() });
+  registerPingRoute(app, {
+    now,
+  });
 
   for (const [path, allow] of Object.entries(ROUTE_METHODS)) {
     app.all(path, (c) => {
