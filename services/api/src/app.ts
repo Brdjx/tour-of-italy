@@ -33,9 +33,11 @@ import {
   dataVersionOf,
 } from "./routes/readPayloads";
 import { registerTripRoutes } from "./routes/trips";
+import { registerWeatherRoute } from "./routes/weather";
 import { createDynamoStore } from "./trips/dynamoStore";
 import type { RandomSource } from "./trips/ids";
 import { createMemoryStore, type TripStore } from "./trips/store";
+import { OpenMeteoClient } from "./weather/client";
 
 // The Hono app and its routes. No platform code lives here: local.ts serves it with Node and
 // lambda.ts wraps it for AWS Lambda, so tests call app.request() with fakes for every dependency.
@@ -55,6 +57,7 @@ export interface AppDeps {
   tripStore?: TripStore | null; // saved trips, AI plan records, cached plans; from TRIPS_TABLE
   tripRateLimiter?: RateLimiter;
   random?: RandomSource; // record ids, for tests
+  weather?: OpenMeteoClient;
 }
 
 const WEB_DEV_ORIGIN = "http://localhost:3000";
@@ -69,6 +72,7 @@ const ROUTE_METHODS: Record<string, string> = {
   "/plan/day": "POST",
   "/trips": "POST",
   "/trips/:id": "GET, HEAD",
+  "/weather": "GET, HEAD",
 };
 
 /**
@@ -173,6 +177,7 @@ export function createApp(deps: AppDeps) {
   app.get("/meta", (c) => sendPreparedJson(c, meta));
   app.get("/places", (c) => sendPreparedJson(c, places));
   app.get("/data-issues", (c) => sendPreparedJson(c, dataIssues));
+
   const tripStore = deps.tripStore === undefined ? defaultTripStore(config, now) : deps.tripStore;
   const dataVersion = dataVersionOf(data);
   // Decision: one rate limit bucket for plans and day re-plans. Both spend model calls, so a
@@ -204,6 +209,8 @@ export function createApp(deps: AppDeps) {
     dataVersion,
     random: deps.random,
   });
+
+  registerWeatherRoute(app, { weather: deps.weather ?? new OpenMeteoClient() });
 
   for (const [path, allow] of Object.entries(ROUTE_METHODS)) {
     app.all(path, (c) => {
