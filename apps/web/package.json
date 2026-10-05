@@ -12,7 +12,7 @@
   "dependencies": {
     "@italy/planner": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",
-    "maplibre-gl": "6.11.1",
+    "maplibre-gl": "6.11.2",
     "next": "16.3.6",
     "pmtiles": "4.5.0",
     "react": "19.3.0",
