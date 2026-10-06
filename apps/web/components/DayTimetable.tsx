@@ -8,6 +8,7 @@ import { photoForPlace } from "../lib/placePhotos";
 import { type DayView, dayTimes, movedStops, thumbnailRows } from "../lib/timetable";
 import { type StopDetailsControl, type StopRef, useStopDetails } from "../lib/useStopDetails";
 import { ClockText } from "./Clock";
+import { DayWeather } from "./DayWeather";
 import { ChevronIcon } from "./icons";
 import { ROUTE_SHEET_ID } from "./RouteSheet";
 import { SourceMark } from "./SourceBadge";
@@ -144,6 +145,9 @@ export function DayTimetable(props: DayTimetableProps) {
   const findDetails = useCallback((stop: StopRef) => detailsButtonFor(list.current, stop), []);
   const planning = props.planning ?? null;
   const locked = props.locked ?? null;
+
+  const placeWithCoordinates = view.rows.find((row) => row.place)?.place;
+
   return (
     <section
       aria-labelledby={headingId}
@@ -179,6 +183,13 @@ export function DayTimetable(props: DayTimetableProps) {
                 </>
               )}
             </p>
+            {placeWithCoordinates ? (
+              <DayWeather
+                lat={placeWithCoordinates.lat}
+                lng={placeWithCoordinates.lng}
+                date={view.day.date}
+              />
+            ) : null}
             {props.made ? <DaySource made={props.made} /> : null}
             {locked ? (
               <p className="day-locked" data-testid="day-locked">

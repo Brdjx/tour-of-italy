@@ -15,6 +15,8 @@ import {
   type SavedTripResponse,
   SavedTripSchema,
   SaveTripResponseSchema,
+  type WeatherResponse,
+  WeatherResponseSchema,
 } from "./apiSchemas";
 
 // Client for the planner API. Every call has a deadline, every failure becomes an ApiError with
@@ -227,6 +229,20 @@ export function fetchTrip(id: string, options: RequestOptions = {}): Promise<Sav
   return requestJson({
     path: `/api/trips/${encodeURIComponent(id)}`,
     schema: SavedTripSchema,
+    options,
+  });
+}
+
+export function fetchWeatherForPlace(
+  lat: number,
+  lng: number,
+  date: string,
+  options: RequestOptions = {},
+): Promise<WeatherResponse> {
+  const params = new URLSearchParams({ lat: String(lat), lng: String(lng), date });
+  return requestJson({
+    path: `/api/weather?${params}`,
+    schema: WeatherResponseSchema,
     options,
   });
 }

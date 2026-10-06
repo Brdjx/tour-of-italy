@@ -4,41 +4,22 @@ import type { AppEnv } from "../lib/appEnv";
 import { sendError, zodDetails } from "../lib/httpErrors";
 import type { WeatherClient } from "../weather/client";
 
-const weatherResponseSchema = z.object({
-  ok: z.boolean(),
-  reason: z.enum(["timeout", "out_of_range", "bad_response", "unavailable"]),
-  forecast: z
-    .object({
-      date: z.string(),
-      maxTempC: z.number().optional(),
-      rainMm: z.number().optional(),
-    })
-    .optional(),
-});
+// GET /api/weather?lat=&lng=&date=: one day's forecast, or { available: false, reason }.
+// A missing forecast is a 200, not an error: the request was fine, there is just nothing to show,
+// and the plan never waits on the weather.
 
 const WeatherQuery = z.object({
-  lng: z.coerce.number().min(-180).max(180),
   lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
-
-export type WeatherResponse = {
-  ok: boolean;
-  reason: "timeout" | "out_of_range" | "bad_response" | "unavailable";
-  forecast?: {
-    date: string;
-    maxTempC: number | undefined;
-    rainMm: number | undefined;
-  };
-};
 
 export function registerWeatherRoute(app: Hono<AppEnv>, deps: { weather: WeatherClient }): void {
   app.get("/weather", async (c) => {
     const parsed = WeatherQuery.safeParse(c.req.query());
     if (!parsed.success) {
-      return sendError(c, 400, "bad_request", "Invalid Query", zodDetails(parsed.error));
+      return sendError(c, 400, "bad_request", "Invalid query", zodDetails(parsed.error));
     }
-
     const { lat, lng, date } = parsed.data;
 
     const result = await deps.weather.getForecast(lat, lng, date);

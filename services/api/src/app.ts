@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import packageJson from "../package.json" with { type: "json" };
 import type { Config } from "./config";
 import type { HealthResponse } from "./contract";
+import { type ExchangeRateClient, FrankfurterClient } from "./currency/client";
 import { type AppData, shippedData } from "./data";
 import type { AppEnv } from "./lib/appEnv";
 import { LruCache, PLAN_CACHE_ENTRIES } from "./lib/cache";
@@ -24,6 +25,7 @@ import { createLlmProvider, type LlmProvider } from "./llm/provider";
 import type { CachedDay } from "./plan/dayCache";
 import type { CachedPlan } from "./plan/planCache";
 import type { PlanTiming } from "./plan/planTrip";
+import { registerCurrencyRoute } from "./routes/currency";
 import { registerPingRoute } from "./routes/ping";
 import { registerPlanRoute } from "./routes/plan";
 import { registerPlanDayRoute } from "./routes/planDay";
@@ -38,7 +40,7 @@ import { registerWeatherRoute } from "./routes/weather";
 import { createDynamoStore } from "./trips/dynamoStore";
 import type { RandomSource } from "./trips/ids";
 import { createMemoryStore, type TripStore } from "./trips/store";
-import { OpenMeteoClient } from "./weather/client";
+import { OpenMeteoClient, type WeatherClient } from "./weather/client";
 
 // The Hono app and its routes. No platform code lives here: local.ts serves it with Node and
 // lambda.ts wraps it for AWS Lambda, so tests call app.request() with fakes for every dependency.
@@ -58,7 +60,8 @@ export interface AppDeps {
   tripStore?: TripStore | null; // saved trips, AI plan records, cached plans; from TRIPS_TABLE
   tripRateLimiter?: RateLimiter;
   random?: RandomSource; // record ids, for tests
-  weather?: OpenMeteoClient;
+  weather?: WeatherClient; // Open-Meteo by default; tests pass a fake
+  currency?: ExchangeRateClient; // Frankfurter by default; tests pass a fake
 }
 
 const WEB_DEV_ORIGIN = "http://localhost:3000";
@@ -74,6 +77,7 @@ const ROUTE_METHODS: Record<string, string> = {
   "/trips": "POST",
   "/trips/:id": "GET, HEAD",
   "/weather": "GET, HEAD",
+  "/currency": "GET, HEAD",
   "/ping": "GET, HEAD",
 };
 
@@ -213,6 +217,7 @@ export function createApp(deps: AppDeps) {
   });
 
   registerWeatherRoute(app, { weather: deps.weather ?? new OpenMeteoClient() });
+  registerCurrencyRoute(app, { currency: deps.currency ?? new FrankfurterClient() });
   registerPingRoute(app, {
     now,
   });

@@ -117,6 +117,20 @@ export const PlanDayResponseSchema = z.object({
 });
 export type PlanDayResponse = z.output<typeof PlanDayResponseSchema>;
 
+export const WeatherResponseSchema = z.union([
+  z.object({
+    available: z.literal(true),
+    date: z.string(),
+    maxTempC: z.number(),
+    rainMm: z.number(),
+  }),
+  z.object({
+    available: z.literal(false),
+    reason: z.string(),
+  }),
+]);
+export type WeatherResponse = z.output<typeof WeatherResponseSchema>;
+
 /** Every API error: `{ error: { code, message, details?, requestId } }`. */
 export const ApiErrorBodySchema = z.object({
   error: z.object({
