@@ -107,7 +107,7 @@ jobs:
           ref: ${{ needs.gate.outputs.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           # Decision: no dependency cache on the production path. Main-branch CI jobs can write
@@ -121,13 +121,13 @@ jobs:
           # Empty base: the browser calls /api on the same origin, routed by CloudFront.
           NEXT_PUBLIC_API_BASE: ""
         run: pnpm --filter @italy/web build
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: api-dist
           path: services/api/dist/
           if-no-files-found: error
           retention-days: 1
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-out
           path: apps/web/out/
@@ -183,12 +183,12 @@ jobs:
           go=true
           if [ "$EVENT" = "workflow_run" ]; then go="$(bash "$TOOLS/scripts/deploy-guard.sh" "$SHA")"; fi
           echo "go=${go}" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: ${{ steps.recheck.outputs.go == 'true' }}
         with:
           name: api-dist
           path: services/api/dist
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: ${{ steps.recheck.outputs.go == 'true' }}
         with:
           name: web-out
@@ -248,7 +248,7 @@ jobs:
           ref: ${{ needs.gate.outputs.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
@@ -258,7 +258,7 @@ jobs:
         run: bash .github/scripts/run-e2e.sh test:e2e:smoke chromium
       - name: Upload Playwright report
         if: ${{ failure() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-smoke-report
           path: |
