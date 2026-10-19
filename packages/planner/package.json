@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "fast-check": "4.10.2"
